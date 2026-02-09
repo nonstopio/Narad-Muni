@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "pkill -f 'next dev' 2>/dev/null; rm -f .next/dev/lock && next dev",
+    "dev": "pkill -f 'next dev' 2>/dev/null; rm -f .next/dev/lock && next dev --port 3947",
     "build": "next build",
-    "start": "next start",
+    "start": "next start --port 3947",
     "lint": "eslint",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
