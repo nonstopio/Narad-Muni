@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { useUpdateStore } from "@/stores/update-store";
 import { useAppStore } from "@/stores/app-store";
 
-export function useUpdateModal() {
+export function useUpdateFlow() {
   const store = useUpdateStore();
   const selectedDate = useAppStore((s) => s.selectedDate);
 

@@ -5,11 +5,11 @@ import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { AudioVisualizer } from "./audio-visualizer";
 import { Mic, Square, Loader2, Zap, RotateCcw } from "lucide-react";
 
-interface InputPanelProps {
+interface InputSectionProps {
   onProcess: () => void;
 }
 
-export function InputPanel({ onProcess }: InputPanelProps) {
+export function InputSection({ onProcess }: InputSectionProps) {
   const {
     rawTranscript,
     setRawTranscript,
@@ -40,14 +40,30 @@ export function InputPanel({ onProcess }: InputPanelProps) {
   const hasText = rawTranscript.trim().length > 0;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full pb-6">
       {/* Section label */}
       <div className="text-xs font-semibold text-narada-text-secondary uppercase tracking-wider mb-4">
         Your Update
       </div>
 
-      {/* Audio recorder row */}
-      <div className="mb-4">
+      {/* Textarea — at top, fills available space */}
+      <textarea
+        className="glass-input flex-1 min-h-[240px] resize-y text-sm w-full mb-4"
+        style={{ fontFamily: "var(--font-sans)" }}
+        placeholder={"What did you accomplish today?\nWhat are you working on next?\nWhat are your plans for tomorrow?\nAny blockers or dependencies?"}
+        value={rawTranscript}
+        onChange={(e) => setRawTranscript(e.target.value)}
+      />
+
+      {/* Divider */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex-1 h-px bg-white/[0.06]" />
+        <span className="text-xs text-narada-text-muted">or record below</span>
+        <div className="flex-1 h-px bg-white/[0.06]" />
+      </div>
+
+      {/* Audio recorder row — fixed height so layout doesn't shift between states */}
+      <div className="h-10 mb-4">
         {!isRecording && !isTranscribing && (
           <div className="flex items-center gap-3">
             <button
@@ -97,22 +113,6 @@ export function InputPanel({ onProcess }: InputPanelProps) {
           </div>
         )}
       </div>
-
-      {/* Divider */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex-1 h-px bg-white/[0.06]" />
-        <span className="text-xs text-narada-text-muted">or type below</span>
-        <div className="flex-1 h-px bg-white/[0.06]" />
-      </div>
-
-      {/* Textarea — always visible, fills remaining space */}
-      <textarea
-        className="glass-input flex-1 min-h-[180px] resize-y text-sm w-full mb-4"
-        style={{ fontFamily: "var(--font-sans)" }}
-        placeholder="Describe what you worked on today..."
-        value={rawTranscript}
-        onChange={(e) => setRawTranscript(e.target.value)}
-      />
 
       {/* Process with AI button */}
       <button

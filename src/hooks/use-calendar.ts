@@ -20,6 +20,11 @@ export function useCalendar() {
     );
   };
 
+  const goToToday = () => {
+    const now = new Date();
+    setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+  };
+
   const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -60,8 +65,10 @@ export function useCalendar() {
       });
     }
 
-    // Next month leading days
-    const remaining = 42 - days.length;
+    // Next month leading days — only fill to complete the last row
+    const rowsNeeded = Math.ceil(days.length / 7);
+    const totalCells = rowsNeeded * 7;
+    const remaining = totalCells - days.length;
     for (let i = 1; i <= remaining; i++) {
       days.push({
         day: i,
@@ -79,5 +86,5 @@ export function useCalendar() {
     year: "numeric",
   });
 
-  return { currentMonth, monthTitle, calendarDays, prevMonth, nextMonth };
+  return { currentMonth, monthTitle, calendarDays, prevMonth, nextMonth, goToToday };
 }

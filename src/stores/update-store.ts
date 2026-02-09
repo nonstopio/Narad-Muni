@@ -1,8 +1,7 @@
 import { create } from "zustand";
-import type { ModalStep, ProcessingStage, WorkLogEntryData } from "@/types";
+import type { ModalStep, ProcessingStage, WorkLogEntryData, PlatformConfigData } from "@/types";
 
 interface UpdateStore {
-  modalOpen: boolean;
   step: ModalStep;
   rawTranscript: string;
   isRecording: boolean;
@@ -21,7 +20,6 @@ interface UpdateStore {
   previewReady: boolean;
   isProcessing: boolean;
 
-  setModalOpen: (open: boolean) => void;
   setStep: (step: ModalStep) => void;
   setRawTranscript: (text: string) => void;
   setIsRecording: (recording: boolean) => void;
@@ -37,11 +35,12 @@ interface UpdateStore {
   setAnalyserNode: (node: AnalyserNode | null) => void;
   setPreviewReady: (ready: boolean) => void;
   setIsProcessing: (processing: boolean) => void;
+  initPlatformToggles: (configs: PlatformConfigData[]) => void;
+  resetForNewUpdate: () => void;
   reset: () => void;
 }
 
 const initialState = {
-  modalOpen: false,
   step: "editing" as ModalStep,
   rawTranscript: "",
   isRecording: false,
@@ -50,9 +49,9 @@ const initialState = {
   slackOutput: "",
   teamsOutput: "",
   workLogEntries: [] as WorkLogEntryData[],
-  slackEnabled: true,
-  teamsEnabled: true,
-  jiraEnabled: true,
+  slackEnabled: false,
+  teamsEnabled: false,
+  jiraEnabled: false,
   processingError: null as string | null,
   isTranscribing: false,
   processingStage: null as ProcessingStage | null,
@@ -63,7 +62,6 @@ const initialState = {
 
 export const useUpdateStore = create<UpdateStore>((set) => ({
   ...initialState,
-  setModalOpen: (open) => set({ modalOpen: open }),
   setStep: (step) => set({ step }),
   setRawTranscript: (text) => set({ rawTranscript: text }),
   setIsRecording: (recording) => set({ isRecording: recording }),
@@ -84,5 +82,29 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
   setAnalyserNode: (node) => set({ analyserNode: node }),
   setPreviewReady: (ready) => set({ previewReady: ready }),
   setIsProcessing: (processing) => set({ isProcessing: processing }),
+  initPlatformToggles: (configs) =>
+    set({
+      slackEnabled: configs.find((c) => c.platform === "SLACK")?.isActive ?? false,
+      teamsEnabled: configs.find((c) => c.platform === "TEAMS")?.isActive ?? false,
+      jiraEnabled: configs.find((c) => c.platform === "JIRA")?.isActive ?? false,
+    }),
+  resetForNewUpdate: () =>
+    set({
+      step: "editing",
+      rawTranscript: "",
+      isRecording: false,
+      recordingSeconds: 0,
+      audioBlob: null,
+      slackOutput: "",
+      teamsOutput: "",
+      workLogEntries: [],
+      processingError: null,
+      isTranscribing: false,
+      processingStage: null,
+      analyserNode: null,
+      previewReady: false,
+      isProcessing: false,
+      // Note: platform toggles are NOT reset — they're set by initPlatformToggles
+    }),
   reset: () => set(initialState),
 }));

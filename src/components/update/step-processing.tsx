@@ -41,11 +41,7 @@ function getProgressPercent(stage: ProcessingStage | null): number {
   }
 }
 
-interface StepProcessingProps {
-  compact?: boolean;
-}
-
-export function StepProcessing({ compact = false }: StepProcessingProps) {
+export function StepProcessing() {
   const processingStage = useUpdateStore((s) => s.processingStage);
   const aiProvider = useSettingsStore((s) => s.aiSettings.aiProvider);
   const label = PROVIDER_LABELS[aiProvider] ?? "AI";
@@ -62,9 +58,9 @@ export function StepProcessing({ compact = false }: StepProcessingProps) {
   }, []);
 
   return (
-    <div className={`flex flex-col items-center justify-center ${compact ? "gap-4" : "gap-6"}`}>
+    <div className="flex flex-col items-center justify-center gap-6">
       {/* Pipeline stages */}
-      <div className={`w-full ${compact ? "max-w-xs" : "max-w-sm"} space-y-4`}>
+      <div className="w-full max-w-sm space-y-4">
         {stages.map((stage, i) => {
           const isCompleted = i < activeIndex;
           const isActive = i === activeIndex;
@@ -113,7 +109,7 @@ export function StepProcessing({ compact = false }: StepProcessingProps) {
       </div>
 
       {/* Progress bar */}
-      <div className={`w-full ${compact ? "max-w-xs" : "max-w-sm"} h-1.5 bg-white/[0.06] rounded-full overflow-hidden`}>
+      <div className="w-full max-w-sm h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
         <motion.div
           className="h-full rounded-full"
           style={{
@@ -125,7 +121,7 @@ export function StepProcessing({ compact = false }: StepProcessingProps) {
       </div>
 
       {/* Rotating tips */}
-      <div className={`${compact ? "h-4" : "h-5"} relative w-full ${compact ? "max-w-xs" : "max-w-sm"}`}>
+      <div className="h-5 relative w-full max-w-sm">
         <AnimatePresence mode="wait">
           <motion.p
             key={tipIndex}
