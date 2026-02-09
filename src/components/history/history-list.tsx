@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { UpdateData } from "@/types";
+import { HistoryDetailModal } from "./history-detail-modal";
 
 interface Props {
   updates: UpdateData[];
@@ -35,8 +37,11 @@ function StatusBadge({
   );
 }
 
-export function HistoryList({ updates }: Props) {
+export function HistoryList({ updates: initialUpdates }: Props) {
   const [search, setSearch] = useState("");
+  const [selectedUpdate, setSelectedUpdate] = useState<UpdateData | null>(null);
+  const [updates, setUpdates] = useState(initialUpdates);
+  const router = useRouter();
 
   const filtered = updates.filter((u) =>
     search
@@ -44,6 +49,12 @@ export function HistoryList({ updates }: Props) {
         u.slackOutput.toLowerCase().includes(search.toLowerCase())
       : true
   );
+
+  function handleDelete(id: string) {
+    setUpdates((prev) => prev.filter((u) => u.id !== id));
+    setSelectedUpdate(null);
+    router.refresh();
+  }
 
   return (
     <div className="flex-1 overflow-y-auto p-8">
@@ -68,7 +79,11 @@ export function HistoryList({ updates }: Props) {
           </div>
         ) : (
           filtered.map((update) => (
-            <div key={update.id} className="glass-card p-4">
+            <div
+              key={update.id}
+              className="glass-card p-4 cursor-pointer hover:bg-white/[0.04] transition-colors"
+              onClick={() => setSelectedUpdate(update)}
+            >
               <div className="text-xs text-narada-text-muted mb-1.5">
                 {new Date(update.date).toLocaleDateString("en-US", {
                   month: "long",
@@ -93,6 +108,14 @@ export function HistoryList({ updates }: Props) {
           ))
         )}
       </div>
+
+      {selectedUpdate && (
+        <HistoryDetailModal
+          update={selectedUpdate}
+          onClose={() => setSelectedUpdate(null)}
+          onDelete={handleDelete}
+        />
+      )}
     </div>
   );
 }

@@ -58,6 +58,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
     const parsed = new Date(dateParam + "T00:00:00");
     if (isNaN(parsed.getTime())) return "Create Update";
     return parsed.toLocaleDateString("en-US", {
+      weekday: "long",
       month: "long",
       day: "numeric",
       year: "numeric",

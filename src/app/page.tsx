@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { UpdatesPageClient } from "@/components/updates/updates-page-client";
+import type { UpdateData, PublishStatus } from "@/types";
 
 export default async function UpdatesPage() {
   const now = new Date();
@@ -11,7 +12,7 @@ export default async function UpdatesPage() {
       where: {
         date: { gte: startOfMonth, lte: endOfMonth },
       },
-      select: { date: true },
+      include: { workLogEntries: true },
     }),
     prisma.update.findMany({
       select: { date: true, slackStatus: true, teamsStatus: true, jiraStatus: true },
@@ -21,6 +22,28 @@ export default async function UpdatesPage() {
 
   const updateCount = monthUpdates.length;
   const updateDates = monthUpdates.map((u) => u.date.toISOString().split("T")[0]);
+
+  const monthUpdatesSerialized: UpdateData[] = monthUpdates.map((u) => ({
+    id: u.id,
+    createdAt: u.createdAt.toISOString(),
+    date: u.date.toISOString(),
+    rawTranscript: u.rawTranscript,
+    audioPath: u.audioPath,
+    slackOutput: u.slackOutput,
+    teamsOutput: u.teamsOutput,
+    slackStatus: u.slackStatus as PublishStatus,
+    teamsStatus: u.teamsStatus as PublishStatus,
+    jiraStatus: u.jiraStatus as PublishStatus,
+    workLogEntries: u.workLogEntries.map((w) => ({
+      id: w.id,
+      issueKey: w.issueKey,
+      timeSpentSecs: w.timeSpentSecs,
+      started: w.started.toISOString(),
+      comment: w.comment ?? undefined,
+      isRepeat: w.isRepeat,
+      jiraWorklogId: w.jiraWorklogId,
+    })),
+  }));
 
   // Calculate streak
   let streak = 0;
@@ -64,6 +87,7 @@ export default async function UpdatesPage() {
       streak={streak}
       successRate={successRate}
       updateDates={updateDates}
+      monthUpdates={monthUpdatesSerialized}
     />
   );
 }
