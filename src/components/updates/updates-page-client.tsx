@@ -11,7 +11,6 @@ import type { StatData, UpdateData } from "@/types";
 interface Props {
   updateCount: number;
   streak: number;
-  successRate: number;
   updateDates: string[];
   monthUpdates: UpdateData[];
 }
@@ -19,7 +18,6 @@ interface Props {
 export function UpdatesPageClient({
   updateCount,
   streak,
-  successRate,
   updateDates: initialDates,
   monthUpdates: initialMonthUpdates,
 }: Props) {
@@ -50,16 +48,10 @@ export function UpdatesPageClient({
       color: "violet",
     },
     {
-      label: "Avg Time Saved",
-      value: "15m",
+      label: "Time Saved",
+      value: `${updateCount * 15}m`,
       icon: "\u23F1\uFE0F",
       color: "emerald",
-    },
-    {
-      label: "Publish Success %",
-      value: `${successRate}%`,
-      icon: "\u2713",
-      color: "amber",
     },
   ];
 

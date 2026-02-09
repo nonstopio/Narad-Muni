@@ -57,11 +57,6 @@ export function SettingsClient({ initialConfigs }: Props) {
             onToggle={saveConfig}
           />
         ))}
-
-        {/* Add Platform card */}
-        <div className="bg-transparent border-2 border-dashed border-white/[0.06] rounded-2xl p-6 cursor-pointer hover:border-narada-primary hover:text-narada-text flex items-center justify-center gap-3 text-narada-text-secondary text-sm transition-all duration-300">
-          <span>+ Add Platform</span>
-        </div>
       </div>
     </div>
   );

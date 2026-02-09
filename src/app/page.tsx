@@ -70,22 +70,10 @@ export default async function UpdatesPage() {
     }
   }
 
-  // Success rate
-  const totalPubs = allUpdates.length * 3;
-  const successPubs = allUpdates.reduce((acc, u) => {
-    let s = 0;
-    if (u.slackStatus === "SENT") s++;
-    if (u.teamsStatus === "SENT") s++;
-    if (u.jiraStatus === "SENT") s++;
-    return acc + s;
-  }, 0);
-  const successRate = totalPubs > 0 ? Math.round((successPubs / totalPubs) * 100) : 0;
-
   return (
     <UpdatesPageClient
       updateCount={updateCount}
       streak={streak}
-      successRate={successRate}
       updateDates={updateDates}
       monthUpdates={monthUpdatesSerialized}
     />
