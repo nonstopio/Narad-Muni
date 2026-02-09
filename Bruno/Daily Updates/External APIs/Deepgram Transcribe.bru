@@ -1,0 +1,52 @@
+meta {
+  name: Deepgram Transcribe
+  type: http
+  seq: 1
+}
+
+post {
+  url: https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&punctuate=true&diarize=false
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Token {{DEEPGRAM_API_KEY}}
+  Content-type: application/json
+}
+
+body:json {
+  {
+    "url": "https://dpgr.am/bueller.wav"
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  # Deepgram Transcribe (External)
+
+  Direct call to Deepgram's pre-recorded audio API.
+  Useful for verifying your DEEPGRAM_API_KEY is valid.
+
+  Set `{{DEEPGRAM_API_KEY}}` in your Bruno environment or replace inline.
+
+  ## Sample 200 Response
+
+  ```json
+  {
+    "metadata": { "duration": 5.04, "channels": 1 },
+    "results": {
+      "channels": [{
+        "alternatives": [{
+          "transcript": "I worked on the authentication module for about 3 hours and then fixed the deployment pipeline.",
+          "confidence": 0.98
+        }]
+      }]
+    }
+  }
+  ```
+}

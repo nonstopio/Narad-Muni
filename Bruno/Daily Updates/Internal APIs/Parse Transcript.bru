@@ -1,0 +1,56 @@
+meta {
+  name: Parse Transcript
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:3000/api/parse
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-type: application/json
+}
+
+body:json {
+  {
+    "transcript": "I worked on the authentication module for PROJ-1234 for about 3 hours starting at 10 AM. Then I fixed the CI/CD pipeline issue on PROJ-5678 which took around 2 hours. Blocked on the staging environment being down.",
+    "date": "2026-02-08"
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  # Parse Transcript (Internal)
+
+  POST /api/parse
+
+  Sends a raw transcript to the Next.js server, which uses Gemini to extract tasks, blockers, time entries, and formatted Slack/Teams output.
+
+  ## Sample 200 Response
+
+  ```json
+  {
+    "success": true,
+    "data": {
+      "tasks": [
+        { "description": "Worked on authentication module", "issueKey": "PROJ-1234", "timeEstimate": "3h" },
+        { "description": "Fixed CI/CD pipeline issue", "issueKey": "PROJ-5678", "timeEstimate": "2h" }
+      ],
+      "blockers": ["Staging environment is down"],
+      "timeEntries": [
+        { "issueKey": "PROJ-1234", "timeSpentSecs": 10800, "started": "2026-02-08T10:00:00", "comment": "Worked on authentication module", "isRepeat": false },
+        { "issueKey": "PROJ-5678", "timeSpentSecs": 7200, "started": "2026-02-08T13:00:00", "comment": "Fixed CI/CD pipeline issue", "isRepeat": false }
+      ],
+      "slackFormat": "*Today*\n• Worked on authentication module (PROJ-1234) - 3h\n• Fixed CI/CD pipeline issue (PROJ-5678) - 2h\n\n*Blockers*\n• Staging environment is down",
+      "teamsFormat": "## Today\n- Worked on authentication module (PROJ-1234) - 3h\n- Fixed CI/CD pipeline issue (PROJ-5678) - 2h\n\n## Blockers\n- Staging environment is down"
+    }
+  }
+  ```
+}

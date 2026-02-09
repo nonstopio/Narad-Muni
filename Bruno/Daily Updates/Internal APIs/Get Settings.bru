@@ -1,0 +1,59 @@
+meta {
+  name: Get Settings
+  type: http
+  seq: 5
+}
+
+get {
+  url: http://localhost:3000/api/settings
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  # Get Settings (Internal)
+
+  GET /api/settings
+
+  Returns all platform configurations (Jira, Slack, Teams) including repeat entries.
+
+  ## Sample 200 Response
+
+  ```json
+  {
+    "configs": [
+      {
+        "id": 1,
+        "platform": "JIRA",
+        "isActive": true,
+        "baseUrl": "https://mycompany.atlassian.net",
+        "email": "user@company.com",
+        "apiToken": "***",
+        "projectKey": "PROJ",
+        "repeatEntries": [
+          { "id": 1, "ticketId": "PROJ-100", "hours": 0.5, "startTime": "10:00", "comment": "Daily standup" }
+        ]
+      },
+      {
+        "id": 2,
+        "platform": "SLACK",
+        "isActive": true,
+        "webhookUrl": "https://hooks.slack.com/services/...",
+        "repeatEntries": []
+      },
+      {
+        "id": 3,
+        "platform": "TEAMS",
+        "isActive": false,
+        "webhookUrl": null,
+        "repeatEntries": []
+      }
+    ]
+  }
+  ```
+}

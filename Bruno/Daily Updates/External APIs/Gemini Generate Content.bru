@@ -1,0 +1,56 @@
+meta {
+  name: Gemini Generate Content
+  type: http
+  seq: 2
+}
+
+post {
+  url: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={{GEMINI_API_KEY}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-type: application/json
+}
+
+body:json {
+  {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "Say hello"
+          }
+        ]
+      }
+    ]
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  # Gemini Generate Content (External)
+
+  Direct call to the Gemini REST API.
+  Useful for verifying your GEMINI_API_KEY is valid.
+
+  Set `{{GEMINI_API_KEY}}` in your Bruno environment or replace inline in the URL.
+
+  ## Sample 200 Response
+
+  ```json
+  {
+    "candidates": [{
+      "content": {
+        "parts": [{ "text": "Hello! How can I help you today?" }],
+        "role": "model"
+      }
+    }]
+  }
+  ```
+}

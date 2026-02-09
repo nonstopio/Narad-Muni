@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Update {
+  id             String   @id @default(uuid())
+  createdAt      DateTime @default(now())
+  date           DateTime
+  rawTranscript  String
+  audioPath      String?
+  slackOutput    String   @default("")
+  teamsOutput    String   @default("")
+  slackStatus    String   @default("PENDING")
+  teamsStatus    String   @default("PENDING")
+  jiraStatus     String   @default("PENDING")
+  workLogEntries WorkLogEntry[]
+}
+
+model WorkLogEntry {
+  id             String   @id @default(uuid())
+  updateId       String
+  update         Update   @relation(fields: [updateId], references: [id], onDelete: Cascade)
+  issueKey       String
+  timeSpentSecs  Int
+  started        DateTime
+  comment        String?
+  isRepeat       Boolean  @default(false)
+  jiraWorklogId  String?
+}
+
+model PlatformConfig {
+  id              String   @id @default(uuid())
+  platform        String
+  name            String
+  webhookUrl      String?
+  messageTemplate String?
+  apiToken        String?
+  baseUrl         String?
+  email           String?
+  projectKey      String?
+  timezone        String?
+  isActive        Boolean  @default(true)
+  repeatEntries   RepeatEntry[]
+}
+
+model RepeatEntry {
+  id        String         @id @default(uuid())
+  configId  String
+  config    PlatformConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  ticketId  String
+  hours     Float
+  startTime String
+  comment   String
+}
+
+model AppSettings {
+  id           String  @id @default("app-settings")
+  aiProvider   String  @default("local-claude")
+  geminiApiKey String?
+  claudeApiKey String?
+}

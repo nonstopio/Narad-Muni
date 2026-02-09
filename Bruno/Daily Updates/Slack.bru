@@ -1,0 +1,26 @@
+meta {
+  name: Slack
+  type: http
+  seq: 1
+}
+
+post {
+  url: https://hooks.slack.com/services/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
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-type: application/json
+}
+
+body:json {
+  {
+    "text": "Narayan Narayan!"
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

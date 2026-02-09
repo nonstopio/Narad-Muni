@@ -1,0 +1,41 @@
+meta {
+  name: Transcribe Audio
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/api/transcribe
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  audio: @file()
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  # Transcribe Audio (Internal)
+
+  POST /api/transcribe
+
+  Uploads an audio file (`.webm`) to the Next.js server, which forwards it to Deepgram for transcription.
+
+  Select a `.webm` audio file for the `audio` field before sending.
+
+  ## Sample 200 Response
+
+  ```json
+  {
+    "success": true,
+    "transcript": "I worked on the authentication module for about 3 hours and then fixed the deployment pipeline.",
+    "confidence": 0.98,
+    "duration": 5.04
+  }
+  ```
+}

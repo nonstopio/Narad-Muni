@@ -1,0 +1,109 @@
+import { create } from "zustand";
+import type { PlatformConfigData, AIProvider } from "@/types";
+
+interface AIProviderSettings {
+  aiProvider: AIProvider;
+  geminiApiKey: string;
+  claudeApiKey: string;
+  hasGeminiKey: boolean;
+  hasClaudeKey: boolean;
+}
+
+interface SettingsStore {
+  configs: PlatformConfigData[];
+  loading: boolean;
+  setConfigs: (configs: PlatformConfigData[]) => void;
+  setLoading: (loading: boolean) => void;
+  fetchConfigs: () => Promise<void>;
+  saveConfig: (config: PlatformConfigData) => Promise<void>;
+
+  // AI provider
+  aiSettings: AIProviderSettings;
+  aiLoading: boolean;
+  fetchAIProviderSettings: () => Promise<void>;
+  saveAIProviderSettings: (data: {
+    aiProvider: AIProvider;
+    geminiApiKey?: string;
+    claudeApiKey?: string;
+  }) => Promise<void>;
+}
+
+export const useSettingsStore = create<SettingsStore>((set) => ({
+  configs: [],
+  loading: false,
+  setConfigs: (configs) => set({ configs }),
+  setLoading: (loading) => set({ loading }),
+
+  fetchConfigs: async () => {
+    set({ loading: true });
+    try {
+      const res = await fetch("/api/settings");
+      const data = await res.json();
+      if (data.configs) {
+        set({ configs: data.configs });
+      }
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  saveConfig: async (config) => {
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config),
+    });
+    const res = await fetch("/api/settings");
+    const data = await res.json();
+    if (data.configs) {
+      set({ configs: data.configs });
+    }
+  },
+
+  // AI provider
+  aiSettings: {
+    aiProvider: "local-claude",
+    geminiApiKey: "",
+    claudeApiKey: "",
+    hasGeminiKey: false,
+    hasClaudeKey: false,
+  },
+  aiLoading: false,
+
+  fetchAIProviderSettings: async () => {
+    set({ aiLoading: true });
+    try {
+      const res = await fetch("/api/settings/ai-provider");
+      const data = await res.json();
+      set({
+        aiSettings: {
+          aiProvider: data.aiProvider ?? "local-claude",
+          geminiApiKey: data.geminiApiKey ?? "",
+          claudeApiKey: data.claudeApiKey ?? "",
+          hasGeminiKey: data.hasGeminiKey ?? false,
+          hasClaudeKey: data.hasClaudeKey ?? false,
+        },
+      });
+    } finally {
+      set({ aiLoading: false });
+    }
+  },
+
+  saveAIProviderSettings: async (data) => {
+    const res = await fetch("/api/settings/ai-provider", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const updated = await res.json();
+    set({
+      aiSettings: {
+        aiProvider: updated.aiProvider ?? "local-claude",
+        geminiApiKey: updated.geminiApiKey ?? "",
+        claudeApiKey: updated.claudeApiKey ?? "",
+        hasGeminiKey: updated.hasGeminiKey ?? false,
+        hasClaudeKey: updated.hasClaudeKey ?? false,
+      },
+    });
+  },
+}));

@@ -1,0 +1,75 @@
+meta {
+  name: Update Settings
+  type: http
+  seq: 6
+}
+
+put {
+  url: http://localhost:3000/api/settings
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-type: application/json
+}
+
+body:json {
+  {
+    "id": 1,
+    "name": "Jira",
+    "baseUrl": "https://mycompany.atlassian.net",
+    "email": "user@company.com",
+    "apiToken": "my-jira-api-token",
+    "projectKey": "PROJ",
+    "timezone": "Asia/Kolkata",
+    "isActive": true,
+    "repeatEntries": [
+      {
+        "ticketId": "PROJ-100",
+        "hours": 0.5,
+        "startTime": "10:00",
+        "comment": "Daily standup"
+      },
+      {
+        "ticketId": "PROJ-200",
+        "hours": 0.5,
+        "startTime": "18:00",
+        "comment": "EOD sync"
+      }
+    ]
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  # Update Settings (Internal)
+
+  PUT /api/settings
+
+  Updates a platform configuration, including repeat entries for Jira work logs.
+
+  ## Sample 200 Response
+
+  ```json
+  {
+    "success": true,
+    "config": {
+      "id": 1,
+      "platform": "JIRA",
+      "isActive": true,
+      "baseUrl": "https://mycompany.atlassian.net",
+      "email": "user@company.com",
+      "projectKey": "PROJ",
+      "repeatEntries": [
+        { "ticketId": "PROJ-100", "hours": 0.5, "startTime": "10:00", "comment": "Daily standup" },
+        { "ticketId": "PROJ-200", "hours": 0.5, "startTime": "18:00", "comment": "EOD sync" }
+      ]
+    }
+  }
+  ```
+}

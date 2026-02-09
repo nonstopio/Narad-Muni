@@ -1,0 +1,50 @@
+meta {
+  name: Get Updates
+  type: http
+  seq: 3
+}
+
+get {
+  url: http://localhost:3000/api/updates?month=2026-02
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  # Get Updates (Internal)
+
+  GET /api/updates?month=2026-02
+
+  Fetches all daily updates for the given month, including work log entries.
+
+  ## Query Parameters
+
+  - `month` — YYYY-MM format (e.g. `2026-02`)
+
+  ## Sample 200 Response
+
+  ```json
+  {
+    "updates": [
+      {
+        "id": 1,
+        "date": "2026-02-08T00:00:00.000Z",
+        "rawTranscript": "I worked on the auth module...",
+        "slackOutput": "*Today*\n• Worked on auth module...",
+        "teamsOutput": "## Today\n- Worked on auth module...",
+        "slackStatus": "SENT",
+        "teamsStatus": "SENT",
+        "jiraStatus": "PENDING",
+        "workLogEntries": [
+          { "id": 1, "issueKey": "PROJ-1234", "timeSpentSecs": 10800, "started": "2026-02-08T10:00:00.000Z", "comment": "Auth module work", "isRepeat": false }
+        ]
+      }
+    ]
+  }
+  ```
+}

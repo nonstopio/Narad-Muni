@@ -1,0 +1,76 @@
+meta {
+  name: Create Update
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:3000/api/updates
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-type: application/json
+}
+
+body:json {
+  {
+    "date": "2026-02-08",
+    "rawTranscript": "Worked on auth module for PROJ-1234, fixed CI pipeline for PROJ-5678.",
+    "slackOutput": "*Today*\n• Auth module (PROJ-1234)\n• CI pipeline fix (PROJ-5678)",
+    "teamsOutput": "## Today\n- Auth module (PROJ-1234)\n- CI pipeline fix (PROJ-5678)",
+    "workLogEntries": [
+      {
+        "issueKey": "PROJ-1234",
+        "timeSpentSecs": 10800,
+        "started": "2026-02-08T10:00:00",
+        "comment": "Auth module work",
+        "isRepeat": false
+      },
+      {
+        "issueKey": "PROJ-5678",
+        "timeSpentSecs": 7200,
+        "started": "2026-02-08T13:00:00",
+        "comment": "CI pipeline fix",
+        "isRepeat": false
+      }
+    ],
+    "slackEnabled": true,
+    "teamsEnabled": true,
+    "jiraEnabled": true
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  # Create Update (Internal)
+
+  POST /api/updates
+
+  Creates a new daily update with formatted outputs and work log entries, then triggers publishing to enabled platforms.
+
+  ## Sample 200 Response
+
+  ```json
+  {
+    "success": true,
+    "update": {
+      "id": 1,
+      "date": "2026-02-08T00:00:00.000Z",
+      "rawTranscript": "Worked on auth module...",
+      "slackStatus": "PENDING",
+      "teamsStatus": "PENDING",
+      "jiraStatus": "PENDING",
+      "workLogEntries": [
+        { "issueKey": "PROJ-1234", "timeSpentSecs": 10800, "started": "2026-02-08T10:00:00", "comment": "Auth module work", "isRepeat": false },
+        { "issueKey": "PROJ-5678", "timeSpentSecs": 7200, "started": "2026-02-08T13:00:00", "comment": "CI pipeline fix", "isRepeat": false }
+      ]
+    }
+  }
+  ```
+}
