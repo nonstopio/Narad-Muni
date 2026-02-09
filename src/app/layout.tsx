@@ -18,9 +18,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Narada - Voice to Update Platform",
+  title: "Narada - Speak once, inform all three worlds",
   description:
-    "Record once, publish everywhere. Voice-first productivity platform for daily updates.",
+    "Like the divine messenger Narad Muni, Narada carries your voice to Slack, Teams, and Jira — so the right people know at the right time.",
 };
 
 export default function RootLayout({

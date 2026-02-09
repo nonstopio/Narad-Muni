@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Calendar, Clock, Settings } from "lucide-react";
 
@@ -15,16 +16,16 @@ export function Sidebar() {
 
   return (
     <aside className="w-16 min-w-16 bg-narada-surface border-r border-white/[0.06] py-6 flex flex-col items-center">
-      {/* Logo — just the "N" */}
-      <div
-        className="text-xl font-bold mb-8 bg-clip-text text-transparent"
-        style={{
-          backgroundImage: "linear-gradient(135deg, #3B82F6, #8B5CF6)",
-          letterSpacing: "-0.5px",
-        }}
-      >
-        N
-      </div>
+      {/* Logo */}
+      <Link href="/" className="mb-8 block">
+        <Image
+          src="/icon.png"
+          alt="Narada"
+          width={32}
+          height={32}
+          className="rounded-lg"
+        />
+      </Link>
 
       <nav className="flex-1 flex flex-col items-center gap-2">
         {navItems.map((item) => {
