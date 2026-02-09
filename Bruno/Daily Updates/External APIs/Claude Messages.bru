@@ -1,0 +1,62 @@
+meta {
+  name: Claude Messages
+  type: http
+  seq: 3
+}
+
+post {
+  url: https://api.anthropic.com/v1/messages
+  body: json
+  auth: none
+}
+
+headers {
+  x-api-key: {{ANTHROPIC_API_KEY}}
+  anthropic-version: 2023-06-01
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "model": "claude-sonnet-4-5-20250929",
+    "max_tokens": 256,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Say hello"
+      }
+    ]
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  # Claude Messages (External)
+
+  Direct call to the Anthropic Messages API.
+  Useful for verifying your ANTHROPIC_API_KEY is valid.
+
+  Set `{{ANTHROPIC_API_KEY}}` in your Bruno environment or replace inline in the header.
+
+  ## Sample 200 Response
+
+  ```json
+  {
+    "id": "msg_...",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "text",
+        "text": "Hello! How can I help you today?"
+      }
+    ],
+    "model": "claude-sonnet-4-5-20250929",
+    "stop_reason": "end_turn"
+  }
+  ```
+}
