@@ -51,7 +51,7 @@ export function UpdatesPageClient({
     },
     {
       label: "Avg Time Saved",
-      value: "8m",
+      value: "15m",
       icon: "\u23F1\uFE0F",
       color: "emerald",
     },
