@@ -1,0 +1,52 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Next.js: debug server",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev"
+    },
+    {
+      "name": "Next.js: debug client",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3947"
+    },
+    {
+      "name": "Next.js: debug full stack",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "serverReadyAction": {
+        "pattern": "- Local:.+(https?://[^\\s]+)",
+        "uriFormat": "%s",
+        "action": "debugWithChrome"
+      }
+    },
+    {
+      "name": "Next.js: build",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run build"
+    },
+    {
+      "name": "Prisma: db push",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run db:push"
+    },
+    {
+      "name": "Prisma: db seed",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run db:seed"
+    },
+    {
+      "name": "Prisma: db reset",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run db:reset"
+    }
+  ]
+}
