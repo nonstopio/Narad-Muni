@@ -36,10 +36,21 @@ const RESPONSE_SCHEMA: Schema = {
         required: ["issueKey", "timeSpentSecs", "started", "comment", "isRepeat"],
       },
     },
+    tomorrowTasks: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          description: { type: SchemaType.STRING },
+          issueKey: { type: SchemaType.STRING },
+        },
+        required: ["description"],
+      },
+    },
     slackFormat: { type: SchemaType.STRING },
     teamsFormat: { type: SchemaType.STRING },
   },
-  required: ["tasks", "blockers", "timeEntries", "slackFormat", "teamsFormat"],
+  required: ["tasks", "blockers", "timeEntries", "tomorrowTasks", "slackFormat", "teamsFormat"],
 };
 
 export class GeminiProvider implements AIParseProvider {

@@ -18,6 +18,8 @@ interface UpdateStore {
   isTranscribing: boolean;
   processingStage: ProcessingStage | null;
   analyserNode: AnalyserNode | null;
+  previewReady: boolean;
+  isProcessing: boolean;
 
   setModalOpen: (open: boolean) => void;
   setStep: (step: ModalStep) => void;
@@ -33,12 +35,14 @@ interface UpdateStore {
   setIsTranscribing: (transcribing: boolean) => void;
   setProcessingStage: (stage: ProcessingStage | null) => void;
   setAnalyserNode: (node: AnalyserNode | null) => void;
+  setPreviewReady: (ready: boolean) => void;
+  setIsProcessing: (processing: boolean) => void;
   reset: () => void;
 }
 
 const initialState = {
   modalOpen: false,
-  step: "input" as ModalStep,
+  step: "editing" as ModalStep,
   rawTranscript: "",
   isRecording: false,
   recordingSeconds: 0,
@@ -53,6 +57,8 @@ const initialState = {
   isTranscribing: false,
   processingStage: null as ProcessingStage | null,
   analyserNode: null as AnalyserNode | null,
+  previewReady: false,
+  isProcessing: false,
 };
 
 export const useUpdateStore = create<UpdateStore>((set) => ({
@@ -76,5 +82,7 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
   setIsTranscribing: (transcribing) => set({ isTranscribing: transcribing }),
   setProcessingStage: (stage) => set({ processingStage: stage }),
   setAnalyserNode: (node) => set({ analyserNode: node }),
+  setPreviewReady: (ready) => set({ previewReady: ready }),
+  setIsProcessing: (processing) => set({ isProcessing: processing }),
   reset: () => set(initialState),
 }));

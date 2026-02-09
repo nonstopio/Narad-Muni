@@ -5,6 +5,26 @@ import { buildSystemPrompt, buildUserMessage, PARSE_RESULT_JSON_SCHEMA } from ".
 
 const TIMEOUT_MS = 120_000;
 
+/**
+ * Build a self-contained prompt for the CLI that combines system prompt,
+ * user message, and JSON output requirement (recency bias).
+ */
+function buildCliPrompt(
+  transcript: string,
+  date: string,
+  repeatEntries: RepeatEntryInput[]
+): string {
+  const systemPrompt = buildSystemPrompt(date, repeatEntries);
+  const userMessage = buildUserMessage(transcript);
+
+  return `${systemPrompt}
+
+${userMessage}
+
+Respond with ONLY a valid JSON object. No explanation, no markdown, no code fences, no text before or after. Just the raw JSON object matching this exact schema:
+${JSON.stringify(PARSE_RESULT_JSON_SCHEMA, null, 2)}`;
+}
+
 export class LocalClaudeProvider implements AIParseProvider {
   name = "Local Claude (CLI)";
 
@@ -13,11 +33,12 @@ export class LocalClaudeProvider implements AIParseProvider {
     date: string,
     repeatEntries: RepeatEntryInput[]
   ): Promise<ClaudeParseResult> {
-    const systemPrompt = buildSystemPrompt(date, repeatEntries) +
-      "\n\nCRITICAL: You MUST respond with ONLY a raw JSON object. No explanation, no markdown, no code fences. Just the JSON.";
+    const stdinContent = buildCliPrompt(transcript, date, repeatEntries);
 
-    const userMessage = buildUserMessage(transcript) +
-      `\n\nRespond with ONLY a valid JSON object matching this exact schema:\n${JSON.stringify(PARSE_RESULT_JSON_SCHEMA, null, 2)}`;
+    const appendPrompt =
+      "You are a JSON-only output machine. You MUST respond with ONLY a raw JSON object. " +
+      "No natural language, no explanation, no markdown fences, no text before or after the JSON. " +
+      "Your entire response must be parseable by JSON.parse().";
 
     const args = [
       "--print",
@@ -25,9 +46,12 @@ export class LocalClaudeProvider implements AIParseProvider {
       "--no-session-persistence",
       "--model", "sonnet",
       "--tools", "",
-      "--system-prompt", systemPrompt,
+      "--append-system-prompt", appendPrompt,
       "--max-budget-usd", "1.00",
     ];
+
+    console.log("[LocalClaude] Spawning CLI with args:", args);
+    console.log(`[LocalClaude] Piping stdin: ${stdinContent.length} chars`);
 
     const stdout = await new Promise<string>((resolve, reject) => {
       const chunks: Buffer[] = [];
@@ -67,6 +91,12 @@ export class LocalClaudeProvider implements AIParseProvider {
           const out = Buffer.concat(chunks).toString("utf-8");
           const err = Buffer.concat(errChunks).toString("utf-8");
 
+          console.log(`[LocalClaude] Process closed with code: ${code}`);
+          console.log(`[LocalClaude] Raw stdout: ${out.slice(0, 500)}`);
+          if (err) {
+            console.log(`[LocalClaude] Raw stderr: ${err}`);
+          }
+
           if (code !== 0 && !out) {
             reject(new Error(`Claude CLI exited with code ${code}: ${err || "unknown error"}`));
             return;
@@ -75,8 +105,8 @@ export class LocalClaudeProvider implements AIParseProvider {
         });
       });
 
-      // Pipe the user message via stdin and close it
-      proc.stdin.write(userMessage);
+      // Pipe the self-contained prompt via stdin and close it
+      proc.stdin.write(stdinContent);
       proc.stdin.end();
 
       // Handle timeout
@@ -91,6 +121,12 @@ export class LocalClaudeProvider implements AIParseProvider {
     // CLI with --output-format json returns a JSON envelope
     const envelope = JSON.parse(stdout);
 
+    console.log(
+      `[LocalClaude] Envelope subtype: ${envelope.subtype}, result type: ${typeof envelope.result}, result length: ${
+        typeof envelope.result === "string" ? envelope.result.length : "N/A"
+      }`
+    );
+
     if (envelope.is_error || (envelope.subtype && envelope.subtype !== "success")) {
       throw new Error(
         `Claude CLI failed (${envelope.subtype || "error"}): ${
@@ -103,19 +139,40 @@ export class LocalClaudeProvider implements AIParseProvider {
       throw new Error("Claude CLI returned no result");
     }
 
-    // result may be a string (possibly with code fences) or already an object
+    // Strategy 1: result is already a parsed object
     if (typeof envelope.result === "object") {
+      console.log("[LocalClaude] Parsed result successfully (object)");
       return envelope.result as ClaudeParseResult;
     }
 
-    // Extract JSON from the result string — strip code fences and any leading/trailing text
-    const jsonMatch = envelope.result.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error(
-        `Claude CLI did not return valid JSON. Got: ${envelope.result.slice(0, 200)}`
-      );
+    // Strategy 2: result is a clean JSON string
+    const resultStr = envelope.result as string;
+    try {
+      const parsed = JSON.parse(resultStr);
+      console.log("[LocalClaude] Parsed result successfully (direct JSON.parse)");
+      return parsed as ClaudeParseResult;
+    } catch {
+      // Not clean JSON, try extraction
     }
 
-    return JSON.parse(jsonMatch[0]) as ClaudeParseResult;
+    // Strategy 3: extract JSON object from surrounding text/code fences
+    const jsonMatch = resultStr.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        console.log("[LocalClaude] Parsed result successfully (regex extraction)");
+        return parsed as ClaudeParseResult;
+      } catch {
+        // Matched braces but invalid JSON inside
+      }
+    }
+
+    // All strategies failed
+    console.error(
+      `[LocalClaude] JSON extraction failed, raw result: ${resultStr.slice(0, 300)}`
+    );
+    throw new Error(
+      `Claude CLI did not return valid JSON. Got: ${resultStr.slice(0, 300)}`
+    );
   }
 }

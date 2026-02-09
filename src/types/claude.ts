@@ -14,6 +14,10 @@ export interface ClaudeParseResult {
   }[];
   blockers: string[];
   timeEntries: ClaudeTimeEntry[];
+  tomorrowTasks: {
+    description: string;
+    issueKey?: string;
+  }[];
   slackFormat: string;
   teamsFormat: string;
 }

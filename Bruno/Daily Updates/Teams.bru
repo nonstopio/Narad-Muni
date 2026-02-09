@@ -1,0 +1,46 @@
+meta {
+  name: Teams
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{TEAMS_WEBHOOK_URL}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "type": "AdaptiveCard",
+    "version": "1.4",
+    "body": [
+      {
+        "type": "TextBlock",
+        "text": "**TODAY**\n- NARADA-101 : Implemented two-panel update modal with live preview\n- NARADA-102 : Updated AI prompt for new output format",
+        "wrap": true
+      },
+      {
+        "type": "TextBlock",
+        "text": "**TOMORROW**\n- Continue working on same tasks",
+        "wrap": true,
+        "spacing": "Medium"
+      },
+      {
+        "type": "TextBlock",
+        "text": "**BLOCKER**\n- NA",
+        "wrap": true,
+        "spacing": "Medium"
+      }
+    ]
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

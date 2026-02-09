@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: https://hooks.slack.com/services/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
+  url: {{SLACK_WEBHOOK_URL}}
   body: json
   auth: inherit
 }
@@ -16,7 +16,7 @@ headers {
 
 body:json {
   {
-    "text": "Narayan Narayan!"
+    "text": "<@UF6F3CKN1>'s Updates for `09 Feb 2026` : \n\n `TODAY`\n• NARADA-101 : Implemented two-panel update modal with live preview\n• NARADA-102 : Updated AI prompt for new output format\n\n`TOMORROW`\n• Continue working on same tasks\n\n`BLOCKER`\n• NA"
   }
 }
 

@@ -4,7 +4,7 @@ export type PublishStatus = "PENDING" | "SENT" | "FAILED" | "SKIPPED";
 
 export type Platform = "SLACK" | "TEAMS" | "JIRA";
 
-export type ModalStep = "input" | "processing" | "preview" | "success";
+export type ModalStep = "editing" | "sharing" | "success";
 
 export type ProcessingStage = "transcribing" | "analyzing" | "formatting";
 
@@ -35,9 +35,7 @@ export interface WorkLogEntryData {
 export interface PlatformConfigData {
   id: string;
   platform: Platform;
-  name: string;
   webhookUrl?: string | null;
-  messageTemplate?: string | null;
   apiToken?: string | null;
   baseUrl?: string | null;
   email?: string | null;

@@ -11,7 +11,7 @@ post {
 }
 
 body:multipart-form {
-  audio: @file()
+  audio: @file(bueller-life-moves-pretty-fast_uud9ip.wav)
 }
 
 settings {
@@ -21,15 +21,15 @@ settings {
 
 docs {
   # Transcribe Audio (Internal)
-
+  
   POST /api/transcribe
-
+  
   Uploads an audio file (`.webm`) to the Next.js server, which forwards it to Deepgram for transcription.
-
+  
   Select a `.webm` audio file for the `audio` field before sending.
-
+  
   ## Sample 200 Response
-
+  
   ```json
   {
     "success": true,

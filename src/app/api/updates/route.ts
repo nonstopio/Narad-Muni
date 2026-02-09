@@ -1,6 +1,59 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+async function sendSlackWebhook(webhookUrl: string, text: string): Promise<void> {
+  const res = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Slack webhook failed (${res.status}): ${body}`);
+  }
+}
+
+async function sendTeamsWebhook(webhookUrl: string, teamsOutput: string): Promise<void> {
+  // Split the teamsOutput into sections by **HEADER** markers
+  const sections = teamsOutput
+    .split(/(?=\*\*(?:TODAY|TOMORROW|BLOCKER)\*\*)/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const textBlocks = sections.map((section, i) => ({
+    type: "TextBlock" as const,
+    text: section,
+    wrap: true,
+    ...(i > 0 ? { spacing: "Medium" as const } : {}),
+  }));
+
+  const card = {
+    type: "message",
+    attachments: [
+      {
+        contentType: "application/vnd.microsoft.card.adaptive",
+        content: {
+          type: "AdaptiveCard",
+          version: "1.4",
+          body: textBlocks,
+        },
+      },
+    ],
+  };
+
+  const res = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(card),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Teams webhook failed (${res.status}): ${body}`);
+  }
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const month = searchParams.get("month");
@@ -36,6 +89,7 @@ export async function POST(request: NextRequest) {
       jiraEnabled,
     } = body;
 
+    // Create the update record first
     const update = await prisma.update.create({
       data: {
         date: new Date(date),
@@ -65,6 +119,72 @@ export async function POST(request: NextRequest) {
       },
       include: { workLogEntries: true },
     });
+
+    // Publish to Slack if enabled
+    if (slackEnabled && slackOutput) {
+      try {
+        const slackConfig = await prisma.platformConfig.findFirst({
+          where: { platform: "SLACK", isActive: true },
+        });
+
+        if (slackConfig?.webhookUrl) {
+          await sendSlackWebhook(slackConfig.webhookUrl, slackOutput);
+          await prisma.update.update({
+            where: { id: update.id },
+            data: { slackStatus: "SENT" },
+          });
+          update.slackStatus = "SENT";
+        } else {
+          await prisma.update.update({
+            where: { id: update.id },
+            data: { slackStatus: "FAILED" },
+          });
+          update.slackStatus = "FAILED";
+          console.warn("[Narada] Slack enabled but no active webhook URL configured");
+        }
+      } catch (err) {
+        console.error("[Narada] Slack publish error:", err);
+        await prisma.update.update({
+          where: { id: update.id },
+          data: { slackStatus: "FAILED" },
+        });
+        update.slackStatus = "FAILED";
+      }
+    }
+
+    // Publish to Teams if enabled
+    if (teamsEnabled && teamsOutput) {
+      try {
+        const teamsConfig = await prisma.platformConfig.findFirst({
+          where: { platform: "TEAMS", isActive: true },
+        });
+
+        if (teamsConfig?.webhookUrl) {
+          await sendTeamsWebhook(teamsConfig.webhookUrl, teamsOutput);
+          await prisma.update.update({
+            where: { id: update.id },
+            data: { teamsStatus: "SENT" },
+          });
+          update.teamsStatus = "SENT";
+        } else {
+          await prisma.update.update({
+            where: { id: update.id },
+            data: { teamsStatus: "FAILED" },
+          });
+          update.teamsStatus = "FAILED";
+          console.warn("[Narada] Teams enabled but no active webhook URL configured");
+        }
+      } catch (err) {
+        console.error("[Narada] Teams publish error:", err);
+        await prisma.update.update({
+          where: { id: update.id },
+          data: { teamsStatus: "FAILED" },
+        });
+        update.teamsStatus = "FAILED";
+      }
+    }
+
+    // TODO: Publish to Jira when implemented
 
     return NextResponse.json({ success: true, update });
   } catch (error) {

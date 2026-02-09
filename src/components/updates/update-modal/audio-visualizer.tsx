@@ -2,14 +2,17 @@
 
 import { useRef, useEffect, useState } from "react";
 
-const BAR_COUNT = 26;
-
 interface AudioVisualizerProps {
   analyserNode: AnalyserNode | null;
+  compact?: boolean;
 }
 
-export function AudioVisualizer({ analyserNode }: AudioVisualizerProps) {
-  const [bars, setBars] = useState<number[]>(() => new Array(BAR_COUNT).fill(4));
+export function AudioVisualizer({ analyserNode, compact = false }: AudioVisualizerProps) {
+  const barCount = compact ? 16 : 26;
+  const maxHeight = compact ? 32 : 64;
+  const containerHeight = compact ? "h-8" : "h-16";
+
+  const [bars, setBars] = useState<number[]>(() => new Array(barCount).fill(4));
   const animFrameRef = useRef<number>(0);
   const dataArrayRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
 
@@ -24,12 +27,11 @@ export function AudioVisualizer({ analyserNode }: AudioVisualizerProps) {
       analyserNode.getByteFrequencyData(dataArrayRef.current);
 
       const newBars: number[] = [];
-      const step = bufferLength / BAR_COUNT;
-      for (let i = 0; i < BAR_COUNT; i++) {
+      const step = bufferLength / barCount;
+      for (let i = 0; i < barCount; i++) {
         const index = Math.floor(i * step);
         const value = dataArrayRef.current[index] || 0;
-        // Map 0-255 to 4-64px height
-        const height = 4 + (value / 255) * 60;
+        const height = 4 + (value / 255) * (maxHeight - 4);
         newBars.push(height);
       }
       setBars(newBars);
@@ -41,12 +43,12 @@ export function AudioVisualizer({ analyserNode }: AudioVisualizerProps) {
     return () => {
       cancelAnimationFrame(animFrameRef.current);
     };
-  }, [analyserNode]);
+  }, [analyserNode, barCount, maxHeight]);
 
   return (
-    <div className="flex items-center justify-center gap-[3px] h-16">
+    <div className={`flex items-center justify-center gap-[3px] ${containerHeight}`}>
       {bars.map((height, i) => {
-        const normalizedHeight = height / 64;
+        const normalizedHeight = height / maxHeight;
         return (
           <div
             key={i}

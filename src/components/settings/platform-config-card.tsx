@@ -36,19 +36,6 @@ export function PlatformConfigCard({ config, onSave }: Props) {
 
       <div className="mb-4">
         <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
-          Channel Name
-        </label>
-        <input
-          className="glass-input"
-          type="text"
-          placeholder={config.platform === "SLACK" ? "#updates" : "updates-channel"}
-          value={form.name}
-          onChange={(e) => update("name", e.target.value)}
-        />
-      </div>
-
-      <div className="mb-4">
-        <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
           Webhook URL
         </label>
         <input
@@ -57,18 +44,6 @@ export function PlatformConfigCard({ config, onSave }: Props) {
           placeholder={urlPlaceholder}
           value={form.webhookUrl || ""}
           onChange={(e) => update("webhookUrl", e.target.value)}
-        />
-      </div>
-
-      <div className="mb-4">
-        <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
-          Message Format
-        </label>
-        <textarea
-          className="glass-input min-h-[100px] font-mono text-[13px] resize-y"
-          placeholder="Message template..."
-          value={form.messageTemplate || ""}
-          onChange={(e) => update("messageTemplate", e.target.value)}
         />
       </div>
 

@@ -9,11 +9,24 @@ export function useUpdateModal() {
   const selectedDate = useAppStore((s) => s.selectedDate);
 
   const processWithAI = useCallback(async () => {
-    const { rawTranscript, audioBlob, setStep, setSlackOutput, setTeamsOutput, setWorkLogEntries, setRawTranscript, setProcessingError, setProcessingStage } = store;
+    const {
+      rawTranscript,
+      audioBlob,
+      setSlackOutput,
+      setTeamsOutput,
+      setWorkLogEntries,
+      setRawTranscript,
+      setProcessingError,
+      setProcessingStage,
+      setIsProcessing,
+      setPreviewReady,
+    } = store;
 
     if (!rawTranscript && !audioBlob) return;
 
-    setStep("processing");
+    // Stay on "editing" step — processing happens inline in the right panel
+    setIsProcessing(true);
+    setPreviewReady(false);
     setProcessingError(null);
 
     try {
@@ -45,7 +58,7 @@ export function useUpdateModal() {
         await new Promise((r) => setTimeout(r, 300));
       }
 
-      // Parse with Claude
+      // Parse with AI
       setProcessingStage("analyzing");
       const dateStr = selectedDate
         ? selectedDate.toISOString().split("T")[0]
@@ -79,13 +92,14 @@ export function useUpdateModal() {
       // Brief delay so user sees formatting complete
       await new Promise((r) => setTimeout(r, 400));
       setProcessingStage(null);
-      setStep("preview");
+      setIsProcessing(false);
+      setPreviewReady(true);
     } catch (error) {
       console.error("[Narada] Processing error:", error);
       const message = error instanceof Error ? error.message : "Something went wrong";
       setProcessingError(message);
       setProcessingStage(null);
-      setStep("input");
+      setIsProcessing(false);
     }
   }, [store, selectedDate]);
 
@@ -99,9 +113,11 @@ export function useUpdateModal() {
       teamsEnabled,
       jiraEnabled,
       setStep,
+      setIsProcessing,
     } = store;
 
-    setStep("processing");
+    setStep("sharing");
+    setIsProcessing(true);
 
     try {
       const dateStr = selectedDate
@@ -128,10 +144,12 @@ export function useUpdateModal() {
         throw new Error(data.error);
       }
 
+      setIsProcessing(false);
       setStep("success");
     } catch (error) {
       console.error("Share error:", error);
-      setStep("preview");
+      setIsProcessing(false);
+      setStep("editing");
     }
   }, [store, selectedDate]);
 

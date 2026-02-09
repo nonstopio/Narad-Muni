@@ -36,9 +36,7 @@ model WorkLogEntry {
 model PlatformConfig {
   id              String   @id @default(uuid())
   platform        String
-  name            String
   webhookUrl      String?
-  messageTemplate String?
   apiToken        String?
   baseUrl         String?
   email           String?
