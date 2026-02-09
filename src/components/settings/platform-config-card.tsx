@@ -2,17 +2,72 @@
 
 import { useState } from "react";
 import type { PlatformConfigData } from "@/types";
+import { useToastStore } from "@/components/ui/toast";
 
 interface Props {
   config: PlatformConfigData;
-  onSave: (config: PlatformConfigData) => void;
+  onSave: (config: PlatformConfigData) => Promise<{ success: boolean; error?: string }>;
+  onToggle: (config: PlatformConfigData) => Promise<{ success: boolean; error?: string }>;
 }
 
-export function PlatformConfigCard({ config, onSave }: Props) {
+export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
   const [form, setForm] = useState(config);
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const addToast = useToastStore((s) => s.addToast);
 
   const update = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: false }));
+  };
+
+  const validate = (): string | null => {
+    const newErrors: Record<string, boolean> = {};
+    const url = form.webhookUrl?.trim();
+    if (!url) {
+      newErrors.webhookUrl = true;
+    } else if (!/^https?:\/\/.+/.test(url)) {
+      newErrors.webhookUrl = true;
+    }
+    setErrors(newErrors);
+    if (newErrors.webhookUrl) return "Webhook URL is required and must be a valid URL";
+    return null;
+  };
+
+  const handleToggle = async () => {
+    const newActive = !form.isActive;
+    setForm((prev) => ({ ...prev, isActive: newActive }));
+    const result = await onToggle({ ...form, isActive: newActive });
+    if (result.success) {
+      addToast(
+        `${isSlack ? "Slack" : "Teams"} ${newActive ? "enabled" : "disabled"}`,
+        "success"
+      );
+    } else {
+      setForm((prev) => ({ ...prev, isActive: !newActive }));
+      addToast(result.error ?? "Failed to toggle platform", "error");
+    }
+  };
+
+  const handleSave = async () => {
+    const error = validate();
+    if (error) {
+      addToast(error, "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await onSave(form);
+      if (result.success) {
+        addToast(`${isSlack ? "Slack" : "Teams"} settings saved`, "success");
+      } else {
+        addToast(result.error ?? "Failed to save settings", "error");
+      }
+    } catch {
+      addToast("Failed to save settings", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const isSlack = config.platform === "SLACK";
@@ -33,61 +88,71 @@ export function PlatformConfigCard({ config, onSave }: Props) {
           {icon}
         </div>
         <span>{title}</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div>
-          <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
-            Name
-          </label>
-          <input
-            className="glass-input text-[13px]"
-            type="text"
-            placeholder={namePlaceholder}
-            value={form.userName || ""}
-            onChange={(e) => update("userName", e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
-            User ID
-          </label>
-          <input
-            className="glass-input font-mono text-[13px]"
-            type="text"
-            placeholder={idPlaceholder}
-            value={form.userId || ""}
-            onChange={(e) => update("userId", e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
-          Webhook URL
-        </label>
-        <input
-          className="glass-input font-mono text-[13px]"
-          type="text"
-          placeholder={urlPlaceholder}
-          value={form.webhookUrl || ""}
-          onChange={(e) => update("webhookUrl", e.target.value)}
-        />
-      </div>
-
-      <div className="flex gap-3 mt-4 pt-4 border-t border-white/[0.06]">
-        <button className="h-8 px-3 rounded-xl bg-white/[0.05] border border-white/[0.06] text-narada-text-secondary text-xs font-semibold hover:bg-white/[0.1] hover:text-narada-text transition-all duration-300">
-          Test Connection
-        </button>
         <button
-          onClick={() => onSave(form)}
-          className="h-8 px-3 rounded-xl bg-narada-primary text-white text-xs font-semibold shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:bg-blue-600 transition-all duration-300"
+          onClick={handleToggle}
+          className={`ml-auto relative w-10 h-[22px] rounded-full transition-colors duration-200 ${
+            form.isActive ? "bg-narada-emerald" : "bg-white/[0.1]"
+          }`}
+          aria-label={`${form.isActive ? "Disable" : "Enable"} ${isSlack ? "Slack" : "Teams"}`}
         >
-          Save
+          <span
+            className={`absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white transition-transform duration-200 ${
+              form.isActive ? "translate-x-[18px]" : "translate-x-0"
+            }`}
+          />
         </button>
-        <button className="h-8 px-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-narada-rose text-xs font-semibold hover:bg-rose-500/20 transition-all duration-300">
-          Remove
-        </button>
+      </div>
+
+      <div className={`transition-opacity duration-200 ${!form.isActive ? "opacity-40 pointer-events-none" : ""}`}>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div>
+            <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+              Name
+            </label>
+            <input
+              className="glass-input text-[13px]"
+              type="text"
+              placeholder={namePlaceholder}
+              value={form.userName || ""}
+              onChange={(e) => update("userName", e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+              User ID
+            </label>
+            <input
+              className="glass-input font-mono text-[13px]"
+              type="text"
+              placeholder={idPlaceholder}
+              value={form.userId || ""}
+              onChange={(e) => update("userId", e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+            Webhook URL
+          </label>
+          <input
+            className={`glass-input font-mono text-[13px] ${errors.webhookUrl ? "!border-narada-rose" : ""}`}
+            type="text"
+            placeholder={urlPlaceholder}
+            value={form.webhookUrl || ""}
+            onChange={(e) => update("webhookUrl", e.target.value)}
+          />
+        </div>
+
+        <div className="flex gap-3 mt-4 pt-4 border-t border-white/[0.06]">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="h-8 px-3 rounded-xl bg-narada-primary text-white text-xs font-semibold shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:bg-blue-600 transition-all duration-300 disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
       </div>
     </div>
   );

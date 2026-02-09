@@ -13,7 +13,7 @@ export function Calendar({ updateDates, onDayClick }: CalendarProps) {
   const { monthTitle, calendarDays, prevMonth, nextMonth } = useCalendar();
 
   const hasUpdate = (date: Date) => {
-    const key = date.toISOString().split("T")[0];
+    const key = date.toLocaleDateString("sv-SE");
     return updateDates.has(key);
   };
 

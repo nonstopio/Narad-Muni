@@ -61,8 +61,8 @@ export function useUpdateModal() {
       // Parse with AI
       setProcessingStage("analyzing");
       const dateStr = selectedDate
-        ? selectedDate.toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0];
+        ? selectedDate.toLocaleDateString("sv-SE")
+        : new Date().toLocaleDateString("sv-SE");
 
       const parseRes = await fetch("/api/parse", {
         method: "POST",
@@ -121,8 +121,8 @@ export function useUpdateModal() {
 
     try {
       const dateStr = selectedDate
-        ? selectedDate.toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0];
+        ? selectedDate.toLocaleDateString("sv-SE")
+        : new Date().toLocaleDateString("sv-SE");
 
       const res = await fetch("/api/updates", {
         method: "POST",

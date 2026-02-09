@@ -1,6 +1,147 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// ---------------------------------------------------------------------------
+// Jira worklog helpers
+// ---------------------------------------------------------------------------
+
+/** Format a Date as Jira-compatible UTC datetime.
+ *
+ *  `started` is stored with its UTC components holding the wall-clock time in
+ *  the user's timezone (we append "Z" at storage to force this).  E.g. 10:00
+ *  IST is stored as 10:00 UTC.  This function subtracts the timezone offset
+ *  to get true UTC — matching the reference script's IST→UTC conversion. */
+function toJiraUtc(started: Date, timezone: string): string {
+  // The UTC components ARE the wall-clock time in `timezone`.
+  // Use Intl to compute the timezone's offset at this approximate instant.
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const p = Object.fromEntries(
+    fmt.formatToParts(started).map((x) => [x.type, x.value])
+  );
+  const wallInTz = new Date(
+    `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}Z`
+  );
+  // offset = how far ahead the timezone is from UTC (ms)
+  const offsetMs = wallInTz.getTime() - started.getTime();
+
+  // True UTC = stored wall-clock minus offset
+  const utc = new Date(started.getTime() - offsetMs);
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${utc.getUTCFullYear()}-${pad(utc.getUTCMonth() + 1)}-${pad(utc.getUTCDate())}` +
+    `T${pad(utc.getUTCHours())}:${pad(utc.getUTCMinutes())}:${pad(utc.getUTCSeconds())}.000+0000`
+  );
+}
+
+/** Parse an ISO-ish datetime string and store the wall-clock components as UTC.
+ *  Strips any timezone suffix so "2026-02-09T11:00:00+05:30" stores as 11:00 UTC,
+ *  preserving the literal hours/date the user intended. */
+function parseAsWallClock(started: string): Date {
+  const m = started.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+  if (m) {
+    return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]));
+  }
+  return new Date(started + "Z"); // fallback for unexpected formats
+}
+
+/** Convert seconds to Jira's timeSpent string. E.g. 5400 → "1h 30m" */
+function secsToTimeSpent(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  if (m > 0) return `${m}m`;
+  return "0m";
+}
+
+/** Wrap plain text into Jira Atlassian Document Format (ADF). */
+function buildAdfComment(text: string) {
+  return {
+    type: "doc",
+    version: 1,
+    content: [
+      {
+        type: "paragraph",
+        content: [{ type: "text", text }],
+      },
+    ],
+  };
+}
+
+/** Publish work log entries to Jira, one request per entry. */
+async function publishJiraWorklogs(
+  config: { baseUrl: string; email: string; apiToken: string; timezone: string },
+  entries: { id: string; issueKey: string; timeSpentSecs: number; started: Date; comment: string | null }[],
+  updateId: string
+): Promise<void> {
+  const authToken = "Basic " + btoa(config.email + ":" + config.apiToken);
+  let allSucceeded = true;
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    try {
+      const startedUtc = toJiraUtc(entry.started, config.timezone);
+      const timeSpent = secsToTimeSpent(entry.timeSpentSecs);
+      const payload = {
+        timeSpent,
+        started: startedUtc,
+        comment: buildAdfComment(entry.comment || ""),
+      };
+
+      const url = `${config.baseUrl.replace(/\/+$/, "")}/rest/api/3/issue/${entry.issueKey}/worklog`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          authorization: authToken,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const body = await res.json();
+        await prisma.workLogEntry.update({
+          where: { id: entry.id },
+          data: { jiraWorklogId: body.id?.toString() ?? null },
+        });
+        console.log(`[Narada] Jira worklog posted for ${entry.issueKey}`);
+      } else {
+        const errBody = await res.text();
+        console.error(
+          `[Narada] Jira worklog failed for ${entry.issueKey} (${res.status}): ${errBody}`
+        );
+        allSucceeded = false;
+      }
+    } catch (err) {
+      console.error(`[Narada] Jira worklog error for ${entry.issueKey}:`, err);
+      allSucceeded = false;
+    }
+
+    // 1s delay between requests to avoid rate limiting (skip after last)
+    if (i < entries.length - 1) {
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+
+  await prisma.update.update({
+    where: { id: updateId },
+    data: { jiraStatus: allSucceeded ? "SENT" : "FAILED" },
+  });
+}
+
+// ---------------------------------------------------------------------------
+
 function formatDateDisplay(dateStr: string): string {
   const d = new Date(dateStr);
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -162,7 +303,7 @@ export async function POST(request: NextRequest) {
             }) => ({
               issueKey: entry.issueKey,
               timeSpentSecs: entry.timeSpentSecs,
-              started: new Date(entry.started),
+              started: parseAsWallClock(entry.started),
               comment: entry.comment || "",
               isRepeat: entry.isRepeat || false,
             })
@@ -236,7 +377,47 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // TODO: Publish to Jira when implemented
+    // Publish to Jira if enabled
+    if (jiraEnabled && update.workLogEntries?.length > 0) {
+      try {
+        const jiraConfig = await prisma.platformConfig.findFirst({
+          where: { platform: "JIRA", isActive: true },
+        });
+
+        if (jiraConfig?.baseUrl && jiraConfig?.email && jiraConfig?.apiToken) {
+          await publishJiraWorklogs(
+            {
+              baseUrl: jiraConfig.baseUrl,
+              email: jiraConfig.email,
+              apiToken: jiraConfig.apiToken,
+              timezone: jiraConfig.timezone || "Asia/Kolkata",
+            },
+            update.workLogEntries,
+            update.id
+          );
+          // Re-read the status that publishJiraWorklogs set
+          const refreshed = await prisma.update.findUnique({
+            where: { id: update.id },
+            select: { jiraStatus: true },
+          });
+          update.jiraStatus = refreshed?.jiraStatus ?? update.jiraStatus;
+        } else {
+          await prisma.update.update({
+            where: { id: update.id },
+            data: { jiraStatus: "FAILED" },
+          });
+          update.jiraStatus = "FAILED";
+          console.warn("[Narada] Jira enabled but no active config (baseUrl/email/apiToken)");
+        }
+      } catch (err) {
+        console.error("[Narada] Jira publish error:", err);
+        await prisma.update.update({
+          where: { id: update.id },
+          data: { jiraStatus: "FAILED" },
+        });
+        update.jiraStatus = "FAILED";
+      }
+    }
 
     return NextResponse.json({ success: true, update });
   } catch (error) {

@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { GradientBlobs } from "@/components/layout/gradient-blobs";
 import { Sidebar } from "@/components/layout/sidebar";
+import { ToastContainer } from "@/components/ui/toast";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -39,6 +40,7 @@ export default function RootLayout({
             {children}
           </main>
         </div>
+        <ToastContainer />
       </body>
     </html>
   );

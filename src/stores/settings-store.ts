@@ -15,7 +15,7 @@ interface SettingsStore {
   setConfigs: (configs: PlatformConfigData[]) => void;
   setLoading: (loading: boolean) => void;
   fetchConfigs: () => Promise<void>;
-  saveConfig: (config: PlatformConfigData) => Promise<void>;
+  saveConfig: (config: PlatformConfigData) => Promise<{ success: boolean; error?: string }>;
 
   // AI provider
   aiSettings: AIProviderSettings;
@@ -48,15 +48,27 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   },
 
   saveConfig: async (config) => {
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(config),
-    });
-    const res = await fetch("/api/settings");
-    const data = await res.json();
-    if (data.configs) {
-      set({ configs: data.configs });
+    try {
+      const putRes = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
+      if (!putRes.ok) {
+        return { success: false, error: "Failed to save settings" };
+      }
+      const result = await putRes.json();
+      if (result.success === false) {
+        return { success: false, error: result.error ?? "Failed to save settings" };
+      }
+      const res = await fetch("/api/settings");
+      const data = await res.json();
+      if (data.configs) {
+        set({ configs: data.configs });
+      }
+      return { success: true };
+    } catch {
+      return { success: false, error: "Network error — could not save settings" };
     }
   },
 

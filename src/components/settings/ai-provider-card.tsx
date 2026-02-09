@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useToastStore } from "@/components/ui/toast";
 import type { AIProvider } from "@/types";
 
 const PROVIDERS: { value: AIProvider; label: string; description: string }[] = [
@@ -25,11 +26,13 @@ const PROVIDERS: { value: AIProvider; label: string; description: string }[] = [
 export function AIProviderCard() {
   const { aiSettings, aiLoading, fetchAIProviderSettings, saveAIProviderSettings } =
     useSettingsStore();
+  const addToast = useToastStore((s) => s.addToast);
 
   const [selected, setSelected] = useState<AIProvider>(aiSettings.aiProvider);
   const [geminiKey, setGeminiKey] = useState(aiSettings.geminiApiKey);
   const [claudeKey, setClaudeKey] = useState(aiSettings.claudeApiKey);
   const [saving, setSaving] = useState(false);
+  const [keyError, setKeyError] = useState(false);
 
   useEffect(() => {
     fetchAIProviderSettings();
@@ -42,6 +45,17 @@ export function AIProviderCard() {
   }, [aiSettings]);
 
   const handleSave = async () => {
+    setKeyError(false);
+    if (selected === "gemini" && !geminiKey.trim() && !aiSettings.hasGeminiKey) {
+      setKeyError(true);
+      addToast("Gemini API key is required", "error");
+      return;
+    }
+    if (selected === "claude-api" && !claudeKey.trim() && !aiSettings.hasClaudeKey) {
+      setKeyError(true);
+      addToast("Anthropic API key is required", "error");
+      return;
+    }
     setSaving(true);
     try {
       await saveAIProviderSettings({
@@ -49,6 +63,9 @@ export function AIProviderCard() {
         geminiApiKey: selected === "gemini" ? geminiKey : undefined,
         claudeApiKey: selected === "claude-api" ? claudeKey : undefined,
       });
+      addToast("AI provider settings saved", "success");
+    } catch {
+      addToast("Failed to save AI provider settings", "error");
     } finally {
       setSaving(false);
     }
@@ -109,11 +126,11 @@ export function AIProviderCard() {
             Gemini API Key
           </label>
           <input
-            className="glass-input font-mono text-[13px]"
+            className={`glass-input font-mono text-[13px] ${keyError && selected === "gemini" ? "!border-narada-rose" : ""}`}
             type="password"
             placeholder="AIza..."
             value={geminiKey}
-            onChange={(e) => setGeminiKey(e.target.value)}
+            onChange={(e) => { setGeminiKey(e.target.value); setKeyError(false); }}
           />
           {aiSettings.hasGeminiKey && (
             <p className="text-xs text-narada-emerald mt-1">Key configured (env or saved)</p>
@@ -127,11 +144,11 @@ export function AIProviderCard() {
             Anthropic API Key
           </label>
           <input
-            className="glass-input font-mono text-[13px]"
+            className={`glass-input font-mono text-[13px] ${keyError && selected === "claude-api" ? "!border-narada-rose" : ""}`}
             type="password"
             placeholder="sk-ant-..."
             value={claudeKey}
-            onChange={(e) => setClaudeKey(e.target.value)}
+            onChange={(e) => { setClaudeKey(e.target.value); setKeyError(false); }}
           />
           {aiSettings.hasClaudeKey && (
             <p className="text-xs text-narada-emerald mt-1">Key configured (env or saved)</p>

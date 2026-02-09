@@ -36,6 +36,7 @@ export function SettingsClient({ initialConfigs }: Props) {
             key={config.id}
             config={config}
             onSave={saveConfig}
+            onToggle={saveConfig}
           />
         ))}
 
@@ -44,6 +45,7 @@ export function SettingsClient({ initialConfigs }: Props) {
             key={config.id}
             config={config}
             onSave={saveConfig}
+            onToggle={saveConfig}
           />
         ))}
 
@@ -52,6 +54,7 @@ export function SettingsClient({ initialConfigs }: Props) {
             key={config.id}
             config={config}
             onSave={saveConfig}
+            onToggle={saveConfig}
           />
         ))}
 
