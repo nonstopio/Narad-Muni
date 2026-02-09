@@ -79,7 +79,8 @@ export function useAudioRecorder() {
           console.log("[Narada] Transcription result:", data);
           if (data.success && data.transcript) {
             console.log("[Narada] Transcript received:", data.transcript.substring(0, 100) + (data.transcript.length > 100 ? "..." : ""));
-            setRawTranscript(data.transcript);
+            const current = useUpdateStore.getState().rawTranscript;
+            setRawTranscript(current ? current + " " + data.transcript : data.transcript);
           } else {
             setProcessingError(data.error || "Transcription failed");
           }
