@@ -57,9 +57,9 @@ export function UpdatesPageClient({
   };
 
   return (
-    <div className="overflow-y-auto p-8">
-      <h1 className="text-[28px] font-bold text-narada-text mb-6">Updates</h1>
-      <StatsBar stats={stats} />
+    <div className="flex-1 flex flex-col overflow-hidden p-6">
+      <h1 className="text-[28px] font-bold text-narada-text mb-6 flex-shrink-0">Updates</h1>
+      <div className="flex-shrink-0"><StatsBar stats={stats} /></div>
       <Calendar updateDates={updateDatesSet} onDayClick={handleDayClick} />
     </div>
   );

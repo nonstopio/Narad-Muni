@@ -18,7 +18,7 @@ export function Calendar({ updateDates, onDayClick }: CalendarProps) {
   };
 
   return (
-    <div className="glass-card p-5">
+    <div className="glass-card p-5 flex-1 flex flex-col min-h-0">
       <div className="flex justify-between items-center mb-4">
         <div className="flex gap-3">
           <button
@@ -56,14 +56,14 @@ export function Calendar({ updateDates, onDayClick }: CalendarProps) {
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5">
+      <div className="grid grid-cols-7 gap-1.5 flex-1 auto-rows-fr">
         {calendarDays.map((day, i) => {
           const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6;
           return (
             <button
               key={i}
               onClick={() => day.isCurrentMonth && onDayClick(day.date)}
-              className={`h-10 rounded-lg flex items-center justify-center text-sm font-medium transition-all duration-300 ${
+              className={`min-h-[2.25rem] rounded-lg flex items-center justify-center text-sm font-medium transition-all duration-300 ${
                 !day.isCurrentMonth
                   ? "text-narada-text-muted opacity-30"
                   : hasUpdate(day.date)
