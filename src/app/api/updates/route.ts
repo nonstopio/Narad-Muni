@@ -1,11 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-async function sendSlackWebhook(webhookUrl: string, text: string): Promise<void> {
+function formatDateDisplay(dateStr: string): string {
+  const d = new Date(dateStr);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${day} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+async function sendSlackWebhook(
+  webhookUrl: string,
+  text: string,
+  userId?: string | null,
+  date?: string
+): Promise<void> {
+  let finalText = text;
+  if (userId && date) {
+    const displayDate = formatDateDisplay(date);
+    finalText = `<@${userId}>'s Updates for \`${displayDate}\` :\n\n${text}`;
+  }
+
   const res = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text: finalText }),
   });
 
   if (!res.ok) {
@@ -14,30 +32,64 @@ async function sendSlackWebhook(webhookUrl: string, text: string): Promise<void>
   }
 }
 
-async function sendTeamsWebhook(webhookUrl: string, teamsOutput: string): Promise<void> {
+async function sendTeamsWebhook(
+  webhookUrl: string,
+  teamsOutput: string,
+  userName?: string | null,
+  userId?: string | null,
+  date?: string
+): Promise<void> {
   // Split the teamsOutput into sections by **HEADER** markers
   const sections = teamsOutput
     .split(/(?=\*\*(?:TODAY|TOMORROW|BLOCKER)\*\*)/)
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const textBlocks = sections.map((section, i) => ({
-    type: "TextBlock" as const,
-    text: section,
-    wrap: true,
-    ...(i > 0 ? { spacing: "Medium" as const } : {}),
-  }));
+  const textBlocks: Array<{ type: "TextBlock"; text: string; wrap: boolean; size?: string; weight?: string; spacing?: string }> = [];
+  const entities: Array<{ type: string; text: string; mentioned: { id: string; name: string } }> = [];
+
+  // Add mention header if userName and userId are available
+  if (userName && userId && date) {
+    const displayDate = formatDateDisplay(date);
+    textBlocks.push({
+      type: "TextBlock",
+      text: `<at>${userName}</at>'s Updates for \`${displayDate}\``,
+      wrap: true,
+      size: "Medium",
+      weight: "Bolder",
+    });
+    entities.push({
+      type: "mention",
+      text: `<at>${userName}</at>`,
+      mentioned: { id: userId, name: userName },
+    });
+  }
+
+  sections.forEach((section, i) => {
+    textBlocks.push({
+      type: "TextBlock",
+      text: section,
+      wrap: true,
+      ...(textBlocks.length > 0 || i > 0 ? { spacing: "Medium" } : {}),
+    });
+  });
+
+  const cardContent: Record<string, unknown> = {
+    type: "AdaptiveCard",
+    version: "1.4",
+    body: textBlocks,
+  };
+
+  if (entities.length > 0) {
+    cardContent.msteams = { entities };
+  }
 
   const card = {
     type: "message",
     attachments: [
       {
         contentType: "application/vnd.microsoft.card.adaptive",
-        content: {
-          type: "AdaptiveCard",
-          version: "1.4",
-          body: textBlocks,
-        },
+        content: cardContent,
       },
     ],
   };
@@ -128,7 +180,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (slackConfig?.webhookUrl) {
-          await sendSlackWebhook(slackConfig.webhookUrl, slackOutput);
+          await sendSlackWebhook(slackConfig.webhookUrl, slackOutput, slackConfig.userId, date);
           await prisma.update.update({
             where: { id: update.id },
             data: { slackStatus: "SENT" },
@@ -160,7 +212,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (teamsConfig?.webhookUrl) {
-          await sendTeamsWebhook(teamsConfig.webhookUrl, teamsOutput);
+          await sendTeamsWebhook(teamsConfig.webhookUrl, teamsOutput, teamsConfig.userName, teamsConfig.userId, date);
           await prisma.update.update({
             where: { id: update.id },
             data: { teamsStatus: "SENT" },

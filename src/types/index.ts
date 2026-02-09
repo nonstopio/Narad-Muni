@@ -35,6 +35,8 @@ export interface WorkLogEntryData {
 export interface PlatformConfigData {
   id: string;
   platform: Platform;
+  userName?: string | null;
+  userId?: string | null;
   webhookUrl?: string | null;
   apiToken?: string | null;
   baseUrl?: string | null;

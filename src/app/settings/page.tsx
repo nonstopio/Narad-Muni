@@ -11,6 +11,8 @@ export default async function SettingsPage() {
   const serialized: PlatformConfigData[] = configs.map((c) => ({
     id: c.id,
     platform: c.platform as PlatformConfigData["platform"],
+    userName: c.userName,
+    userId: c.userId,
     webhookUrl: c.webhookUrl,
     apiToken: c.apiToken,
     baseUrl: c.baseUrl,

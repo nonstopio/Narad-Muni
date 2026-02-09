@@ -21,6 +21,11 @@ body:json {
     "body": [
       {
         "type": "TextBlock",
+        "text": "<at>{{TEAMS_USER_NAME}}</at>'s Updates for `09 Feb 2026`",
+        "wrap": true
+      },
+      {
+        "type": "TextBlock",
         "text": "**TODAY**\n- NARADA-101 : Implemented two-panel update modal with live preview\n- NARADA-102 : Updated AI prompt for new output format",
         "wrap": true
       },
@@ -36,7 +41,19 @@ body:json {
         "wrap": true,
         "spacing": "Medium"
       }
-    ]
+    ],
+    "msteams": {
+      "entities": [
+        {
+          "type": "mention",
+          "text": "<at>{{TEAMS_USER_NAME}}</at>",
+          "mentioned": {
+            "id": "{{TEAMS_USER_ID}}",
+            "name": "{{TEAMS_USER_NAME}}"
+          }
+        }
+      ]
+    }
   }
 }
 

@@ -15,6 +15,8 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const {
       id,
+      userName,
+      userId,
       webhookUrl,
       apiToken,
       baseUrl,
@@ -34,6 +36,8 @@ export async function PUT(request: NextRequest) {
     const updated = await prisma.platformConfig.update({
       where: { id },
       data: {
+        userName,
+        userId,
         webhookUrl,
         apiToken,
         baseUrl,

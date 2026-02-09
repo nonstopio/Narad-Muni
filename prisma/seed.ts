@@ -9,7 +9,8 @@ async function main() {
     create: {
       id: "default-slack",
       platform: "SLACK",
-
+      userName: "",
+      userId: "",
       webhookUrl: "",
       isActive: true,
     },
@@ -21,7 +22,8 @@ async function main() {
     create: {
       id: "default-teams",
       platform: "TEAMS",
-
+      userName: "",
+      userId: "",
       webhookUrl: "",
       isActive: true,
     },

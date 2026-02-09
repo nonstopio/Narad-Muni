@@ -15,15 +15,16 @@ export function PlatformConfigCard({ config, onSave }: Props) {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const icon = config.platform === "SLACK" ? "\u{1F4AC}" : "\u{1F535}";
-  const title =
-    config.platform === "SLACK"
-      ? "Slack Configuration"
-      : "Microsoft Teams Configuration";
-  const urlPlaceholder =
-    config.platform === "SLACK"
-      ? "https://hooks.slack.com/services/..."
-      : "https://outlook.webhook.office.com/...";
+  const isSlack = config.platform === "SLACK";
+  const icon = isSlack ? "\u{1F4AC}" : "\u{1F535}";
+  const title = isSlack ? "Slack Configuration" : "Microsoft Teams Configuration";
+  const urlPlaceholder = isSlack
+    ? "https://hooks.slack.com/services/..."
+    : "https://outlook.webhook.office.com/...";
+  const namePlaceholder = isSlack ? "Slack display name" : "Teams display name";
+  const idPlaceholder = isSlack
+    ? "Slack member ID (e.g. U0123ABC)"
+    : "Teams user ID";
 
   return (
     <div className="glass-card p-6">
@@ -32,6 +33,33 @@ export function PlatformConfigCard({ config, onSave }: Props) {
           {icon}
         </div>
         <span>{title}</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div>
+          <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+            Name
+          </label>
+          <input
+            className="glass-input text-[13px]"
+            type="text"
+            placeholder={namePlaceholder}
+            value={form.userName || ""}
+            onChange={(e) => update("userName", e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+            User ID
+          </label>
+          <input
+            className="glass-input font-mono text-[13px]"
+            type="text"
+            placeholder={idPlaceholder}
+            value={form.userId || ""}
+            onChange={(e) => update("userId", e.target.value)}
+          />
+        </div>
       </div>
 
       <div className="mb-4">
