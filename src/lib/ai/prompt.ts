@@ -17,6 +17,19 @@ export function buildSystemPrompt(
   const repeatTotalSecs = repeatEntries.reduce((sum, e) => sum + e.hours * 3600, 0);
   const remainingSecs = Math.max(0, 28800 - repeatTotalSecs);
 
+  // Calculate when repeat entries end to find earliest available slot
+  const defaultStart = "10:00";
+  const earliestAvailableTime = repeatEntries.length > 0
+    ? repeatEntries.reduce((latest, e) => {
+        const [h, m] = e.startTime.split(":").map(Number);
+        const endMinutes = h * 60 + m + e.hours * 60;
+        const endH = String(Math.floor(endMinutes / 60)).padStart(2, "0");
+        const endM = String(endMinutes % 60).padStart(2, "0");
+        const endTime = `${endH}:${endM}`;
+        return endTime > latest ? endTime : latest;
+      }, defaultStart)
+    : defaultStart;
+
   return `You are a daily standup parser for a developer productivity tool called Narada. Parse the user's daily update transcript and extract structured data.
 
 Date context: ${date}
@@ -26,7 +39,7 @@ Instructions:
 - Parse time references into durations in seconds (e.g., "3 hours" = 10800)
 - Detect blockers from natural speech
 - Extract tomorrow's planned tasks. If the user doesn't mention tomorrow, set tomorrowTasks to a single entry: "Continue working on same tasks"
-- For time entries, use the date "${date}" combined with reasonable start times (working hours 10:00-20:00 IST). Each entry's "started" should be an ISO 8601 datetime string.
+- For time entries, use the date "${date}" combined with sequential start times beginning at ${earliestAvailableTime} (after repeat/fixed entries end). Each entry's "started" should be an ISO 8601 datetime string. Schedule entries sequentially — each entry starts when the previous one ends.
 - Set isRepeat to false for all entries you extract (repeat entries are handled separately)
 
 Time distribution rules:

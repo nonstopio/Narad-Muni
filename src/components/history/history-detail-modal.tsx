@@ -39,11 +39,9 @@ function formatTime(secs: number) {
 function formatStartTime(started: string) {
   try {
     const d = new Date(started);
-    return d.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    const hh = String(d.getUTCHours()).padStart(2, "0");
+    const mm = String(d.getUTCMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
   } catch {
     return started.split("T")[1]?.substring(0, 5) || started;
   }

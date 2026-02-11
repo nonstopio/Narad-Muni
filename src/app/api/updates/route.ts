@@ -79,6 +79,15 @@ function buildAdfComment(text: string) {
   };
 }
 
+/** Check if an HTTP status code is a transient (retryable) error. */
+function isTransientError(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+const JIRA_MAX_RETRIES = 3;
+const JIRA_RETRY_DELAY_MS = 5000;
+const JIRA_INTER_REQUEST_DELAY_MS = 2000;
+
 /** Publish work log entries to Jira, one request per entry. */
 async function publishJiraWorklogs(
   config: { baseUrl: string; email: string; apiToken: string; timezone: string },
@@ -86,53 +95,117 @@ async function publishJiraWorklogs(
   updateId: string
 ): Promise<void> {
   const authToken = "Basic " + btoa(config.email + ":" + config.apiToken);
-  let allSucceeded = true;
+  const total = entries.length;
+  let succeeded = 0;
+  const failedKeys: string[] = [];
+
+  // --- Start summary ---
+  console.log(`[Narada] Jira worklogs: publishing ${total} entries`);
+  console.table(
+    entries.map((e, i) => ({
+      "#": i + 1,
+      issueKey: e.issueKey,
+      timeSpent: secsToTimeSpent(e.timeSpentSecs),
+      started: e.started.toISOString(),
+    }))
+  );
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
-    try {
-      const startedUtc = toJiraUtc(entry.started, config.timezone);
-      const timeSpent = secsToTimeSpent(entry.timeSpentSecs);
-      const payload = {
-        timeSpent,
-        started: startedUtc,
-        comment: buildAdfComment(entry.comment || ""),
-      };
+    const idx = `[${i + 1}/${total}]`;
 
-      const url = `${config.baseUrl.replace(/\/+$/, "")}/rest/api/3/issue/${entry.issueKey}/worklog`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-          authorization: authToken,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+    // Guard: skip entries with 0 seconds (Jira rejects "0m")
+    if (entry.timeSpentSecs <= 0) {
+      console.warn(`[Narada] ${idx} Skipping ${entry.issueKey} — timeSpentSecs is ${entry.timeSpentSecs} (would be "0m")`);
+      failedKeys.push(`${entry.issueKey} (skipped: 0s)`);
+      continue;
+    }
 
-      if (res.ok) {
-        const body = await res.json();
-        await prisma.workLogEntry.update({
-          where: { id: entry.id },
-          data: { jiraWorklogId: body.id?.toString() ?? null },
+    const startedUtc = toJiraUtc(entry.started, config.timezone);
+    const timeSpent = secsToTimeSpent(entry.timeSpentSecs);
+    const payload = {
+      timeSpent,
+      started: startedUtc,
+      comment: buildAdfComment(entry.comment || ""),
+    };
+
+    const url = `${config.baseUrl.replace(/\/+$/, "")}/rest/api/3/issue/${entry.issueKey}/worklog`;
+    console.log(`[Narada] ${idx} ${entry.issueKey} — POST ${url} | timeSpent=${timeSpent} started=${startedUtc}`);
+
+    let entrySucceeded = false;
+
+    for (let attempt = 1; attempt <= JIRA_MAX_RETRIES; attempt++) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            accept: "application/json",
+            authorization: authToken,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(payload),
         });
-        console.log(`[Narada] Jira worklog posted for ${entry.issueKey}`);
-      } else {
+
+        if (res.ok) {
+          const body = await res.json();
+          await prisma.workLogEntry.update({
+            where: { id: entry.id },
+            data: { jiraWorklogId: body.id?.toString() ?? null },
+          });
+          console.log(`[Narada] ${idx} ${entry.issueKey} — success (worklogId=${body.id})`);
+          entrySucceeded = true;
+          break;
+        }
+
         const errBody = await res.text();
+
+        if (isTransientError(res.status) && attempt < JIRA_MAX_RETRIES) {
+          console.warn(
+            `[Narada] ${idx} ${entry.issueKey} — transient error (${res.status}), attempt ${attempt}/${JIRA_MAX_RETRIES}, retrying in ${JIRA_RETRY_DELAY_MS / 1000}s. Body: ${errBody}`
+          );
+          await new Promise((r) => setTimeout(r, JIRA_RETRY_DELAY_MS));
+          continue;
+        }
+
+        // Permanent error or last retry exhausted
         console.error(
-          `[Narada] Jira worklog failed for ${entry.issueKey} (${res.status}): ${errBody}`
+          `[Narada] ${idx} ${entry.issueKey} — failed (${res.status}), attempt ${attempt}/${JIRA_MAX_RETRIES}. Body: ${errBody}`
         );
-        allSucceeded = false;
+        break;
+      } catch (err) {
+        if (attempt < JIRA_MAX_RETRIES) {
+          console.warn(
+            `[Narada] ${idx} ${entry.issueKey} — network error, attempt ${attempt}/${JIRA_MAX_RETRIES}, retrying in ${JIRA_RETRY_DELAY_MS / 1000}s:`,
+            err
+          );
+          await new Promise((r) => setTimeout(r, JIRA_RETRY_DELAY_MS));
+          continue;
+        }
+        console.error(
+          `[Narada] ${idx} ${entry.issueKey} — network error, attempt ${attempt}/${JIRA_MAX_RETRIES} (giving up):`,
+          err
+        );
+        break;
       }
-    } catch (err) {
-      console.error(`[Narada] Jira worklog error for ${entry.issueKey}:`, err);
-      allSucceeded = false;
     }
 
-    // 1s delay between requests to avoid rate limiting (skip after last)
-    if (i < entries.length - 1) {
-      await new Promise((r) => setTimeout(r, 1000));
+    if (entrySucceeded) {
+      succeeded++;
+    } else {
+      failedKeys.push(entry.issueKey);
     }
+
+    // 2s delay between requests to avoid rate limiting (skip after last)
+    if (i < entries.length - 1) {
+      await new Promise((r) => setTimeout(r, JIRA_INTER_REQUEST_DELAY_MS));
+    }
+  }
+
+  // --- Final summary ---
+  const allSucceeded = failedKeys.length === 0;
+  console.log(`[Narada] Jira worklogs: ${succeeded}/${total} succeeded`);
+  if (failedKeys.length > 0) {
+    console.error(`[Narada] Jira worklogs: failed entries — ${failedKeys.join(", ")}`);
   }
 
   await prisma.update.update({
@@ -404,6 +477,9 @@ export async function POST(request: NextRequest) {
         });
 
         if (jiraConfig?.baseUrl && jiraConfig?.email && jiraConfig?.apiToken) {
+          console.log(
+            `[Narada] Jira publishing started — ${update.workLogEntries.length} entries, baseUrl=${jiraConfig.baseUrl}`
+          );
           await publishJiraWorklogs(
             {
               baseUrl: jiraConfig.baseUrl,
@@ -420,6 +496,7 @@ export async function POST(request: NextRequest) {
             select: { jiraStatus: true },
           });
           update.jiraStatus = refreshed?.jiraStatus ?? update.jiraStatus;
+          console.log(`[Narada] Jira publishing finished — jiraStatus=${update.jiraStatus}`);
         } else {
           await prisma.update.update({
             where: { id: update.id },

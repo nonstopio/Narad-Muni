@@ -21,7 +21,6 @@ export default async function UpdatesPage() {
   ]);
 
   const updateCount = monthUpdates.length;
-  const updateDates = monthUpdates.map((u) => u.date.toISOString().split("T")[0]);
 
   const monthUpdatesSerialized: UpdateData[] = monthUpdates.map((u) => ({
     id: u.id,
@@ -74,7 +73,6 @@ export default async function UpdatesPage() {
     <UpdatesPageClient
       updateCount={updateCount}
       streak={streak}
-      updateDates={updateDates}
       monthUpdates={monthUpdatesSerialized}
     />
   );

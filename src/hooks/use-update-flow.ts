@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { useUpdateStore } from "@/stores/update-store";
 import { useAppStore } from "@/stores/app-store";
+import { useToastStore } from "@/components/ui/toast";
 
 export function useUpdateFlow() {
   const store = useUpdateStore();
@@ -103,7 +104,7 @@ export function useUpdateFlow() {
     }
   }, [store, selectedDate]);
 
-  const shareAll = useCallback(async () => {
+  const shareAll = useCallback(async (): Promise<boolean> => {
     const {
       rawTranscript,
       slackOutput,
@@ -145,11 +146,14 @@ export function useUpdateFlow() {
       }
 
       setIsProcessing(false);
-      setStep("success");
+      return true;
     } catch (error) {
       console.error("Share error:", error);
+      const message = error instanceof Error ? error.message : "Failed to publish updates";
+      useToastStore.getState().addToast(message, "error");
       setIsProcessing(false);
       setStep("editing");
+      return false;
     }
   }, [store, selectedDate]);
 

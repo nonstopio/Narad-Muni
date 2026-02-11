@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAppStore } from "@/stores/app-store";
 import { useUpdateStore } from "@/stores/update-store";
 import { useUpdateFlow } from "@/hooks/use-update-flow";
+import { useToastStore } from "@/components/ui/toast";
 import { InputSection } from "./input-section";
 import { PlatformOutputs } from "./platform-outputs";
-import { StepSuccess } from "./step-success";
 import { ArrowLeft } from "lucide-react";
-import { AnimatePresence } from "framer-motion";
 import type { PlatformConfigData } from "@/types";
 
 interface UpdatePageClientProps {
@@ -20,7 +19,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const setSelectedDate = useAppStore((s) => s.setSelectedDate);
-  const { step, initPlatformToggles, resetForNewUpdate } = useUpdateStore();
+  const { initPlatformToggles, resetForNewUpdate } = useUpdateStore();
   const { processWithAI, shareAll } = useUpdateFlow();
 
   const dateParam = searchParams.get("date");
@@ -65,9 +64,13 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
     });
   }, [dateParam]);
 
-  const handleDone = () => {
-    router.push("/");
-  };
+  const handleShareAll = useCallback(async () => {
+    const success = await shareAll();
+    if (success) {
+      useToastStore.getState().addToast("All updates published!", "success");
+      router.push("/");
+    }
+  }, [shareAll, router]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -93,13 +96,8 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
         <div className="flex-1 p-6 overflow-y-auto relative">
           <PlatformOutputs
             activePlatforms={activePlatforms}
-            onShareAll={shareAll}
+            onShareAll={handleShareAll}
           />
-
-          {/* Success overlay */}
-          <AnimatePresence>
-            {step === "success" && <StepSuccess onDone={handleDone} />}
-          </AnimatePresence>
         </div>
       </div>
     </div>

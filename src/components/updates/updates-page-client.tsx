@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatsBar } from "./stats-bar";
 import { Calendar } from "./calendar";
@@ -11,18 +11,19 @@ import type { StatData, UpdateData } from "@/types";
 interface Props {
   updateCount: number;
   streak: number;
-  updateDates: string[];
   monthUpdates: UpdateData[];
 }
 
 export function UpdatesPageClient({
   updateCount,
   streak,
-  updateDates: initialDates,
   monthUpdates: initialMonthUpdates,
 }: Props) {
-  const [updateDatesSet] = useState(() => new Set(initialDates));
   const [monthUpdates, setMonthUpdates] = useState(initialMonthUpdates);
+  const updateDatesSet = useMemo(
+    () => new Set(monthUpdates.map((u) => u.date.split("T")[0])),
+    [monthUpdates]
+  );
   const [selectedUpdate, setSelectedUpdate] = useState<UpdateData | null>(null);
   const setSelectedDate = useAppStore((s) => s.setSelectedDate);
   const router = useRouter();

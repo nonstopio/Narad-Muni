@@ -11,16 +11,9 @@ function formatTime(secs: number) {
 }
 
 function formatStartTime(started: string) {
-  try {
-    const d = new Date(started);
-    return d.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-  } catch {
-    return started.split("T")[1]?.substring(0, 5) || started;
-  }
+  const m = started.match(/T(\d{2}):(\d{2})/);
+  if (m) return `${m[1]}:${m[2]}`;
+  return started;
 }
 
 export function JiraOutputCard() {
