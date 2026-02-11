@@ -4,7 +4,7 @@ export type PublishStatus = "PENDING" | "SENT" | "FAILED" | "SKIPPED";
 
 export type Platform = "SLACK" | "TEAMS" | "JIRA";
 
-export type ModalStep = "editing" | "sharing" | "success";
+export type ModalStep = "editing" | "sharing";
 
 export type ProcessingStage = "transcribing" | "analyzing" | "formatting";
 
