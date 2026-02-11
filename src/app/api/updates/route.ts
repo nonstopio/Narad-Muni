@@ -1,3 +1,4 @@
+import dns from "node:dns";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -225,20 +226,10 @@ async function sendTeamsWebhook(
     cardContent.msteams = { entities };
   }
 
-  const card = {
-    type: "message",
-    attachments: [
-      {
-        contentType: "application/vnd.microsoft.card.adaptive",
-        content: cardContent,
-      },
-    ],
-  };
-
   const res = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(card),
+    body: JSON.stringify(cardContent),
   });
 
   if (!res.ok) {
