@@ -149,7 +149,7 @@ export function useUpdateFlow() {
       return true;
     } catch (error) {
       console.error("Share error:", error);
-      const message = error instanceof Error ? error.message : "Failed to publish updates";
+      const message = error instanceof Error ? error.message : "Alas! The message could not reach the worlds. Please try again.";
       useToastStore.getState().addToast(message, "error");
       setIsProcessing(false);
       setStep("editing");

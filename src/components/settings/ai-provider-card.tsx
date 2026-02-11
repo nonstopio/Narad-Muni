@@ -9,17 +9,17 @@ const PROVIDERS: { value: AIProvider; label: string; description: string }[] = [
   {
     value: "local-claude",
     label: "Local Claude (CLI)",
-    description: "Uses the Claude CLI installed on your machine. No API key needed.",
+    description: "Channels wisdom through the Claude CLI on your machine. No API key needed.",
   },
   {
     value: "gemini",
     label: "Google Gemini",
-    description: "Uses Gemini 2.0 Flash API. Requires API key.",
+    description: "Consults the Gemini oracle. Requires an API key.",
   },
   {
     value: "claude-api",
     label: "Claude API",
-    description: "Uses Anthropic Claude Sonnet API. Requires API key.",
+    description: "Summons Claude Sonnet through the Anthropic gateway. Requires an API key.",
   },
 ];
 
@@ -48,12 +48,12 @@ export function AIProviderCard() {
     setKeyError(false);
     if (selected === "gemini" && !geminiKey.trim() && !aiSettings.hasGeminiKey) {
       setKeyError(true);
-      addToast("Gemini API key is required", "error");
+      addToast("The Gemini oracle requires an API key to speak", "error");
       return;
     }
     if (selected === "claude-api" && !claudeKey.trim() && !aiSettings.hasClaudeKey) {
       setKeyError(true);
-      addToast("Anthropic API key is required", "error");
+      addToast("The Claude gateway requires an API key to open", "error");
       return;
     }
     setSaving(true);
@@ -63,9 +63,9 @@ export function AIProviderCard() {
         geminiApiKey: selected === "gemini" ? geminiKey : undefined,
         claudeApiKey: selected === "claude-api" ? claudeKey : undefined,
       });
-      addToast("AI provider settings saved", "success");
+      addToast("Narayan Narayan! Your oracle of choice is set", "success");
     } catch {
-      addToast("Failed to save AI provider settings", "error");
+      addToast("Alas! The oracle settings could not be preserved", "error");
     } finally {
       setSaving(false);
     }
@@ -89,7 +89,7 @@ export function AIProviderCard() {
             <circle cx="12" cy="15" r="2" />
           </svg>
         </div>
-        <span>AI Provider</span>
+        <span>Divine Oracle</span>
       </div>
 
       <div className="flex flex-col gap-3 mb-4">
@@ -162,7 +162,7 @@ export function AIProviderCard() {
           disabled={saving}
           className="h-8 px-3 rounded-xl bg-narada-primary text-white text-xs font-semibold shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:bg-blue-600 transition-all duration-300 disabled:opacity-50"
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? "Inscribing..." : "Inscribe"}
         </button>
       </div>
     </div>

@@ -56,14 +56,14 @@ export function JiraOutputCard() {
           }`}
         >
           {jiraEnabled && <Check className="w-3 h-3" />}
-          <span>{jiraEnabled ? "Enabled" : "Disabled"}</span>
+          <span>{jiraEnabled ? "Open" : "Sealed"}</span>
         </button>
       </div>
 
       {/* Body — work log table */}
       {workLogEntries.length === 0 ? (
         <p className="text-xs text-narada-text-muted">
-          Work log entries will appear here after processing...
+          The work chronicles will appear once the sage has spoken...
         </p>
       ) : (
         <div className="overflow-x-auto">

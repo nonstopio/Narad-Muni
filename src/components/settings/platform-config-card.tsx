@@ -30,7 +30,7 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
       newErrors.webhookUrl = true;
     }
     setErrors(newErrors);
-    if (newErrors.webhookUrl) return "Webhook URL is required and must be a valid URL";
+    if (newErrors.webhookUrl) return "A valid Webhook URL is needed to open this portal";
     return null;
   };
 
@@ -40,12 +40,14 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
     const result = await onToggle({ ...form, isActive: newActive });
     if (result.success) {
       addToast(
-        `${isSlack ? "Slack" : "Teams"} ${newActive ? "enabled" : "disabled"}`,
+        newActive
+          ? `Narayan Narayan! ${isSlack ? "Slack" : "Teams"} is now open to receive your word`
+          : `${isSlack ? "Slack" : "Teams"} has been silenced for now`,
         "success"
       );
     } else {
       setForm((prev) => ({ ...prev, isActive: !newActive }));
-      addToast(result.error ?? "Failed to toggle platform", "error");
+      addToast(result.error ?? "Alas! Could not change the portal's state", "error");
     }
   };
 
@@ -59,12 +61,12 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
     try {
       const result = await onSave(form);
       if (result.success) {
-        addToast(`${isSlack ? "Slack" : "Teams"} settings saved`, "success");
+        addToast(`Narayan Narayan! ${isSlack ? "Slack" : "Teams"} portal configured`, "success");
       } else {
-        addToast(result.error ?? "Failed to save settings", "error");
+        addToast(result.error ?? "Alas! The settings would not take hold", "error");
       }
     } catch {
-      addToast("Failed to save settings", "error");
+      addToast("Alas! The settings would not take hold", "error");
     } finally {
       setSaving(false);
     }
@@ -72,7 +74,7 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
 
   const isSlack = config.platform === "SLACK";
   const icon = isSlack ? "\u{1F4AC}" : "\u{1F535}";
-  const title = isSlack ? "Slack Configuration" : "Microsoft Teams Configuration";
+  const title = isSlack ? "Slack Portal" : "Teams Portal";
   const urlPlaceholder = isSlack
     ? "https://hooks.slack.com/services/..."
     : "https://outlook.webhook.office.com/...";
@@ -150,7 +152,7 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
             disabled={saving}
             className="h-8 px-3 rounded-xl bg-narada-primary text-white text-xs font-semibold shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:bg-blue-600 transition-all duration-300 disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? "Inscribing..." : "Inscribe"}
           </button>
         </div>
       </div>

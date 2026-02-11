@@ -18,9 +18,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Narada - Speak once, inform all three worlds",
+  title: "Narada — Narayan Narayan! Speak once, inform all three worlds",
   description:
-    "Like the divine messenger Narad Muni, Narada carries your voice to Slack, Teams, and Jira — so the right people know at the right time.",
+    "Narayan Narayan! Like the divine sage who travels the three worlds, Narada carries your voice to Slack, Teams, and Jira — so the right souls know at the right time.",
 };
 
 export default function RootLayout({

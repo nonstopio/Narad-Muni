@@ -6,9 +6,9 @@ import { usePathname } from "next/navigation";
 import { Calendar, Clock, Settings } from "lucide-react";
 
 const navItems = [
-  { href: "/", label: "Updates", icon: Calendar },
-  { href: "/history", label: "History", icon: Clock },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/", label: "Scrolls", icon: Calendar },
+  { href: "/history", label: "Chronicles", icon: Clock },
+  { href: "/settings", label: "Configurations", icon: Settings },
 ];
 
 export function Sidebar() {

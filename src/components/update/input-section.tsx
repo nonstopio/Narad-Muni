@@ -43,14 +43,14 @@ export function InputSection({ onProcess }: InputSectionProps) {
     <div className="flex flex-col h-full pb-6">
       {/* Section label */}
       <div className="text-xs font-semibold text-narada-text-secondary uppercase tracking-wider mb-4">
-        Your Update
+        Your Words
       </div>
 
       {/* Textarea — at top, fills available space */}
       <textarea
         className="glass-input flex-1 min-h-[240px] resize-y text-sm w-full mb-4"
         style={{ fontFamily: "var(--font-sans)" }}
-        placeholder={"What did you accomplish today?\nWhat are you working on next?\nWhat are your plans for tomorrow?\nAny blockers or dependencies?"}
+        placeholder={"What deeds did you accomplish today?\nWhat task calls to you next?\nWhat plans do you hold for tomorrow?\nAny obstacles on the path?"}
         value={rawTranscript}
         onChange={(e) => setRawTranscript(e.target.value)}
       />
@@ -58,7 +58,7 @@ export function InputSection({ onProcess }: InputSectionProps) {
       {/* Divider */}
       <div className="flex items-center gap-3 mb-4">
         <div className="flex-1 h-px bg-white/[0.06]" />
-        <span className="text-xs text-narada-text-muted">or record below</span>
+        <span className="text-xs text-narada-text-muted">or speak your truth below</span>
         <div className="flex-1 h-px bg-white/[0.06]" />
       </div>
 
@@ -73,7 +73,7 @@ export function InputSection({ onProcess }: InputSectionProps) {
               <Mic className="w-4.5 h-4.5" />
             </button>
             <span className="text-sm text-narada-text-secondary">
-              Record voice update
+              Speak your update
             </span>
             {audioBlob && (
               <button
@@ -81,7 +81,7 @@ export function InputSection({ onProcess }: InputSectionProps) {
                 className="ml-auto flex items-center gap-1.5 text-xs text-narada-text-muted hover:text-narada-text transition-colors"
               >
                 <RotateCcw className="w-3 h-3" />
-                <span>Re-record</span>
+                <span>Speak again</span>
               </button>
             )}
           </div>
@@ -108,7 +108,7 @@ export function InputSection({ onProcess }: InputSectionProps) {
           <div className="flex items-center gap-3">
             <Loader2 className="w-5 h-5 text-narada-primary animate-spin flex-shrink-0" />
             <span className="text-sm text-narada-text-secondary">
-              Converting speech to text...
+              Transcribing your voice... Narad is listening...
             </span>
           </div>
         )}
@@ -123,12 +123,12 @@ export function InputSection({ onProcess }: InputSectionProps) {
         {isProcessing ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
-            <span>Processing...</span>
+            <span>Channeling...</span>
           </>
         ) : (
           <>
             <Zap className="w-4 h-4" />
-            <span>{previewReady ? "Re-process" : "Process with AI"}</span>
+            <span>{previewReady ? "Consult Again" : "Invoke the Sage"}</span>
           </>
         )}
       </button>

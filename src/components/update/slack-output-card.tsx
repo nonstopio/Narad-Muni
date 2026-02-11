@@ -28,7 +28,7 @@ export function SlackOutputCard() {
           }`}
         >
           {slackEnabled && <Check className="w-3 h-3" />}
-          <span>{slackEnabled ? "Enabled" : "Disabled"}</span>
+          <span>{slackEnabled ? "Open" : "Sealed"}</span>
         </button>
       </div>
 
@@ -38,7 +38,7 @@ export function SlackOutputCard() {
         value={slackOutput}
         onChange={(e) => setSlackOutput(e.target.value)}
         disabled={!slackEnabled}
-        placeholder="Slack output will appear here after processing..."
+        placeholder="The scroll for Slack will materialize once the sage has spoken..."
       />
     </div>
   );

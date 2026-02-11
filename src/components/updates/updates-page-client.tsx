@@ -37,19 +37,19 @@ export function UpdatesPageClient({
 
   const stats: StatData[] = [
     {
-      label: "Updates This Month",
+      label: "Messages This Month",
       value: updateCount,
       icon: "\u{1F4CA}",
       color: "blue",
     },
     {
-      label: "Day Streak",
+      label: "Devotion Streak",
       value: streak,
       icon: "\u{1F525}",
       color: "violet",
     },
     {
-      label: "Time Saved",
+      label: "Time Reclaimed",
       value: `${updateCount * 15}m`,
       icon: "\u23F1\uFE0F",
       color: "emerald",
@@ -80,7 +80,7 @@ export function UpdatesPageClient({
     <div className="flex-1 flex flex-col overflow-hidden p-6">
       <div className="mb-6 flex-shrink-0">
         <h1 className="text-[28px] font-bold text-narada-text">Narad Muni</h1>
-        <p className="text-sm text-narada-text-muted mt-1">Speak once, inform all three worlds.</p>
+        <p className="text-sm text-narada-text-muted mt-1">Narayan Narayan! Speak once, and I shall carry your word across all three worlds.</p>
       </div>
       <div className="flex-shrink-0"><StatsBar stats={stats} /></div>
       <Calendar updateDates={updateDatesSet} onDayClick={handleDayClick} />

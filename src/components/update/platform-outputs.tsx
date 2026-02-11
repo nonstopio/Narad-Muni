@@ -34,10 +34,10 @@ export function PlatformOutputs({
           <Send className="w-7 h-7 text-narada-text-muted" />
         </div>
         <p className="text-sm text-narada-text-secondary mb-1">
-          No platforms configured
+          The three worlds await your call
         </p>
         <p className="text-xs text-narada-text-muted">
-          Enable Slack, Teams, or Jira in Settings to publish updates
+          Enable Slack, Teams, or Jira in Settings so Narad may carry your word
         </p>
       </div>
     );
@@ -51,11 +51,10 @@ export function PlatformOutputs({
           <Loader2 className="w-7 h-7 text-narada-text-muted" />
         </div>
         <p className="text-sm text-narada-text-secondary mb-1">
-          Process your update to see preview
+          Narad awaits your words
         </p>
         <p className="text-xs text-narada-text-muted">
-          Enter your daily update on the left and click &quot;Process with
-          AI&quot;
+          Speak or write your update, then invoke the sage to prepare your scrolls
         </p>
       </div>
     );
@@ -86,12 +85,12 @@ export function PlatformOutputs({
         {isSharing ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
-            <span>Sharing...</span>
+            <span>Dispatching...</span>
           </>
         ) : (
           <>
             <Send className="w-4 h-4" />
-            <span>Share All</span>
+            <span>Dispatch to All Worlds</span>
           </>
         )}
       </button>

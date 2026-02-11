@@ -14,17 +14,17 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 const stages: { key: ProcessingStage; label: string }[] = [
-  { key: "transcribing", label: "Preparing transcript" },
-  { key: "analyzing", label: "Analyzing with AI" },
-  { key: "formatting", label: "Formatting for platforms" },
+  { key: "transcribing", label: "Listening to your words" },
+  { key: "analyzing", label: "Seeking divine insight" },
+  { key: "formatting", label: "Crafting scrolls for three worlds" },
 ];
 
 const tips = [
-  "Extracting tasks and accomplishments...",
-  "Identifying time entries and Jira tickets...",
-  "Formatting updates for each platform...",
-  "Detecting blockers and dependencies...",
-  "Structuring work log entries...",
+  "Narad listens closely... gathering your deeds and accomplishments...",
+  "Counting the hours of your devotion, noting each sacred ticket...",
+  "Inscribing separate scrolls for each of the three worlds...",
+  "Sensing obstacles on the path... every sage knows where the thorns lie...",
+  "Arranging the chronicle of your day with care and precision...",
 ];
 
 function getStageIndex(stage: ProcessingStage | null): number {

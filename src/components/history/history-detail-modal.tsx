@@ -121,7 +121,7 @@ export function HistoryDetailModal({ update, onClose, onDelete }: Props) {
           {/* Raw Transcript */}
           <div>
             <h3 className="text-xs font-semibold text-narada-text-muted uppercase tracking-wider mb-2">
-              Transcript
+              Spoken Word
             </h3>
             <p className="text-sm text-narada-text-secondary whitespace-pre-wrap">
               {update.rawTranscript}
@@ -226,7 +226,7 @@ export function HistoryDetailModal({ update, onClose, onDelete }: Props) {
                 </div>
               ) : (
                 <p className="text-xs text-narada-text-muted">
-                  No work log entries.
+                  No work has been chronicled for this day.
                 </p>
               )}
             </div>
@@ -245,10 +245,10 @@ export function HistoryDetailModal({ update, onClose, onDelete }: Props) {
             } disabled:opacity-50`}
           >
             {deleting
-              ? "Deleting..."
+              ? "Erasing..."
               : confirmDelete
-                ? "Confirm Delete?"
-                : "Delete"}
+                ? "Truly erase this scroll?"
+                : "Erase"}
           </button>
         </div>
       </div>

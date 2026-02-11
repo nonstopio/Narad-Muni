@@ -53,11 +53,11 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
     setErrors(newErrors);
     const keys = Object.keys(newErrors);
     if (keys.length === 0) return null;
-    if (newErrors.baseUrl) return "Base URL is required and must be a valid URL";
-    if (newErrors.email) return "A valid email is required";
-    if (newErrors.apiToken) return "API token is required";
-    if (keys.some((k) => k.startsWith("repeat_"))) return "Repeat entries need a ticket ID and hours > 0";
-    return "Please fix the highlighted fields";
+    if (newErrors.baseUrl) return "A valid Base URL is needed to reach the Jira realm";
+    if (newErrors.email) return "A valid email is needed to identify the messenger";
+    if (newErrors.apiToken) return "An API token is needed to pass through the gates";
+    if (keys.some((k) => k.startsWith("repeat_"))) return "Each recurring ritual needs a ticket ID and hours greater than zero";
+    return "Attend to the highlighted fields before proceeding";
   };
 
   const updateRepeatEntry = (
@@ -97,10 +97,10 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
     setForm((prev) => ({ ...prev, isActive: newActive }));
     const result = await onToggle({ ...form, isActive: newActive });
     if (result.success) {
-      addToast(`Jira ${newActive ? "enabled" : "disabled"}`, "success");
+      addToast(newActive ? "Narayan Narayan! Jira is now open to receive your chronicles" : "Jira has been silenced for now", "success");
     } else {
       setForm((prev) => ({ ...prev, isActive: !newActive }));
-      addToast(result.error ?? "Failed to toggle platform", "error");
+      addToast(result.error ?? "Alas! Could not change the portal's state", "error");
     }
   };
 
@@ -114,12 +114,12 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
     try {
       const result = await onSave(form);
       if (result.success) {
-        addToast("Jira settings saved", "success");
+        addToast("Narayan Narayan! Jira portal configured", "success");
       } else {
-        addToast(result.error ?? "Failed to save settings", "error");
+        addToast(result.error ?? "Alas! The settings would not take hold", "error");
       }
     } catch {
-      addToast("Failed to save settings", "error");
+      addToast("Alas! The settings would not take hold", "error");
     } finally {
       setSaving(false);
     }
@@ -131,7 +131,7 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
         <div className="w-8 h-8 rounded-xl bg-white/[0.05] flex items-center justify-center text-base">
           {"\u{1F4CB}"}
         </div>
-        <span>Jira Work Logs Configuration</span>
+        <span>Jira Chronicle Portal</span>
         <button
           onClick={handleToggle}
           className={`ml-auto relative w-10 h-[22px] rounded-full transition-colors duration-200 ${
@@ -222,10 +222,10 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
         {/* Repeat/Fixed Entries */}
         <div className="bg-emerald-500/[0.05] border border-emerald-500/20 rounded-xl p-4 mt-3">
           <div className="text-[13px] font-semibold text-narada-emerald mb-2">
-            {"\u2699\uFE0F"} Repeat/Fixed Entries
+            {"\u2699\uFE0F"} Recurring Rituals
           </div>
           <div className="text-xs text-narada-text-muted mb-3">
-            Auto-added to every work log. For recurring meetings, standups, etc.
+            These sacred rituals repeat in every day&apos;s chronicle. For standups, meetings, and other daily rites.
           </div>
 
           <div className="flex flex-col gap-2 mb-3">
@@ -281,7 +281,7 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
             onClick={addRepeatEntry}
             className="px-4 py-2 text-xs bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-narada-emerald hover:bg-emerald-500/20 transition-all duration-300"
           >
-            + Add Repeat Entry
+            + Add Ritual
           </button>
         </div>
 
@@ -291,7 +291,7 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
             disabled={saving}
             className="h-8 px-3 rounded-xl bg-narada-primary text-white text-xs font-semibold shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:bg-blue-600 transition-all duration-300 disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? "Inscribing..." : "Inscribe"}
           </button>
         </div>
       </div>

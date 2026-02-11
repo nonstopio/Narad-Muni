@@ -58,12 +58,12 @@ export function HistoryList({ updates: initialUpdates }: Props) {
 
   return (
     <div className="flex-1 overflow-y-auto p-8">
-      <h1 className="text-[28px] font-bold text-narada-text mb-6">History</h1>
+      <h1 className="text-[28px] font-bold text-narada-text mb-6">Chronicles</h1>
 
       <div className="mb-6">
         <input
           type="text"
-          placeholder="Search updates..."
+          placeholder="Search the chronicles..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="glass-input max-w-[400px]"
@@ -74,8 +74,8 @@ export function HistoryList({ updates: initialUpdates }: Props) {
         {filtered.length === 0 ? (
           <div className="glass-card p-8 text-center text-narada-text-muted">
             {updates.length === 0
-              ? "No updates yet. Click a calendar day to create your first update."
-              : "No updates match your search."}
+              ? "The chronicles are empty. Choose a day on the calendar and let Narad carry your first message."
+              : "No scrolls match your search. Perhaps different words will reveal them."}
           </div>
         ) : (
           filtered.map((update) => (

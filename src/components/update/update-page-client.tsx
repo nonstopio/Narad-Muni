@@ -53,9 +53,9 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
 
   // Format the date for the header
   const dateTitle = useMemo(() => {
-    if (!dateParam) return "Create Update";
+    if (!dateParam) return "Compose Your Message";
     const parsed = new Date(dateParam + "T00:00:00");
-    if (isNaN(parsed.getTime())) return "Create Update";
+    if (isNaN(parsed.getTime())) return "Compose Your Message";
     return parsed.toLocaleDateString("en-US", {
       weekday: "long",
       month: "long",
@@ -67,7 +67,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
   const handleShareAll = useCallback(async () => {
     const success = await shareAll();
     if (success) {
-      useToastStore.getState().addToast("All updates published!", "success");
+      useToastStore.getState().addToast("Narayan Narayan! Your word has reached all three worlds!", "success");
       router.push("/");
     }
   }, [shareAll, router]);

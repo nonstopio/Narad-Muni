@@ -28,7 +28,7 @@ export function TeamsOutputCard() {
           }`}
         >
           {teamsEnabled && <Check className="w-3 h-3" />}
-          <span>{teamsEnabled ? "Enabled" : "Disabled"}</span>
+          <span>{teamsEnabled ? "Open" : "Sealed"}</span>
         </button>
       </div>
 
@@ -38,7 +38,7 @@ export function TeamsOutputCard() {
         value={teamsOutput}
         onChange={(e) => setTeamsOutput(e.target.value)}
         disabled={!teamsEnabled}
-        placeholder="Teams output will appear here after processing..."
+        placeholder="The scroll for Teams will materialize once the sage has spoken..."
       />
     </div>
   );
