@@ -11,6 +11,7 @@ Record once, publish everywhere.
 | Layer | Technology |
 |-------|-----------|
 | Framework | Next.js 16 + React 19 (App Router) |
+| Desktop | Electron 33 (macOS native, hiddenInset titlebar) |
 | Language | TypeScript |
 | UI | Tailwind CSS 4 + shadcn/ui + Framer Motion |
 | State | Zustand 5 |
@@ -42,28 +43,12 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Environment Variables
+### API Keys
 
-The `.env` file (committed) contains the database path:
+No `.env` files needed. All API keys are configured from the **Settings** page inside the app and stored in the database.
 
-```env
-DATABASE_URL="file:./dev.db"
-```
-
-Create a `.env.local` file in the project root for API keys:
-
-```env
-# Required — Deepgram (speech-to-text)
-DEEPGRAM_API_KEY=your_deepgram_key
-
-# Optional — only needed if using the Claude API provider
-ANTHROPIC_API_KEY=your_anthropic_key
-
-# Optional — only needed if using the Gemini provider
-GEMINI_API_KEY=your_gemini_key
-```
-
-> API keys can also be set from the Settings page inside the app (stored in the database).
+- **Deepgram** — required for voice input (configured in the "Divine Oracle" card)
+- **Claude API / Gemini** — optional, depends on your chosen AI provider
 
 ### Where to Get Keys & URLs
 
@@ -105,12 +90,19 @@ A core feature — configure recurring Jira work log entries (e.g. daily standup
 ## Scripts
 
 ```bash
-npm run dev        # Start development server
-npm run build      # Production build
-npm run lint       # ESLint
-npm run db:push    # Push Prisma schema to SQLite
-npm run db:seed    # Seed default platform configs
-npm run db:reset   # Reset DB + re-seed
+# Web
+npm run dev              # Start Next.js dev server
+npm run build            # Production build
+npm run lint             # ESLint
+
+# Electron
+npm run electron:dev     # Dev mode (Next.js + Electron concurrently)
+npm run electron:build   # Production build + package (.dmg/.app)
+
+# Database
+npm run db:push          # Push Prisma schema to SQLite
+npm run db:seed          # Seed default platform configs
+npm run db:reset         # Reset DB + re-seed
 ```
 
 ## Project Structure
@@ -140,5 +132,12 @@ src/
   types/                  # TypeScript interfaces
 prisma/
   schema.prisma           # Database schema (5 models)
+  migrations/             # SQL migration files (used by Electron)
   seed.ts                 # Default config seeder
+electron/
+  main.ts                 # Electron main process
+  db.ts                   # DB init + auto-migration runner
+  config.ts               # User config (window bounds, DB path)
+  dev-start.js            # Dev mode orchestrator
+  preload.ts              # Context bridge
 ```
