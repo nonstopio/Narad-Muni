@@ -29,7 +29,7 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   const body = await request.json();
-  const { aiProvider, geminiApiKey, claudeApiKey, deepgramApiKey } = body;
+  const { aiProvider, geminiApiKey, claudeApiKey, deepgramApiKey, removeKeys } = body;
 
   if (aiProvider && !VALID_PROVIDERS.includes(aiProvider)) {
     return NextResponse.json(
@@ -39,7 +39,7 @@ export async function PUT(request: NextRequest) {
   }
 
   // Build update data, skipping masked values to prevent overwrites
-  const updateData: Record<string, string> = {};
+  const updateData: Record<string, string | null> = {};
   if (aiProvider) updateData.aiProvider = aiProvider;
   if (geminiApiKey && !geminiApiKey.includes(MASKED)) {
     updateData.geminiApiKey = geminiApiKey;
@@ -49,6 +49,14 @@ export async function PUT(request: NextRequest) {
   }
   if (deepgramApiKey && !deepgramApiKey.includes(MASKED)) {
     updateData.deepgramApiKey = deepgramApiKey;
+  }
+
+  // Explicit key removal
+  const keysToRemove: string[] = Array.isArray(removeKeys) ? removeKeys : [];
+  for (const key of keysToRemove) {
+    if (["geminiApiKey", "claudeApiKey", "deepgramApiKey"].includes(key)) {
+      updateData[key] = null;
+    }
   }
 
   await prisma.appSettings.upsert({

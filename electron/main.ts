@@ -6,6 +6,12 @@ import { findAvailablePort } from "./port";
 
 const APP_NAME = "Narad Muni";
 app.setName(APP_NAME);
+app.setAboutPanelOptions({
+  applicationName: APP_NAME,
+  applicationVersion: require("../package.json").version,
+  copyright: "The Divine Messenger",
+  iconPath: path.join(__dirname, "..", "resources", "icon.png"),
+});
 const isDev = !app.isPackaged;
 
 let mainWindow: BrowserWindow | null = null;

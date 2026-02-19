@@ -30,9 +30,6 @@ export function SettingsClient({ initialConfigs }: Props) {
       <h1 className="text-[28px] font-bold text-narada-text mb-6">Sacred Configurations</h1>
 
       <div className="flex flex-col gap-6 max-w-[600px]">
-        <DatabaseConfigCard />
-        <AIProviderCard />
-
         {slackConfigs.map((config) => (
           <PlatformConfigCard
             key={config.id}
@@ -59,6 +56,9 @@ export function SettingsClient({ initialConfigs }: Props) {
             onToggle={saveConfig}
           />
         ))}
+
+        <DatabaseConfigCard />
+        <AIProviderCard />
       </div>
     </div>
   );

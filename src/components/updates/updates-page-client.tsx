@@ -78,10 +78,6 @@ export function UpdatesPageClient({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden p-6">
-      <div className="mb-6 flex-shrink-0">
-        <h1 className="text-[28px] font-bold text-narada-text">Narad Muni</h1>
-        <p className="text-sm text-narada-text-muted mt-1">Narayan Narayan! Speak once, and I shall carry your word across all three worlds.</p>
-      </div>
       <div className="flex-shrink-0"><StatsBar stats={stats} /></div>
       <Calendar updateDates={updateDatesSet} onDayClick={handleDayClick} />
 

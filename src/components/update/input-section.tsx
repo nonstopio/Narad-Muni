@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useUpdateStore } from "@/stores/update-store";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { AudioVisualizer } from "./audio-visualizer";
@@ -24,6 +25,16 @@ export function InputSection({ onProcess }: InputSectionProps) {
     setAudioBlob,
   } = useUpdateStore();
   const { toggleRecording, startRecording } = useAudioRecorder();
+
+  const [hasDeepgramKey, setHasDeepgramKey] = useState<boolean | null>(null);
+  useEffect(() => {
+    fetch("/api/settings/ai-provider")
+      .then((r) => r.json())
+      .then((data) => setHasDeepgramKey(!!data.hasDeepgramKey))
+      .catch(() => setHasDeepgramKey(false));
+  }, []);
+
+  const deepgramDisabled = hasDeepgramKey === false;
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -68,12 +79,17 @@ export function InputSection({ onProcess }: InputSectionProps) {
           <div className="flex items-center gap-3">
             <button
               onClick={toggleRecording}
-              className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:shadow-[0_0_30px_rgba(239,68,68,0.5)] hover:scale-105 active:scale-95 flex-shrink-0"
+              disabled={deepgramDisabled}
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0 ${
+                deepgramDisabled
+                  ? "bg-white/[0.06] text-narada-text-muted cursor-not-allowed"
+                  : "bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:shadow-[0_0_30px_rgba(239,68,68,0.5)] hover:scale-105 active:scale-95"
+              }`}
             >
               <Mic className="w-4.5 h-4.5" />
             </button>
             <span className="text-sm text-narada-text-secondary">
-              Speak your update
+              {deepgramDisabled ? "Configure Deepgram key in Settings to enable voice" : "Speak your update"}
             </span>
             {audioBlob && (
               <button

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useToastStore } from "@/components/ui/toast";
+import { X } from "lucide-react";
 import type { AIProvider } from "@/types";
 
 const PROVIDERS: { value: AIProvider; label: string; description: string }[] = [
@@ -34,6 +35,25 @@ export function AIProviderCard() {
   const [deepgramKey, setDeepgramKey] = useState(aiSettings.deepgramApiKey);
   const [saving, setSaving] = useState(false);
   const [keyError, setKeyError] = useState(false);
+  const [removingKey, setRemovingKey] = useState<string | null>(null);
+
+  const handleRemoveKey = useCallback(async (keyName: string, label: string) => {
+    setRemovingKey(keyName);
+    try {
+      await saveAIProviderSettings({
+        aiProvider: selected,
+        removeKeys: [keyName],
+      });
+      if (keyName === "geminiApiKey") setGeminiKey("");
+      if (keyName === "claudeApiKey") setClaudeKey("");
+      if (keyName === "deepgramApiKey") setDeepgramKey("");
+      addToast(`${label} key removed`, "success");
+    } catch {
+      addToast(`Failed to remove ${label} key`, "error");
+    } finally {
+      setRemovingKey(null);
+    }
+  }, [selected, saveAIProviderSettings, addToast]);
 
   useEffect(() => {
     fetchAIProviderSettings();
@@ -136,7 +156,17 @@ export function AIProviderCard() {
             onChange={(e) => { setGeminiKey(e.target.value); setKeyError(false); }}
           />
           {aiSettings.hasGeminiKey && (
-            <p className="text-xs text-narada-emerald mt-1">Key configured</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-xs text-narada-emerald">Key configured</p>
+              <button
+                onClick={() => handleRemoveKey("geminiApiKey", "Gemini")}
+                disabled={removingKey === "geminiApiKey"}
+                className="text-xs text-narada-text-muted hover:text-narada-rose transition-colors flex items-center gap-1"
+              >
+                <X className="w-3 h-3" />
+                Remove
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -154,7 +184,17 @@ export function AIProviderCard() {
             onChange={(e) => { setClaudeKey(e.target.value); setKeyError(false); }}
           />
           {aiSettings.hasClaudeKey && (
-            <p className="text-xs text-narada-emerald mt-1">Key configured</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-xs text-narada-emerald">Key configured</p>
+              <button
+                onClick={() => handleRemoveKey("claudeApiKey", "Claude")}
+                disabled={removingKey === "claudeApiKey"}
+                className="text-xs text-narada-text-muted hover:text-narada-rose transition-colors flex items-center gap-1"
+              >
+                <X className="w-3 h-3" />
+                Remove
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -171,7 +211,17 @@ export function AIProviderCard() {
           onChange={(e) => setDeepgramKey(e.target.value)}
         />
         {aiSettings.hasDeepgramKey && (
-          <p className="text-xs text-narada-emerald mt-1">Key configured</p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-xs text-narada-emerald">Key configured</p>
+            <button
+              onClick={() => handleRemoveKey("deepgramApiKey", "Deepgram")}
+              disabled={removingKey === "deepgramApiKey"}
+              className="text-xs text-narada-text-muted hover:text-narada-rose transition-colors flex items-center gap-1"
+            >
+              <X className="w-3 h-3" />
+              Remove
+            </button>
+          </div>
         )}
         <p className="text-xs text-narada-text-secondary mt-1.5">
           Required for voice input. Get one at deepgram.com

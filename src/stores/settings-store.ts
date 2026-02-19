@@ -28,6 +28,7 @@ interface SettingsStore {
     geminiApiKey?: string;
     claudeApiKey?: string;
     deepgramApiKey?: string;
+    removeKeys?: string[];
   }) => Promise<void>;
 }
 
