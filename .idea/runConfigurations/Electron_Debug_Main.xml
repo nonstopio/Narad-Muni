@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Electron: Debug Main" type="NodeJSConfigurationType">
+    <node-parameters value="node_modules/.bin/electron" />
+    <application-parameters value="." />
+    <working-dir value="$PROJECT_DIR$" />
+    <node-interpreter value="project" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="Electron: Compile" run_configuration_type="js.build_tools.npm" />
+    </method>
+  </configuration>
+</component>

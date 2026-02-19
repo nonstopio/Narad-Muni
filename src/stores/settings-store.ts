@@ -5,8 +5,10 @@ interface AIProviderSettings {
   aiProvider: AIProvider;
   geminiApiKey: string;
   claudeApiKey: string;
+  deepgramApiKey: string;
   hasGeminiKey: boolean;
   hasClaudeKey: boolean;
+  hasDeepgramKey: boolean;
 }
 
 interface SettingsStore {
@@ -25,6 +27,7 @@ interface SettingsStore {
     aiProvider: AIProvider;
     geminiApiKey?: string;
     claudeApiKey?: string;
+    deepgramApiKey?: string;
   }) => Promise<void>;
 }
 
@@ -77,8 +80,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     aiProvider: "local-claude",
     geminiApiKey: "",
     claudeApiKey: "",
+    deepgramApiKey: "",
     hasGeminiKey: false,
     hasClaudeKey: false,
+    hasDeepgramKey: false,
   },
   aiLoading: false,
 
@@ -92,8 +97,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
           aiProvider: data.aiProvider ?? "local-claude",
           geminiApiKey: data.geminiApiKey ?? "",
           claudeApiKey: data.claudeApiKey ?? "",
+          deepgramApiKey: data.deepgramApiKey ?? "",
           hasGeminiKey: data.hasGeminiKey ?? false,
           hasClaudeKey: data.hasClaudeKey ?? false,
+          hasDeepgramKey: data.hasDeepgramKey ?? false,
         },
       });
     } finally {
@@ -113,8 +120,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
         aiProvider: updated.aiProvider ?? "local-claude",
         geminiApiKey: updated.geminiApiKey ?? "",
         claudeApiKey: updated.claudeApiKey ?? "",
+        deepgramApiKey: updated.deepgramApiKey ?? "",
         hasGeminiKey: updated.hasGeminiKey ?? false,
         hasClaudeKey: updated.hasClaudeKey ?? false,
+        hasDeepgramKey: updated.hasDeepgramKey ?? false,
       },
     });
   },

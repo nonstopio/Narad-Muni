@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "electron:compile",
+      "type": "shell",
+      "command": "tsc",
+      "args": ["-p", "electron/tsconfig.json"],
+      "problemMatcher": "$tsc",
+      "group": "build"
+    },
+    {
+      "label": "electron:dev",
+      "type": "shell",
+      "command": "npm run electron:dev",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "electron:build",
+      "type": "shell",
+      "command": "npm run electron:build",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

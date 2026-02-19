@@ -31,6 +31,7 @@ export function AIProviderCard() {
   const [selected, setSelected] = useState<AIProvider>(aiSettings.aiProvider);
   const [geminiKey, setGeminiKey] = useState(aiSettings.geminiApiKey);
   const [claudeKey, setClaudeKey] = useState(aiSettings.claudeApiKey);
+  const [deepgramKey, setDeepgramKey] = useState(aiSettings.deepgramApiKey);
   const [saving, setSaving] = useState(false);
   const [keyError, setKeyError] = useState(false);
 
@@ -42,6 +43,7 @@ export function AIProviderCard() {
     setSelected(aiSettings.aiProvider);
     setGeminiKey(aiSettings.geminiApiKey);
     setClaudeKey(aiSettings.claudeApiKey);
+    setDeepgramKey(aiSettings.deepgramApiKey);
   }, [aiSettings]);
 
   const handleSave = async () => {
@@ -62,6 +64,7 @@ export function AIProviderCard() {
         aiProvider: selected,
         geminiApiKey: selected === "gemini" ? geminiKey : undefined,
         claudeApiKey: selected === "claude-api" ? claudeKey : undefined,
+        deepgramApiKey: deepgramKey || undefined,
       });
       addToast("Narayan Narayan! Your oracle of choice is set", "success");
     } catch {
@@ -133,7 +136,7 @@ export function AIProviderCard() {
             onChange={(e) => { setGeminiKey(e.target.value); setKeyError(false); }}
           />
           {aiSettings.hasGeminiKey && (
-            <p className="text-xs text-narada-emerald mt-1">Key configured (env or saved)</p>
+            <p className="text-xs text-narada-emerald mt-1">Key configured</p>
           )}
         </div>
       )}
@@ -151,10 +154,29 @@ export function AIProviderCard() {
             onChange={(e) => { setClaudeKey(e.target.value); setKeyError(false); }}
           />
           {aiSettings.hasClaudeKey && (
-            <p className="text-xs text-narada-emerald mt-1">Key configured (env or saved)</p>
+            <p className="text-xs text-narada-emerald mt-1">Key configured</p>
           )}
         </div>
       )}
+
+      <div className="mt-4 pt-4 border-t border-white/[0.06]">
+        <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+          Deepgram API Key
+        </label>
+        <input
+          className="glass-input font-mono text-[13px]"
+          type="password"
+          placeholder="Enter your Deepgram API key for voice transcription"
+          value={deepgramKey}
+          onChange={(e) => setDeepgramKey(e.target.value)}
+        />
+        {aiSettings.hasDeepgramKey && (
+          <p className="text-xs text-narada-emerald mt-1">Key configured</p>
+        )}
+        <p className="text-xs text-narada-text-secondary mt-1.5">
+          Required for voice input. Get one at deepgram.com
+        </p>
+      </div>
 
       <div className="flex gap-3 mt-4 pt-4 border-t border-white/[0.06]">
         <button

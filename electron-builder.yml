@@ -1,0 +1,63 @@
+appId: com.narada.app
+productName: Narad Muni
+copyright: Copyright © 2026
+
+directories:
+  output: dist
+  buildResources: resources
+
+files:
+  - dist-electron/**/*
+  - .next/standalone/**/*
+  - package.json
+
+extraResources:
+  - from: prisma/migrations
+    to: app/prisma/migrations
+    filter:
+      - "**/*.sql"
+
+mac:
+  category: public.app-category.productivity
+  icon: resources/icon.icns
+  target:
+    - dmg
+    - zip
+  darkModeSupport: true
+  hardenedRuntime: true
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+  extendInfo:
+    NSMicrophoneUsageDescription: "Narada needs microphone access to record your daily standup updates."
+
+win:
+  icon: resources/icon.ico
+  target:
+    - nsis
+
+nsis:
+  oneClick: true
+  perMachine: false
+
+linux:
+  icon: resources
+  target:
+    - AppImage
+  category: Office
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+asar: true
+
+asarUnpack:
+  - node_modules/.prisma/**/*
+  - node_modules/@prisma/engines/**/*
+
+npmRebuild: true

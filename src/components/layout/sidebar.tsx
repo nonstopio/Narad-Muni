@@ -15,9 +15,9 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-16 min-w-16 bg-narada-surface border-r border-white/[0.06] py-6 flex flex-col items-center">
+    <aside className="w-16 min-w-16 bg-narada-surface border-r border-white/[0.06] pt-12 pb-6 flex flex-col items-center">
       {/* Logo */}
-      <Link href="/" className="mb-8 block">
+      <Link href="/" className="mb-8 block titlebar-no-drag">
         <Image
           src="/icon.png"
           alt="Narada"
@@ -27,7 +27,7 @@ export function Sidebar() {
         />
       </Link>
 
-      <nav className="flex-1 flex flex-col items-center gap-2">
+      <nav className="flex-1 flex flex-col items-center gap-2 titlebar-no-drag">
         {navItems.map((item) => {
           const isActive =
             item.href === "/"

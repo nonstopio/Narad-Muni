@@ -5,6 +5,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { PlatformConfigCard } from "./platform-config-card";
 import { JiraConfigCard } from "./jira-config-card";
 import { AIProviderCard } from "./ai-provider-card";
+import { DatabaseConfigCard } from "./database-config-card";
 import type { PlatformConfigData } from "@/types";
 
 interface Props {
@@ -29,6 +30,7 @@ export function SettingsClient({ initialConfigs }: Props) {
       <h1 className="text-[28px] font-bold text-narada-text mb-6">Sacred Configurations</h1>
 
       <div className="flex flex-col gap-6 max-w-[600px]">
+        <DatabaseConfigCard />
         <AIProviderCard />
 
         {slackConfigs.map((config) => (

@@ -47,6 +47,35 @@
       "type": "node-terminal",
       "request": "launch",
       "command": "npm run db:reset"
+    },
+    {
+      "name": "Electron: Main Process",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+      "args": ["."],
+      "preLaunchTask": "electron:compile",
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/dist-electron/**/*.js"]
+    },
+    {
+      "name": "Electron: Dev (Full)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run electron:dev"
+    },
+    {
+      "name": "Electron: Renderer",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9222,
+      "webRoot": "${workspaceFolder}/src"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Electron: Full Stack Debug",
+      "configurations": ["Electron: Main Process", "Electron: Renderer"]
     }
   ]
 }

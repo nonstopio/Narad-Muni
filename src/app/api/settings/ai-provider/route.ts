@@ -20,14 +20,16 @@ export async function GET() {
     aiProvider: settings?.aiProvider ?? "local-claude",
     geminiApiKey: maskKey(settings?.geminiApiKey),
     claudeApiKey: maskKey(settings?.claudeApiKey),
-    hasGeminiKey: !!settings?.geminiApiKey || !!process.env.GEMINI_API_KEY,
-    hasClaudeKey: !!settings?.claudeApiKey || !!process.env.ANTHROPIC_API_KEY,
+    deepgramApiKey: maskKey(settings?.deepgramApiKey),
+    hasGeminiKey: !!settings?.geminiApiKey,
+    hasClaudeKey: !!settings?.claudeApiKey,
+    hasDeepgramKey: !!settings?.deepgramApiKey,
   });
 }
 
 export async function PUT(request: NextRequest) {
   const body = await request.json();
-  const { aiProvider, geminiApiKey, claudeApiKey } = body;
+  const { aiProvider, geminiApiKey, claudeApiKey, deepgramApiKey } = body;
 
   if (aiProvider && !VALID_PROVIDERS.includes(aiProvider)) {
     return NextResponse.json(
@@ -45,6 +47,9 @@ export async function PUT(request: NextRequest) {
   if (claudeApiKey && !claudeApiKey.includes(MASKED)) {
     updateData.claudeApiKey = claudeApiKey;
   }
+  if (deepgramApiKey && !deepgramApiKey.includes(MASKED)) {
+    updateData.deepgramApiKey = deepgramApiKey;
+  }
 
   await prisma.appSettings.upsert({
     where: { id: "app-settings" },
@@ -54,6 +59,7 @@ export async function PUT(request: NextRequest) {
       aiProvider: aiProvider ?? "local-claude",
       geminiApiKey: geminiApiKey && !geminiApiKey.includes(MASKED) ? geminiApiKey : undefined,
       claudeApiKey: claudeApiKey && !claudeApiKey.includes(MASKED) ? claudeApiKey : undefined,
+      deepgramApiKey: deepgramApiKey && !deepgramApiKey.includes(MASKED) ? deepgramApiKey : undefined,
     },
   });
 
@@ -66,7 +72,9 @@ export async function PUT(request: NextRequest) {
     aiProvider: settings?.aiProvider ?? "local-claude",
     geminiApiKey: maskKey(settings?.geminiApiKey),
     claudeApiKey: maskKey(settings?.claudeApiKey),
-    hasGeminiKey: !!settings?.geminiApiKey || !!process.env.GEMINI_API_KEY,
-    hasClaudeKey: !!settings?.claudeApiKey || !!process.env.ANTHROPIC_API_KEY,
+    deepgramApiKey: maskKey(settings?.deepgramApiKey),
+    hasGeminiKey: !!settings?.geminiApiKey,
+    hasClaudeKey: !!settings?.claudeApiKey,
+    hasDeepgramKey: !!settings?.deepgramApiKey,
   });
 }

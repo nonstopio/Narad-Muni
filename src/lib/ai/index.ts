@@ -11,18 +11,18 @@ export async function getAIProvider(): Promise<AIParseProvider> {
 
   switch (provider) {
     case "gemini": {
-      const apiKey = settings?.geminiApiKey || process.env.GEMINI_API_KEY;
+      const apiKey = settings?.geminiApiKey;
       if (!apiKey) {
-        throw new Error("Gemini API key not configured. Add it in Settings or set GEMINI_API_KEY env var.");
+        throw new Error("Gemini API key not configured. Add it in Settings.");
       }
       const { GeminiProvider } = await import("./gemini-provider");
       return new GeminiProvider(apiKey);
     }
 
     case "claude-api": {
-      const apiKey = settings?.claudeApiKey || process.env.ANTHROPIC_API_KEY;
+      const apiKey = settings?.claudeApiKey;
       if (!apiKey) {
-        throw new Error("Anthropic API key not configured. Add it in Settings or set ANTHROPIC_API_KEY env var.");
+        throw new Error("Anthropic API key not configured. Add it in Settings.");
       }
       const { ClaudeAPIProvider } = await import("./claude-api-provider");
       return new ClaudeAPIProvider(apiKey);

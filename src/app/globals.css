@@ -195,6 +195,15 @@
   color: #64748B;
 }
 
+/* Electron titlebar drag region */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
 .glass-input:focus {
   outline: none;
   background: rgba(255, 255, 255, 0.05);

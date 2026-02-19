@@ -50,7 +50,7 @@ Client (Next.js React) -> API Routes -> External Services
 - **WorkLogEntry** — Jira time entries linked to an Update (cascade delete); includes `isRepeat` flag and `jiraWorklogId` from API response
 - **PlatformConfig** — per-platform settings (webhook URLs, API tokens, Jira credentials)
 - **RepeatEntry** — recurring Jira work log entries auto-injected daily (configured in Settings)
-- **AppSettings** — AI provider selection + API keys (singleton row)
+- **AppSettings** — AI provider selection + API keys + Deepgram key (singleton row, all keys DB-stored)
 
 ## API Routes
 
@@ -63,8 +63,8 @@ Client (Next.js React) -> API Routes -> External Services
 | DELETE | `/api/updates?id=<id>` | Delete update (cascades to work log entries) |
 | GET | `/api/settings` | Fetch platform configs with repeat entries |
 | PUT | `/api/settings` | Update a platform config |
-| GET | `/api/settings/ai-provider` | Fetch AI provider + masked key status |
-| PUT | `/api/settings/ai-provider` | Update AI provider + API keys |
+| GET | `/api/settings/ai-provider` | Fetch AI provider + masked key status (includes Deepgram) |
+| PUT | `/api/settings/ai-provider` | Update AI provider + API keys (includes Deepgram) |
 
 ## Pages
 
@@ -103,17 +103,28 @@ Dark glassmorphism theme (inspired by Linear/Raycast/Arc).
 
 ## Environment Variables
 
-```env
-# .env (committed) — database path
-DATABASE_URL="file:./dev.db"
+No `.env` files are needed. All configuration is DB-backed:
 
-# .env.local (secrets) — API keys
-DEEPGRAM_API_KEY=...        # Required for voice input
-ANTHROPIC_API_KEY=...       # Optional (claude-api provider)
-GEMINI_API_KEY=...          # Optional (gemini provider)
+- **DATABASE_URL:** Hardcoded fallback `file:./dev.db` in `src/lib/prisma.ts`. Electron sets it programmatically to the user data directory path.
+- **API keys (Deepgram, Anthropic, Gemini):** All stored in the `AppSettings` table, configurable from the Settings page ("Divine Oracle" card). No env var fallbacks — DB is the single source of truth.
+
+## Electron Desktop App
+
+The app ships as a native macOS desktop app via Electron.
+
+- **Entry:** `electron/main.ts` — sets `DATABASE_URL`, initializes DB, launches BrowserWindow
+- **DB init:** `electron/db.ts` — runs bundled Prisma migration SQL files via better-sqlite3 (no Prisma CLI needed in packaged app). Applies pending migrations automatically on every startup.
+- **Config:** `electron/config.ts` — reads/writes `narada.config.json` in user data dir (window bounds, custom DB path)
+- **Dev mode:** `electron/dev-start.js` — sets `DATABASE_URL` to Electron DB path, runs `prisma db push` to sync schema, then starts Next.js dev server + Electron concurrently
+- **Build:** `npm run electron:build` — production build + electron-builder packaging
+
+```bash
+npm run electron:dev      # Compile TS + sync DB + start Next.js + Electron
+npm run electron:compile  # Compile electron/ TypeScript only
+npm run electron:build    # Full production build + package
 ```
 
-API keys can also be configured from the Settings page (stored in AppSettings table).
+**Schema migrations:** When adding columns to Prisma schema, also create a migration SQL file in `prisma/migrations/` so the Electron app can apply it to existing databases. `electron/db.ts` reads the `_prisma_migrations` table to skip already-applied migrations.
 
 ## Key Files
 
@@ -121,11 +132,16 @@ API keys can also be configured from the Settings page (stored in AppSettings ta
 |------|---------|
 | `src/lib/ai/prompt.ts` | AI system prompt + JSON schema for parsing |
 | `src/lib/ai/index.ts` | AI provider factory (selects active provider) |
+| `src/lib/deepgram.ts` | Deepgram transcription (reads API key from DB) |
+| `src/lib/prisma.ts` | Prisma client singleton + DATABASE_URL fallback |
 | `src/hooks/use-update-flow.ts` | Orchestrates transcribe -> parse -> preview |
 | `src/hooks/use-audio-recorder.ts` | Microphone + MediaRecorder + AnalyserNode |
 | `src/app/api/updates/route.ts` | Core publish logic (Slack webhook, Teams Adaptive Card, Jira worklog) |
 | `prisma/schema.prisma` | Database schema (5 models) |
 | `prisma/seed.ts` | Seeds default platform configs + app settings |
+| `electron/main.ts` | Electron main process entry point |
+| `electron/db.ts` | DB initialization + auto-migration runner |
+| `electron/dev-start.js` | Dev mode orchestrator (DB sync + concurrently) |
 
 ## Reference Files
 

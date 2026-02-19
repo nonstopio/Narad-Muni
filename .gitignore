@@ -45,3 +45,8 @@ next-env.d.ts
 # database
 prisma/dev.db
 prisma/dev.db-journal
+
+# electron
+/dist-electron/
+/dist/
+resources/icon.iconset/

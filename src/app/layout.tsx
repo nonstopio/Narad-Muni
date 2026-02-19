@@ -35,8 +35,10 @@ export default function RootLayout({
       >
         <GradientBlobs />
         <div className="flex w-full h-screen relative z-[1]">
+          {/* Electron titlebar drag region */}
+          <div className="fixed top-0 left-0 right-0 h-12 titlebar-drag z-50" />
           <Sidebar />
-          <main className="flex-1 flex flex-col overflow-hidden">
+          <main className="flex-1 flex flex-col overflow-hidden pt-12">
             {children}
           </main>
         </div>

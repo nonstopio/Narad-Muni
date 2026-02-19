@@ -59,8 +59,9 @@ model RepeatEntry {
 }
 
 model AppSettings {
-  id           String  @id @default("app-settings")
-  aiProvider   String  @default("local-claude")
-  geminiApiKey String?
-  claudeApiKey String?
+  id              String  @id @default("app-settings")
+  aiProvider      String  @default("local-claude")
+  geminiApiKey    String?
+  claudeApiKey    String?
+  deepgramApiKey  String?
 }
