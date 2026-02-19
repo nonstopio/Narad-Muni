@@ -50,8 +50,7 @@ export class LocalClaudeProvider implements AIParseProvider {
       "--max-budget-usd", "1.00",
     ];
 
-    console.log("[LocalClaude] Spawning CLI with args:", args);
-    console.log(`[LocalClaude] Piping stdin: ${stdinContent.length} chars`);
+    console.log(`[Narada → Local Claude] Spawning CLI — args=${JSON.stringify(args)}, stdin=${stdinContent.length} chars`);
 
     const stdout = await new Promise<string>((resolve, reject) => {
       const chunks: Buffer[] = [];
@@ -91,10 +90,9 @@ export class LocalClaudeProvider implements AIParseProvider {
           const out = Buffer.concat(chunks).toString("utf-8");
           const err = Buffer.concat(errChunks).toString("utf-8");
 
-          console.log(`[LocalClaude] Process closed with code: ${code}`);
-          console.log(`[LocalClaude] Raw stdout: ${out.slice(0, 500)}`);
+          console.log(`[Narada → Local Claude] Process exited — code=${code}, stdout=${out.length} chars`);
           if (err) {
-            console.log(`[LocalClaude] Raw stderr: ${err}`);
+            console.log(`[Narada → Local Claude] stderr: ${err}`);
           }
 
           if (code !== 0 && !out) {
@@ -122,7 +120,7 @@ export class LocalClaudeProvider implements AIParseProvider {
     const envelope = JSON.parse(stdout);
 
     console.log(
-      `[LocalClaude] Envelope subtype: ${envelope.subtype}, result type: ${typeof envelope.result}, result length: ${
+      `[Narada → Local Claude] Envelope — subtype=${envelope.subtype}, result_type=${typeof envelope.result}, result_length=${
         typeof envelope.result === "string" ? envelope.result.length : "N/A"
       }`
     );
@@ -141,7 +139,7 @@ export class LocalClaudeProvider implements AIParseProvider {
 
     // Strategy 1: result is already a parsed object
     if (typeof envelope.result === "object") {
-      console.log("[LocalClaude] Parsed result successfully (object)");
+      console.log("[Narada → Local Claude] Parsed result (object)");
       return envelope.result as ClaudeParseResult;
     }
 
@@ -149,7 +147,7 @@ export class LocalClaudeProvider implements AIParseProvider {
     const resultStr = envelope.result as string;
     try {
       const parsed = JSON.parse(resultStr);
-      console.log("[LocalClaude] Parsed result successfully (direct JSON.parse)");
+      console.log("[Narada → Local Claude] Parsed result (direct JSON.parse)");
       return parsed as ClaudeParseResult;
     } catch {
       // Not clean JSON, try extraction
@@ -160,7 +158,7 @@ export class LocalClaudeProvider implements AIParseProvider {
     if (jsonMatch) {
       try {
         const parsed = JSON.parse(jsonMatch[0]);
-        console.log("[LocalClaude] Parsed result successfully (regex extraction)");
+        console.log("[Narada → Local Claude] Parsed result (regex extraction)");
         return parsed as ClaudeParseResult;
       } catch {
         // Matched braces but invalid JSON inside
@@ -169,7 +167,7 @@ export class LocalClaudeProvider implements AIParseProvider {
 
     // All strategies failed
     console.error(
-      `[LocalClaude] JSON extraction failed, raw result: ${resultStr.slice(0, 300)}`
+      `[Narada → Local Claude] JSON extraction failed — raw result: ${resultStr.slice(0, 300)}`
     );
     throw new Error(
       `Claude CLI did not return valid JSON. Got: ${resultStr.slice(0, 300)}`

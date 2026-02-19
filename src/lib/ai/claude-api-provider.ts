@@ -19,6 +19,9 @@ export class ClaudeAPIProvider implements AIParseProvider {
     const client = new Anthropic({ apiKey: this.apiKey });
     const systemPrompt = buildSystemPrompt(date, repeatEntries);
 
+    const userMessage = buildUserMessage(transcript);
+    console.log(`[Narada → Claude API] Sending request — model=claude-sonnet-4-5-20250514, max_tokens=4096, system_prompt=${systemPrompt.length} chars, user_message=${userMessage.length} chars`);
+
     const response = await client.messages.create({
       model: "claude-sonnet-4-5-20250514",
       max_tokens: 4096,
@@ -31,7 +34,7 @@ export class ClaudeAPIProvider implements AIParseProvider {
         },
       ],
       tool_choice: { type: "tool", name: "parse_result" },
-      messages: [{ role: "user", content: buildUserMessage(transcript) }],
+      messages: [{ role: "user", content: userMessage }],
     });
 
     const toolBlock = response.content.find((b) => b.type === "tool_use");

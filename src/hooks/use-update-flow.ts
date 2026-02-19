@@ -13,6 +13,9 @@ export function useUpdateFlow() {
     const {
       rawTranscript,
       audioBlob,
+      slackEnabled,
+      teamsEnabled,
+      jiraEnabled,
       setSlackOutput,
       setTeamsOutput,
       setWorkLogEntries,
@@ -24,6 +27,14 @@ export function useUpdateFlow() {
     } = store;
 
     if (!rawTranscript && !audioBlob) return;
+
+    if (!slackEnabled && !teamsEnabled && !jiraEnabled) {
+      useToastStore.getState().addToast(
+        "Narayan Narayan! Enable at least one world in Sacred Configurations — whom shall I carry your word to?",
+        "error"
+      );
+      return;
+    }
 
     // Stay on "editing" step — processing happens inline in the right panel
     setIsProcessing(true);

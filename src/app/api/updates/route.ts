@@ -235,6 +235,10 @@ async function sendSlackWebhook(
     finalText = `<@${userId}>'s Updates for \`${displayDate}\` :\n\n${text}`;
   }
 
+  const maskedUrl = "…" + webhookUrl.slice(-8);
+  console.log(`[Narada → Slack] Sending webhook — url=${maskedUrl}, payload_length=${finalText.length} chars`);
+  console.log(`[Narada → Slack] Payload:\n${finalText}`);
+
   const res = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -298,6 +302,10 @@ async function sendTeamsWebhook(
   if (entities.length > 0) {
     cardContent.msteams = { entities };
   }
+
+  const maskedUrl = "…" + webhookUrl.slice(-8);
+  console.log(`[Narada → Teams] Sending webhook — url=${maskedUrl}, sections=${sections.length}, entities=${entities.length}`);
+  console.log(`[Narada → Teams] Adaptive Card payload:\n${JSON.stringify(cardContent, null, 2)}`);
 
   const res = await fetch(webhookUrl, {
     method: "POST",

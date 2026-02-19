@@ -78,7 +78,10 @@ export class GeminiProvider implements AIParseProvider {
       },
     });
 
-    const result = await model.generateContent(buildUserMessage(transcript));
+    const userMessage = buildUserMessage(transcript);
+    console.log(`[Narada → Gemini] Sending request — model=gemini-2.0-flash, system_prompt=${systemPrompt.length} chars, user_message=${userMessage.length} chars`);
+
+    const result = await model.generateContent(userMessage);
     const text = result.response.text();
     return JSON.parse(text) as ClaudeParseResult;
   }

@@ -14,14 +14,17 @@ export async function transcribeAudio(
 
   const deepgram = createClient(apiKey);
 
+  const config = {
+    model: "nova-3",
+    smart_format: true,
+    punctuate: true,
+    diarize: false,
+  };
+  console.log(`[Narada → Deepgram] Transcribing audio — buffer=${buffer.length} bytes, config=${JSON.stringify(config)}`);
+
   const { result, error } = await deepgram.listen.prerecorded.transcribeFile(
     buffer,
-    {
-      model: "nova-3",
-      smart_format: true,
-      punctuate: true,
-      diarize: false,
-    }
+    config
   );
 
   if (error) {
