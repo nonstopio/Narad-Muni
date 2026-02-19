@@ -75,6 +75,23 @@ Client (Next.js React) -> API Routes -> External Services
 | `/history` | Past updates list with search, detail modal, delete |
 | `/settings` | Platform configs (Slack/Teams/Jira), repeat entries, AI provider |
 
+## Voice & Personality
+
+All user-facing text must be written as if spoken by Narad Muni himself — the wandering divine sage who travels the three worlds (Devalok, Prithvilok, Patallok). Follow these guidelines:
+
+- **First person:** Narad speaks directly — "I shall carry your word", not "Your word will be carried"
+- **Signature greeting:** Use "Narayan Narayan!" as the characteristic exclamation (equivalent to "Hey!" or "Success!")
+- **Mythological metaphors:** Use "scrolls" (not messages), "chronicles" (not history), "three worlds" (not platforms), "invoke the sage" (not process), "sacred" (not important), "devotion" (not streak)
+- **Tone:** Warm, wise, slightly playful — like a benevolent sage who enjoys his work. Never robotic or corporate.
+- **Error messages:** Even failures should sound like a sage's lament — "Alas!" not "Error:"
+- **Keep it concise:** Narad is wise, not verbose. One-liners are preferred over paragraphs.
+
+Examples of good copy:
+- "Narayan Narayan! Your word has reached all three worlds!"
+- "The scrolls will materialize once the sage has spoken..."
+- "Alas! The oracle could not be reached"
+- "Grant me the Deepgram mantra in Sacred Configurations to hear your voice"
+
 ## Design System
 
 Dark glassmorphism theme (inspired by Linear/Raycast/Arc).

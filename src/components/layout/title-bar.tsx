@@ -12,7 +12,7 @@ export function TitleBar() {
       />
       <div className="flex items-baseline gap-2 titlebar-no-drag">
         <span className="text-sm font-semibold text-narada-text">Narad Muni</span>
-        <span className="text-xs text-narada-text-muted hidden sm:inline">Speak once, and I shall carry your word across all the worlds.</span>
+        <span className="text-xs text-narada-text-muted hidden sm:inline">Narayan Narayan! I carry your word across all three worlds.</span>
       </div>
     </div>
   );

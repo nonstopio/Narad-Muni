@@ -9,7 +9,7 @@ app.setName(APP_NAME);
 app.setAboutPanelOptions({
   applicationName: APP_NAME,
   applicationVersion: require("../package.json").version,
-  copyright: "The Divine Messenger",
+  copyright: "Narayan Narayan! I carry your word across all three worlds.",
   iconPath: path.join(__dirname, "..", "resources", "icon.png"),
 });
 const isDev = !app.isPackaged;

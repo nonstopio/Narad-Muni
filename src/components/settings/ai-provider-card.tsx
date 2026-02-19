@@ -47,9 +47,9 @@ export function AIProviderCard() {
       if (keyName === "geminiApiKey") setGeminiKey("");
       if (keyName === "claudeApiKey") setClaudeKey("");
       if (keyName === "deepgramApiKey") setDeepgramKey("");
-      addToast(`${label} key removed`, "success");
+      addToast(`Narayan Narayan! The ${label} mantra has been forgotten`, "success");
     } catch {
-      addToast(`Failed to remove ${label} key`, "error");
+      addToast(`Alas! I could not forget the ${label} mantra`, "error");
     } finally {
       setRemovingKey(null);
     }
@@ -224,7 +224,7 @@ export function AIProviderCard() {
           </div>
         )}
         <p className="text-xs text-narada-text-secondary mt-1.5">
-          Required for voice input. Get one at deepgram.com
+          I need this mantra to hear your voice. Seek one at deepgram.com
         </p>
       </div>
 

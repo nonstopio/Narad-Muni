@@ -89,7 +89,7 @@ export function InputSection({ onProcess }: InputSectionProps) {
               <Mic className="w-4.5 h-4.5" />
             </button>
             <span className="text-sm text-narada-text-secondary">
-              {deepgramDisabled ? "Configure Deepgram key in Settings to enable voice" : "Speak your update"}
+              {deepgramDisabled ? "Grant me the Deepgram mantra in Sacred Configurations to hear your voice" : "Speak your update"}
             </span>
             {audioBlob && (
               <button
