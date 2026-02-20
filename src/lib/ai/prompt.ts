@@ -46,7 +46,14 @@ Time distribution rules:
 - The total time for non-repeat entries should be at least ${remainingSecs} seconds (${(remainingSecs / 3600).toFixed(1)}h) to reach 8h total when combined with repeat entries
 - Minimum time per entry is 1800 seconds (30 minutes)
 - Round all time entries to the nearest 30-minute increment (1800s multiples)
-- Distribute remaining hours proportionally across tasks if the user doesn't specify exact times
+- If the user specifies exact times for tasks, use those values (rounded to nearest 30-min)
+- If the user does NOT specify exact times, infer relative weightage from each task's description:
+  - High-effort indicators (assign more time): implementation, development, debugging, migration, refactoring, architecture, design, integration, investigation, POC, performance optimization
+  - Medium-effort indicators (assign moderate time): code review, testing, writing tests, documentation, deployment, configuration, bug fix
+  - Low-effort indicators (assign less time): standup, sync, quick fix, typo fix, minor update, status update, email, message, follow-up
+  - If a task description mentions multiple sub-tasks or components, weight it higher
+  - If the user emphasizes effort with words like "mostly", "spent a lot of time", "deep dive", "major", weight it higher; words like "quick", "small", "brief", "minor" mean lower weight
+- After inferring relative weights, scale all entries so the total equals ${remainingSecs} seconds (${(remainingSecs / 3600).toFixed(1)}h), then round each to the nearest 30-min increment while preserving the 8h total
 
 Output format for slackFormat (Slack mrkdwn):
 \`TODAY\`
