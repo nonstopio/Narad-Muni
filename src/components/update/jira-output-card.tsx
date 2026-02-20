@@ -1,7 +1,11 @@
 "use client";
 
+import { useState } from "react";
+import parse from "parse-duration";
 import { useUpdateStore } from "@/stores/update-store";
-import { ClipboardList, Check } from "lucide-react";
+import { useAppStore } from "@/stores/app-store";
+import { ClipboardList, Check, Plus, X } from "lucide-react";
+import type { WorkLogEntryData } from "@/types";
 
 function formatTime(secs: number) {
   const h = Math.floor(secs / 3600);
@@ -16,11 +20,68 @@ function formatStartTime(started: string) {
   return started;
 }
 
+function parseTimeInput(raw: string): number | null {
+  const trimmed = raw.trim().toLowerCase();
+  if (!trimmed) return null;
+
+  const ms = parse(trimmed);
+  if (ms == null || ms <= 0) return null;
+
+  // Snap to nearest 30-minute increment, minimum 30m
+  const mins = ms / 60000;
+  const snapped = Math.round(mins / 30) * 30;
+  const clamped = Math.max(snapped, 30);
+  return clamped * 60; // convert minutes to seconds
+}
+
+function patchStartTime(originalStarted: string, newTime: string): string {
+  // Replace HH:MM in the ISO string, keeping the date portion
+  const datePrefix = originalStarted.slice(0, 11); // "YYYY-MM-DDT"
+  const suffix = originalStarted.slice(16); // everything after HH:MM
+  return `${datePrefix}${newTime}${suffix}`;
+}
+
+function buildDefaultEntry(dateStr: string): WorkLogEntryData {
+  return {
+    issueKey: "",
+    timeSpentSecs: 1800, // 30m
+    started: `${dateStr}T09:00:00.000+0000`,
+    comment: "",
+    isRepeat: false,
+  };
+}
+
 export function JiraOutputCard() {
-  const { workLogEntries, jiraEnabled, togglePlatform } = useUpdateStore();
+  const {
+    workLogEntries,
+    jiraEnabled,
+    togglePlatform,
+    updateWorkLogEntry,
+    addWorkLogEntry,
+    removeWorkLogEntry,
+  } = useUpdateStore();
+  const selectedDate = useAppStore((s) => s.selectedDate);
+
+  const [timeDrafts, setTimeDrafts] = useState<Record<number, string>>({});
 
   const totalHours =
     workLogEntries.reduce((sum, e) => sum + e.timeSpentSecs, 0) / 3600;
+
+  const handleAddEntry = () => {
+    const dateStr = selectedDate
+      ? selectedDate.toLocaleDateString("sv-SE")
+      : new Date().toLocaleDateString("sv-SE");
+    addWorkLogEntry(buildDefaultEntry(dateStr));
+  };
+
+  const handleRemoveEntry = (idx: number) => {
+    removeWorkLogEntry(idx);
+    setTimeDrafts((prev) => {
+      const next = { ...prev };
+      delete next[idx];
+      return next;
+    });
+  };
 
   return (
     <div
@@ -82,28 +143,121 @@ export function JiraOutputCard() {
                 <th className="bg-white/[0.03] p-2 text-left font-semibold text-narada-text-secondary border-b border-white/[0.06]">
                   Comment
                 </th>
+                <th className="bg-white/[0.03] p-2 w-8 border-b border-white/[0.06]" />
               </tr>
             </thead>
             <tbody>
               {workLogEntries.map((entry, idx) => (
-                <tr key={idx}>
-                  <td className="p-2 border-b border-white/[0.06] text-narada-text-secondary font-mono">
-                    {entry.issueKey}
+                <tr
+                  key={idx}
+                  className={
+                    entry.isRepeat ? "border-l-2 border-l-violet-500" : ""
+                  }
+                >
+                  <td className="p-1.5 border-b border-white/[0.06]">
+                    <input
+                      type="text"
+                      value={entry.issueKey}
+                      onChange={(e) =>
+                        updateWorkLogEntry(idx, {
+                          issueKey: e.target.value.toUpperCase(),
+                        })
+                      }
+                      className="glass-input w-full px-2 py-1 text-xs font-mono text-narada-text-secondary bg-transparent"
+                      placeholder="PROJ-123"
+                    />
                   </td>
-                  <td className="p-2 border-b border-white/[0.06] text-narada-text-secondary">
-                    {formatTime(entry.timeSpentSecs)}
+                  <td className="p-1.5 border-b border-white/[0.06]">
+                    <input
+                      type="text"
+                      value={
+                        timeDrafts[idx] !== undefined
+                          ? timeDrafts[idx]
+                          : formatTime(entry.timeSpentSecs)
+                      }
+                      onFocus={() =>
+                        setTimeDrafts((prev) => ({
+                          ...prev,
+                          [idx]: formatTime(entry.timeSpentSecs),
+                        }))
+                      }
+                      onChange={(e) =>
+                        setTimeDrafts((prev) => ({
+                          ...prev,
+                          [idx]: e.target.value,
+                        }))
+                      }
+                      onBlur={() => {
+                        const draft = timeDrafts[idx];
+                        if (draft !== undefined) {
+                          const parsed = parseTimeInput(draft);
+                          if (parsed !== null) {
+                            updateWorkLogEntry(idx, {
+                              timeSpentSecs: parsed,
+                            });
+                          }
+                        }
+                        setTimeDrafts((prev) => {
+                          const next = { ...prev };
+                          delete next[idx];
+                          return next;
+                        });
+                      }}
+                      className="glass-input w-24 px-2 py-1 text-xs text-narada-text-secondary bg-transparent"
+                      placeholder="1h 30m"
+                    />
                   </td>
-                  <td className="p-2 border-b border-white/[0.06] text-narada-text-secondary">
-                    {formatStartTime(entry.started)}
+                  <td className="p-1.5 border-b border-white/[0.06]">
+                    <input
+                      type="time"
+                      value={formatStartTime(entry.started)}
+                      onChange={(e) =>
+                        updateWorkLogEntry(idx, {
+                          started: patchStartTime(
+                            entry.started,
+                            e.target.value
+                          ),
+                        })
+                      }
+                      className="glass-input px-2 py-1 text-xs text-narada-text-secondary bg-transparent"
+                    />
                   </td>
-                  <td className="p-2 border-b border-white/[0.06] text-narada-text-secondary">
-                    {entry.comment}
+                  <td className="p-1.5 border-b border-white/[0.06]">
+                    <input
+                      type="text"
+                      value={entry.comment ?? ""}
+                      onChange={(e) =>
+                        updateWorkLogEntry(idx, { comment: e.target.value })
+                      }
+                      className="glass-input w-full px-2 py-1 text-xs text-narada-text-secondary bg-transparent"
+                      placeholder="What was done..."
+                    />
+                  </td>
+                  <td className="p-1.5 border-b border-white/[0.06] text-center">
+                    <button
+                      onClick={() => handleRemoveEntry(idx)}
+                      className="text-narada-text-muted hover:text-rose-400 transition-colors p-0.5"
+                      title="Remove entry"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Add Entry button */}
+      {jiraEnabled && (
+        <button
+          onClick={handleAddEntry}
+          className="mt-3 flex items-center gap-1.5 text-xs text-narada-text-muted hover:text-narada-text-secondary transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>Add Entry</span>
+        </button>
       )}
     </div>
   );

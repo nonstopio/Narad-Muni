@@ -28,6 +28,9 @@ interface UpdateStore {
   setSlackOutput: (output: string) => void;
   setTeamsOutput: (output: string) => void;
   setWorkLogEntries: (entries: WorkLogEntryData[]) => void;
+  updateWorkLogEntry: (index: number, patch: Partial<WorkLogEntryData>) => void;
+  addWorkLogEntry: (entry: WorkLogEntryData) => void;
+  removeWorkLogEntry: (index: number) => void;
   togglePlatform: (platform: "slack" | "teams" | "jira") => void;
   setProcessingError: (error: string | null) => void;
   setIsTranscribing: (transcribing: boolean) => void;
@@ -70,6 +73,18 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
   setSlackOutput: (output) => set({ slackOutput: output }),
   setTeamsOutput: (output) => set({ teamsOutput: output }),
   setWorkLogEntries: (entries) => set({ workLogEntries: entries }),
+  updateWorkLogEntry: (index, patch) =>
+    set((state) => ({
+      workLogEntries: state.workLogEntries.map((e, i) =>
+        i === index ? { ...e, ...patch } : e
+      ),
+    })),
+  addWorkLogEntry: (entry) =>
+    set((state) => ({ workLogEntries: [...state.workLogEntries, entry] })),
+  removeWorkLogEntry: (index) =>
+    set((state) => ({
+      workLogEntries: state.workLogEntries.filter((_, i) => i !== index),
+    })),
   togglePlatform: (platform) =>
     set((state) => {
       if (platform === "slack") return { slackEnabled: !state.slackEnabled };

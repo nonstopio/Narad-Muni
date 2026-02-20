@@ -36,6 +36,11 @@ process.env.DATABASE_URL = `file:${dbPath}`;
 console.log(`[dev-start] userDataDir: ${userDataDir}`);
 console.log(`[dev-start] DATABASE_URL: ${process.env.DATABASE_URL}`);
 
+// Kill stale Electron processes that may hold the single-instance lock
+try {
+  execSync("pkill -f 'electron \\.' 2>/dev/null || true", { stdio: "ignore" });
+} catch { /* ignore */ }
+
 // Apply any pending schema changes to the Electron DB before Next.js starts
 console.log("[dev-start] Syncing database schema...");
 execSync("npx prisma db push --skip-generate", { stdio: "inherit", env: process.env });

@@ -1,8 +1,31 @@
 "use client";
 
 import { useState } from "react";
+import parse from "parse-duration";
 import type { PlatformConfigData, RepeatEntryData } from "@/types";
 import { useToastStore } from "@/components/ui/toast";
+
+function parseHoursInput(raw: string): number | null {
+  const trimmed = raw.trim().toLowerCase();
+  if (!trimmed) return null;
+
+  const ms = parse(trimmed);
+  if (ms == null || ms <= 0) return null;
+
+  // Snap to nearest 30-minute increment, minimum 30m
+  const mins = ms / 60000;
+  const snapped = Math.round(mins / 30) * 30;
+  const clamped = Math.max(snapped, 30);
+  return clamped / 60; // return as hours
+}
+
+function formatHours(hours: number): string {
+  const totalMins = Math.round(hours * 60);
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  if (m > 0) return `${h}h ${m}m`;
+  return `${h}h`;
+}
 
 interface Props {
   config: PlatformConfigData;
@@ -27,6 +50,7 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
   const [form, setForm] = useState(config);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [hoursDrafts, setHoursDrafts] = useState<Record<number, string>>({});
   const addToast = useToastStore((s) => s.addToast);
 
   const update = (field: string, value: string) => {
@@ -245,11 +269,38 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
                 />
                 <input
                   className={`p-1.5 bg-white/[0.03] border rounded text-narada-text font-mono text-[11px] ${errors[`repeat_${idx}_hours`] ? "border-narada-rose" : "border-white/[0.06]"}`}
-                  value={`${entry.hours}h`}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value.replace("h", "")) || 0;
-                    updateRepeatEntry(idx, "hours", val);
+                  value={
+                    hoursDrafts[idx] !== undefined
+                      ? hoursDrafts[idx]
+                      : formatHours(entry.hours)
+                  }
+                  onFocus={() =>
+                    setHoursDrafts((prev) => ({
+                      ...prev,
+                      [idx]: formatHours(entry.hours),
+                    }))
+                  }
+                  onChange={(e) =>
+                    setHoursDrafts((prev) => ({
+                      ...prev,
+                      [idx]: e.target.value,
+                    }))
+                  }
+                  onBlur={() => {
+                    const draft = hoursDrafts[idx];
+                    if (draft !== undefined) {
+                      const parsed = parseHoursInput(draft);
+                      if (parsed !== null) {
+                        updateRepeatEntry(idx, "hours", parsed);
+                      }
+                    }
+                    setHoursDrafts((prev) => {
+                      const next = { ...prev };
+                      delete next[idx];
+                      return next;
+                    });
                   }}
+                  placeholder="1h 30m"
                 />
                 <input
                   className="p-1.5 bg-white/[0.03] border border-white/[0.06] rounded text-narada-text font-mono text-[11px]"
