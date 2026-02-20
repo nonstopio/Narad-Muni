@@ -9,6 +9,7 @@ import type { ProcessingStage } from "@/types";
 
 const PROVIDER_LABELS: Record<string, string> = {
   "local-claude": "Local Claude CLI",
+  "local-cursor": "Local Cursor CLI",
   "gemini": "Gemini AI",
   "claude-api": "Claude API",
 };

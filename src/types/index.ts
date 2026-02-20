@@ -1,4 +1,4 @@
-export type AIProvider = "gemini" | "claude-api" | "local-claude";
+export type AIProvider = "gemini" | "claude-api" | "local-claude" | "local-cursor";
 
 export type PublishStatus = "PENDING" | "SENT" | "FAILED" | "SKIPPED";
 

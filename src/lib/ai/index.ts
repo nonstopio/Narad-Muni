@@ -9,6 +9,8 @@ export async function getAIProvider(): Promise<AIParseProvider> {
 
   const provider = (settings?.aiProvider ?? "local-claude") as AIProvider;
 
+  console.log(`[AI] Using provider: ${provider}`);
+
   switch (provider) {
     case "gemini": {
       const apiKey = settings?.geminiApiKey;
@@ -31,6 +33,11 @@ export async function getAIProvider(): Promise<AIParseProvider> {
     case "local-claude": {
       const { LocalClaudeProvider } = await import("./local-claude-provider");
       return new LocalClaudeProvider();
+    }
+
+    case "local-cursor": {
+      const { LocalCursorProvider } = await import("./local-cursor-provider");
+      return new LocalCursorProvider();
     }
 
     default:

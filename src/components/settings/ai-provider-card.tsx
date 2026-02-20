@@ -13,6 +13,11 @@ const PROVIDERS: { value: AIProvider; label: string; description: string }[] = [
     description: "Channels wisdom through the Claude CLI on your machine. No API key needed.",
   },
   {
+    value: "local-cursor",
+    label: "Local Cursor (CLI)",
+    description: "Summons the Cursor sage dwelling on your machine. No API key needed.",
+  },
+  {
     value: "gemini",
     label: "Google Gemini",
     description: "Consults the Gemini oracle. Requires an API key.",

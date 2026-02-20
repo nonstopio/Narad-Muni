@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { AIProvider } from "@/types";
 
-const VALID_PROVIDERS: AIProvider[] = ["gemini", "claude-api", "local-claude"];
+const VALID_PROVIDERS: AIProvider[] = ["gemini", "claude-api", "local-claude", "local-cursor"];
 const MASKED = "••••••••";
 
 function maskKey(key: string | null | undefined): string {
