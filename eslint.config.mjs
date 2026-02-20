@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Electron (CJS, not part of Next.js app):
+    "dist-electron/**",
+    "electron/**",
   ]),
 ]);
 
