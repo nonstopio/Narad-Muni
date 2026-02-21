@@ -27,9 +27,10 @@ export function SettingsClient({ initialConfigs }: Props) {
 
   return (
     <div className="flex-1 overflow-y-auto p-8">
+      <div className="max-w-[600px] mx-auto">
       <h1 className="text-[28px] font-bold text-narada-text mb-6">Sacred Configurations</h1>
 
-      <div className="flex flex-col gap-6 max-w-[600px]">
+      <div className="flex flex-col gap-6">
         {slackConfigs.map((config) => (
           <PlatformConfigCard
             key={config.id}
@@ -59,6 +60,7 @@ export function SettingsClient({ initialConfigs }: Props) {
 
         <DatabaseConfigCard />
         <AIProviderCard />
+      </div>
       </div>
     </div>
   );
