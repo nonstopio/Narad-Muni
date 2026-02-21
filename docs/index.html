@@ -23,6 +23,7 @@
       --rose: #EF4444;
       --glass-bg: rgba(255, 255, 255, 0.03);
       --glass-border: rgba(255, 255, 255, 0.06);
+
       --text-primary: rgba(255, 255, 255, 0.92);
       --text-secondary: rgba(255, 255, 255, 0.55);
       --text-tertiary: rgba(255, 255, 255, 0.35);
@@ -130,7 +131,6 @@
     nav a.company-link img {
       height: 22px;
       width: auto;
-      filter: brightness(0) invert(1);
     }
 
     /* Scroll reveal animations */
@@ -530,6 +530,145 @@
       border-radius: 1px;
     }
 
+    /* Install instructions modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .modal-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal {
+      background: var(--bg-surface);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 32px;
+      max-width: 480px;
+      width: calc(100% - 48px);
+      position: relative;
+      transform: scale(0.95) translateY(10px);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+    }
+    .modal-overlay.visible .modal {
+      transform: scale(1) translateY(0);
+    }
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, color 0.2s;
+    }
+    .modal-close:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+    }
+    .modal-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .modal-subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+    .install-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .install-step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .install-step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .install-step-num.blue { background: rgba(59, 130, 246, 0.15); color: var(--blue); }
+    .install-step-num.violet { background: rgba(139, 92, 246, 0.15); color: var(--violet); }
+    .install-step-num.emerald { background: rgba(16, 185, 129, 0.15); color: var(--emerald); }
+    .install-step-num.amber { background: rgba(245, 158, 11, 0.15); color: var(--amber); }
+    .install-step-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .install-step-text strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .install-cmd {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      background: var(--bg-base);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--emerald);
+      word-break: break-all;
+    }
+    .install-cmd code {
+      flex: 1;
+      user-select: all;
+    }
+    .install-cmd-copy {
+      flex-shrink: 0;
+      background: none;
+      border: 1px solid var(--glass-border);
+      border-radius: 6px;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-family: 'Inter', sans-serif;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .install-cmd-copy:hover {
+      color: var(--text-primary);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .steps { flex-direction: column; gap: 32px; }
@@ -692,9 +831,6 @@
           <p class="download-loading">Consulting the celestial scrolls for the latest version</p>
         </div>
 
-        <div class="download-note reveal">
-          <strong>A note from the sage:</strong> These scrolls are not signed with a royal seal. On macOS, right-click the app and choose <strong>Open</strong> to bypass Gatekeeper. On Windows, click <strong>"More info" &rarr; "Run anyway"</strong> on the SmartScreen prompt.
-        </div>
       </div>
     </section>
   </main>
@@ -709,7 +845,68 @@
     </div>
   </footer>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" integrity="sha512-jEnuGYKil4xmmAAPMGmE09+sMey5PMdmPg++VjLbGp0gHOjm+9JY1HvaJIixS1Ug0DpuYMpKLtqiP1eCGLlLA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- Install instructions modal -->
+  <div class="modal-overlay" id="install-modal">
+    <div class="modal">
+      <button class="modal-close" id="modal-close" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <!-- macOS instructions -->
+      <div id="modal-mac" style="display:none;">
+        <p class="modal-title">Install on macOS</p>
+        <p class="modal-subtitle">The sage's scroll is unsigned. Follow these steps after downloading:</p>
+        <div class="install-steps">
+          <div class="install-step">
+            <span class="install-step-num blue">1</span>
+            <div class="install-step-text"><strong>Open the .dmg file</strong> and drag Narad Muni into Applications.</div>
+          </div>
+          <div class="install-step">
+            <span class="install-step-num violet">2</span>
+            <div class="install-step-text">
+              <strong>Remove the quarantine flag</strong> by running this in Terminal:
+              <div class="install-cmd">
+                <code>xattr -cr "/Applications/Narad Muni.app"</code>
+                <button class="install-cmd-copy" onclick="navigator.clipboard.writeText('xattr -cr &quot;/Applications/Narad Muni.app&quot;');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
+              </div>
+            </div>
+          </div>
+          <div class="install-step">
+            <span class="install-step-num emerald">3</span>
+            <div class="install-step-text"><strong>Open the app</strong> normally. Narayan Narayan!</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary btn-sm" onclick="closeInstallModal()">Got it</button>
+        </div>
+      </div>
+
+      <!-- Windows instructions -->
+      <div id="modal-win" style="display:none;">
+        <p class="modal-title">Install on Windows</p>
+        <p class="modal-subtitle">Windows SmartScreen may block the unsigned installer:</p>
+        <div class="install-steps">
+          <div class="install-step">
+            <span class="install-step-num blue">1</span>
+            <div class="install-step-text"><strong>Run the downloaded .exe</strong> installer.</div>
+          </div>
+          <div class="install-step">
+            <span class="install-step-num violet">2</span>
+            <div class="install-step-text">If SmartScreen appears, click <strong>"More info"</strong>.</div>
+          </div>
+          <div class="install-step">
+            <span class="install-step-num emerald">3</span>
+            <div class="install-step-text">Click <strong>"Run anyway"</strong> to proceed. Narayan Narayan!</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary btn-sm" onclick="closeInstallModal()">Got it</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" crossorigin="anonymous"></script>
   <script>
     // Lottie animation
     try {
@@ -832,6 +1029,43 @@
     }
 
     loadDownloads();
+
+    // Install instructions modal
+    const installModal = document.getElementById('install-modal');
+    const modalMac = document.getElementById('modal-mac');
+    const modalWin = document.getElementById('modal-win');
+
+    function showInstallModal(platform) {
+      modalMac.style.display = platform === 'mac' ? 'block' : 'none';
+      modalWin.style.display = platform === 'win' ? 'block' : 'none';
+      installModal.classList.add('visible');
+    }
+
+    function closeInstallModal() {
+      installModal.classList.remove('visible');
+    }
+
+    // Close on overlay click (not modal body)
+    installModal.addEventListener('click', function(e) {
+      if (e.target === installModal) closeInstallModal();
+    });
+    document.getElementById('modal-close').addEventListener('click', closeInstallModal);
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeInstallModal();
+    });
+
+    // Intercept download button clicks
+    document.getElementById('download-area').addEventListener('click', function(e) {
+      const btn = e.target.closest('a.btn');
+      if (!btn || !btn.href || !btn.href.includes('/download/')) return;
+      const text = btn.textContent.toLowerCase();
+      if (text.includes('macos')) {
+        showInstallModal('mac');
+      } else if (text.includes('windows')) {
+        showInstallModal('win');
+      }
+      // Download still proceeds — the <a> navigates normally
+    });
   </script>
 </body>
 </html>
