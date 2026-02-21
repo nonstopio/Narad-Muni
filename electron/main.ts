@@ -4,6 +4,24 @@ import { readConfig, getDbPath, saveWindowBounds } from "./config";
 import { initializeDatabase } from "./db";
 import { findAvailablePort } from "./port";
 
+// Next.js Turbopack generates hashed Prisma client modules (e.g. @prisma/client-<hash>)
+// as symlinks in .next/node_modules/. Inside the asar archive these symlinks break because
+// electron-builder strips nested node_modules. Redirect hashed requires to @prisma/client
+// which electron-builder does package.
+const Module = require("module");
+const _resolveFilename = Module._resolveFilename;
+Module._resolveFilename = function (
+  request: string,
+  parent: unknown,
+  isMain: boolean,
+  options: unknown
+) {
+  if (request.startsWith("@prisma/client-")) {
+    return _resolveFilename.call(this, "@prisma/client", parent, isMain, options);
+  }
+  return _resolveFilename.call(this, request, parent, isMain, options);
+};
+
 const APP_NAME = "Narad Muni";
 app.setName(APP_NAME);
 app.setAboutPanelOptions({
