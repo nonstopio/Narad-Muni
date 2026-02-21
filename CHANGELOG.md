@@ -5,6 +5,17 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-02-21
+
+### 🐛 Bug Fixes
+
+- Resolve Prisma client module errors in Electron packaged app (Turbopack hashed `@prisma/client` symlink broke inside asar archive)
+- Include generated `.prisma/client` in electron-builder package via FileSet
+
+### 💄 UI/UX
+
+- Revamp landing page with animations, stats section, how-it-works steps, company branding, and scroll reveal effects
+
 ## [1.0.3] - 2026-02-21
 
 ### Fixed
