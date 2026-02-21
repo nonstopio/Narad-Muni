@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useUpdateStore } from "@/stores/update-store";
 import { useSettingsStore } from "@/stores/settings-store";
-import { motion, AnimatePresence } from "framer-motion";
-import { Check, Loader2, Circle } from "lucide-react";
+import { motion } from "framer-motion";
+import Lottie from "lottie-react";
+import muniAnimation from "@/../public/muni.json";
 import type { ProcessingStage } from "@/types";
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -14,23 +15,37 @@ const PROVIDER_LABELS: Record<string, string> = {
   "claude-api": "Claude API",
 };
 
-const stages: { key: ProcessingStage; label: string }[] = [
-  { key: "transcribing", label: "Listening to your words" },
-  { key: "analyzing", label: "Seeking divine insight" },
-  { key: "formatting", label: "Crafting scrolls for three worlds" },
-];
+const STAGE_LABELS: Record<ProcessingStage, string> = {
+  transcribing: "Listening to your sacred words",
+  analyzing: "Seeking divine insight",
+  formatting: "Crafting scrolls for three worlds",
+};
 
-const tips = [
-  "Narad listens closely... gathering your deeds and accomplishments...",
-  "Counting the hours of your devotion, noting each sacred ticket...",
-  "Inscribing separate scrolls for each of the three worlds...",
-  "Sensing obstacles on the path... every sage knows where the thorns lie...",
-  "Arranging the chronicle of your day with care and precision...",
-];
+const STAGE_ORDER: ProcessingStage[] = ["transcribing", "analyzing", "formatting"];
+
+const STAGE_MESSAGES: Record<ProcessingStage, string[]> = {
+  transcribing: [
+    "Listening to your sacred words...",
+    "The sage hears all that is spoken...",
+  ],
+  analyzing: [
+    "Parsing your narration...",
+    "Detecting tasks and sacred tickets...",
+    "Weighing time across each endeavor...",
+    "Ensuring 8 hours of devotion are honored...",
+    "Identifying blockers on the path...",
+    "The oracle contemplates deeply...",
+  ],
+  formatting: [
+    "Inscribing scrolls for Slack...",
+    "Crafting the Teams chronicle...",
+    "Preparing Jira work log entries...",
+  ],
+};
 
 function getStageIndex(stage: ProcessingStage | null): number {
   if (!stage) return -1;
-  return stages.findIndex((s) => s.key === stage);
+  return STAGE_ORDER.indexOf(stage);
 }
 
 function getProgressPercent(stage: ProcessingStage | null): number {
@@ -42,75 +57,183 @@ function getProgressPercent(stage: ProcessingStage | null): number {
   }
 }
 
+/** Shared Muni orb — idle (still) or processing (pulsing) */
+export function MuniOrb({ active = false }: { active?: boolean }) {
+  return (
+    <motion.div
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{
+        scale: active ? [1, 1.12, 1] : 1,
+        opacity: 1,
+      }}
+      transition={
+        active
+          ? { scale: { duration: 2.5, ease: "easeInOut", repeat: Infinity }, opacity: { duration: 0.6 } }
+          : { duration: 0.6, ease: [0.4, 0, 0.2, 1] }
+      }
+      className="w-[220px] h-[220px]"
+    >
+      <Lottie
+        animationData={muniAnimation}
+        loop
+        className="w-full h-full"
+      />
+    </motion.div>
+  );
+}
+
+/** Typewriter message component */
+function TypewriterMessage({ text, onDone }: { text: string; onDone: () => void }) {
+  const [charIndex, setCharIndex] = useState(0);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
+  useEffect(() => {
+    if (charIndex < text.length) {
+      const timer = setTimeout(() => setCharIndex((i) => i + 1), 30);
+      return () => clearTimeout(timer);
+    } else {
+      const timer = setTimeout(() => onDoneRef.current(), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [charIndex, text.length]);
+
+  return (
+    <div className="font-mono text-xs text-narada-text-secondary leading-relaxed whitespace-pre-wrap">
+      <span className="text-narada-text-muted mr-1.5">&gt;</span>
+      {text.slice(0, charIndex)}
+      {charIndex < text.length && (
+        <span className="animate-blink text-narada-primary">&#9612;</span>
+      )}
+    </div>
+  );
+}
+
 export function StepProcessing() {
   const processingStage = useUpdateStore((s) => s.processingStage);
   const aiProvider = useSettingsStore((s) => s.aiSettings.aiProvider);
   const label = PROVIDER_LABELS[aiProvider] ?? "AI";
 
-  const [tipIndex, setTipIndex] = useState(0);
   const activeIndex = getStageIndex(processingStage);
   const progress = getProgressPercent(processingStage);
 
+  // Thought stream state
+  const [messages, setMessages] = useState<string[]>([]);
+  const [currentMsgIndex, setCurrentMsgIndex] = useState(0);
+  const [isTyping, setIsTyping] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const prevStageRef = useRef<ProcessingStage | null>(null);
+
+  // Reset messages when stage changes
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTipIndex((prev) => (prev + 1) % tips.length);
-    }, 2500);
-    return () => clearInterval(interval);
-  }, []);
+    if (processingStage && processingStage !== prevStageRef.current) {
+      prevStageRef.current = processingStage;
+      setMessages([]);
+      setCurrentMsgIndex(0);
+      setIsTyping(true);
+    }
+  }, [processingStage]);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isTyping]);
+
+  const handleMessageDone = useCallback(() => {
+    if (!processingStage) return;
+    const pool = STAGE_MESSAGES[processingStage];
+
+    setMessages((prev) => {
+      const msg = pool[currentMsgIndex % pool.length];
+      if (prev[prev.length - 1] === msg) return prev;
+      return [...prev, msg];
+    });
+
+    setCurrentMsgIndex((prev) => prev + 1);
+    setIsTyping(true);
+  }, [processingStage, currentMsgIndex]);
+
+  const currentPool = processingStage ? STAGE_MESSAGES[processingStage] : [];
+  const currentText = currentPool[currentMsgIndex % currentPool.length] ?? "";
 
   return (
-    <div className="flex flex-col items-center justify-center gap-6">
-      {/* Pipeline stages */}
-      <div className="w-full max-w-sm space-y-4">
-        {stages.map((stage, i) => {
+    <div className="flex flex-col items-center justify-center gap-5">
+      {/* Pulsing Muni Orb */}
+      <MuniOrb active />
+
+      {/* Stage label + provider */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.4 }}
+        className="text-center"
+      >
+        <p className="text-sm font-medium text-narada-text">
+          {processingStage ? STAGE_LABELS[processingStage] : "Preparing"}
+          {processingStage === "analyzing" && ` (${label})`}...
+        </p>
+      </motion.div>
+
+      {/* Compact stage dots */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4 }}
+        className="flex items-center gap-2"
+      >
+        {STAGE_ORDER.map((stage, i) => {
           const isCompleted = i < activeIndex;
           const isActive = i === activeIndex;
-          const isPending = i > activeIndex;
-
           return (
-            <motion.div
-              key={stage.key}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.1, duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-              className="flex items-center gap-3"
-            >
-              {/* Status icon */}
-              <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                {isCompleted && (
-                  <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                    <Check className="w-3.5 h-3.5 text-narada-emerald" />
-                  </div>
-                )}
-                {isActive && (
-                  <Loader2 className="w-5 h-5 text-narada-primary animate-spin" />
-                )}
-                {isPending && (
-                  <Circle className="w-5 h-5 text-narada-text-muted" />
-                )}
-              </div>
-
-              {/* Label */}
-              <span
-                className={`text-sm font-medium transition-colors duration-300 ${
-                  isCompleted
-                    ? "text-narada-emerald"
-                    : isActive
-                    ? "text-narada-text"
-                    : "text-narada-text-muted"
-                }`}
-              >
-                {stage.label}
-                {isActive && stage.key === "analyzing" && `  (${label})`}
-                {isActive && "..."}
-              </span>
-            </motion.div>
+            <div
+              key={stage}
+              className={`w-2 h-2 rounded-full transition-all duration-500 ${
+                isCompleted
+                  ? "bg-narada-emerald"
+                  : isActive
+                  ? "bg-narada-primary scale-125"
+                  : "bg-white/20"
+              }`}
+            />
           );
         })}
-      </div>
+      </motion.div>
+
+      {/* Thought stream */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5, duration: 0.4 }}
+        className="glass-card w-[280px] h-[140px] overflow-hidden p-3 flex flex-col"
+        style={{ borderRadius: "12px" }}
+      >
+        <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-1.5 scrollbar-none">
+          {messages.map((msg, i) => (
+            <div
+              key={`${i}-${msg}`}
+              className="font-mono text-xs text-narada-text-muted leading-relaxed whitespace-pre-wrap"
+              style={{
+                opacity: Math.max(0.3, 1 - (messages.length - i) * 0.15),
+              }}
+            >
+              <span className="mr-1.5">&gt;</span>
+              {msg}
+            </div>
+          ))}
+          {isTyping && processingStage && (
+            <TypewriterMessage
+              key={`typing-${currentMsgIndex}-${processingStage}`}
+              text={currentText}
+              onDone={handleMessageDone}
+            />
+          )}
+        </div>
+      </motion.div>
 
       {/* Progress bar */}
-      <div className="w-full max-w-sm h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+      <div className="w-[280px] h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
         <motion.div
           className="h-full rounded-full"
           style={{
@@ -119,22 +242,6 @@ export function StepProcessing() {
           animate={{ width: `${progress}%` }}
           transition={{ duration: 0.6, ease: "easeInOut" }}
         />
-      </div>
-
-      {/* Rotating tips */}
-      <div className="h-5 relative w-full max-w-sm">
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={tipIndex}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25, ease: "linear" }}
-            className="text-xs text-narada-text-muted text-center absolute inset-0"
-          >
-            {tips[tipIndex]}
-          </motion.p>
-        </AnimatePresence>
       </div>
     </div>
   );

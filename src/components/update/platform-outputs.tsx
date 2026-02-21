@@ -1,7 +1,7 @@
 "use client";
 
 import { useUpdateStore } from "@/stores/update-store";
-import { StepProcessing } from "./step-processing";
+import { StepProcessing, MuniOrb } from "./step-processing";
 import { SlackOutputCard } from "./slack-output-card";
 import { TeamsOutputCard } from "./teams-output-card";
 import { JiraOutputCard } from "./jira-output-card";
@@ -43,13 +43,11 @@ export function PlatformOutputs({
     );
   }
 
-  // Not processed yet — empty state
+  // Not processed yet — idle orb
   if (!previewReady && !isProcessing) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-6">
-        <div className="w-16 h-16 rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4">
-          <Loader2 className="w-7 h-7 text-narada-text-muted" />
-        </div>
+        <MuniOrb />
         <p className="text-sm text-narada-text-secondary mb-1">
           Narad awaits your words
         </p>
