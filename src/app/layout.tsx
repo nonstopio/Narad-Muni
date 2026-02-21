@@ -5,6 +5,7 @@ import { GradientBlobs } from "@/components/layout/gradient-blobs";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TitleBar } from "@/components/layout/title-bar";
 import { ToastContainer } from "@/components/ui/toast";
+import { KeyboardShortcutsProvider } from "@/components/layout/keyboard-shortcuts-provider";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -43,6 +44,7 @@ export default function RootLayout({
           </main>
         </div>
         <ToastContainer />
+        <KeyboardShortcutsProvider />
       </body>
     </html>
   );

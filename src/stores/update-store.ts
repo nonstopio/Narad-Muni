@@ -38,6 +38,10 @@ interface UpdateStore {
   setAnalyserNode: (node: AnalyserNode | null) => void;
   setPreviewReady: (ready: boolean) => void;
   setIsProcessing: (processing: boolean) => void;
+  onInvokeSage: (() => void) | null;
+  onDispatch: (() => void) | null;
+  setOnInvokeSage: (cb: (() => void) | null) => void;
+  setOnDispatch: (cb: (() => void) | null) => void;
   initPlatformToggles: (configs: PlatformConfigData[]) => void;
   resetForNewUpdate: () => void;
   reset: () => void;
@@ -61,6 +65,8 @@ const initialState = {
   analyserNode: null as AnalyserNode | null,
   previewReady: false,
   isProcessing: false,
+  onInvokeSage: null as (() => void) | null,
+  onDispatch: null as (() => void) | null,
 };
 
 export const useUpdateStore = create<UpdateStore>((set) => ({
@@ -97,6 +103,8 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
   setAnalyserNode: (node) => set({ analyserNode: node }),
   setPreviewReady: (ready) => set({ previewReady: ready }),
   setIsProcessing: (processing) => set({ isProcessing: processing }),
+  setOnInvokeSage: (cb) => set({ onInvokeSage: cb }),
+  setOnDispatch: (cb) => set({ onDispatch: cb }),
   initPlatformToggles: (configs) =>
     set({
       slackEnabled: configs.find((c) => c.platform === "SLACK")?.isActive ?? false,
@@ -119,6 +127,8 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
       analyserNode: null,
       previewReady: false,
       isProcessing: false,
+      onInvokeSage: null,
+      onDispatch: null,
       // Note: platform toggles are NOT reset — they're set by initPlatformToggles
     }),
   reset: () => set(initialState),

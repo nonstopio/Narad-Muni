@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, ClipboardList } from "lucide-react";
 import type { UpdateData } from "@/types";
 
@@ -56,6 +56,14 @@ interface Props {
 export function HistoryDetailModal({ update, onClose, onDelete }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    function handleEscape() {
+      onClose();
+    }
+    document.addEventListener("narada:escape", handleEscape);
+    return () => document.removeEventListener("narada:escape", handleEscape);
+  }, [onClose]);
 
   const dateStr = new Date(update.date).toLocaleDateString("en-US", {
     weekday: "long",

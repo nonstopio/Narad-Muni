@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useCallback } from "react";
+import { useEffect, useRef, useMemo, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAppStore } from "@/stores/app-store";
 import { useUpdateStore } from "@/stores/update-store";
@@ -71,6 +71,33 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
       router.push("/");
     }
   }, [shareAll, router]);
+
+  // Register keyboard shortcut callbacks (refs avoid re-render loop)
+  const processRef = useRef(processWithAI);
+  const shareRef = useRef(handleShareAll);
+  useEffect(() => { processRef.current = processWithAI; }, [processWithAI]);
+  useEffect(() => { shareRef.current = handleShareAll; }, [handleShareAll]);
+
+  useEffect(() => {
+    const { setOnInvokeSage, setOnDispatch } = useUpdateStore.getState();
+    setOnInvokeSage(() => {
+      const { rawTranscript, isProcessing } = useUpdateStore.getState();
+      if (rawTranscript.trim() && !isProcessing) {
+        processRef.current();
+      }
+    });
+    setOnDispatch(() => {
+      const { previewReady, step } = useUpdateStore.getState();
+      if (previewReady && step !== "sharing") {
+        shareRef.current();
+      }
+    });
+    return () => {
+      const s = useUpdateStore.getState();
+      s.setOnInvokeSage(null);
+      s.setOnDispatch(null);
+    };
+  }, []);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">

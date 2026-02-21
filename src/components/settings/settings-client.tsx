@@ -6,6 +6,7 @@ import { PlatformConfigCard } from "./platform-config-card";
 import { JiraConfigCard } from "./jira-config-card";
 import { AIProviderCard } from "./ai-provider-card";
 import { DatabaseConfigCard } from "./database-config-card";
+import { KeyboardShortcutsCard } from "./keyboard-shortcuts-card";
 import type { PlatformConfigData } from "@/types";
 
 interface Props {
@@ -60,6 +61,7 @@ export function SettingsClient({ initialConfigs }: Props) {
 
         <DatabaseConfigCard />
         <AIProviderCard />
+        <KeyboardShortcutsCard />
       </div>
       </div>
     </div>
