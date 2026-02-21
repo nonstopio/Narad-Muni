@@ -1,26 +1,63 @@
+<div align="center">
+
+<img src="resources/icon.png" alt="Narad Muni" width="120" />
+
 # Narad Muni
 
-**Speak once, inform all three worlds.**
+**Narayan Narayan! Speak once, and I shall carry your word across all three worlds.**
 
-Like the divine messenger [Narad Muni](https://en.wikipedia.org/wiki/Narada) who travels across *Akasha*, *Prithvi*, and *Patala* carrying word to the right people at the right time — this tool takes a single voice recording and delivers formatted daily updates to **Slack**, **Microsoft Teams**, and **Jira** work logs.
+[![Download](https://img.shields.io/badge/Download-Landing_Page-blue?style=for-the-badge&logo=github)](https://nonstopio.github.io/Narad-Muni/)
+[![Release](https://img.shields.io/github/v/release/nonstopio/Narad-Muni?style=for-the-badge&logo=electron&label=Latest)](https://github.com/nonstopio/Narad-Muni/releases/latest)
+[![License](https://img.shields.io/github/license/nonstopio/Narad-Muni?style=for-the-badge)](LICENSE)
 
-Record once, publish everywhere.
+<br />
 
-## Tech Stack
+*Like the divine messenger [Narad Muni](https://en.wikipedia.org/wiki/Narada) who travels across Devalok, Prithvilok, and Patallok carrying sacred word to the right souls at the right time — this tool takes a single voice recording and delivers formatted daily updates to **Slack**, **Microsoft Teams**, and **Jira** work logs.*
+
+**Record once, publish everywhere.** 🚀
+
+[Download the App](https://nonstopio.github.io/Narad-Muni/) · [View Releases](https://github.com/nonstopio/Narad-Muni/releases) · [Report Issue](https://github.com/nonstopio/Narad-Muni/issues)
+
+> 🎉 **Founded by [Ajay Kumar](https://github.com/ProjectAJ14)** 🎉
+
+</div>
+
+---
+
+## ✨ The Sage's Sacred Flow
+
+```
+   🎙️ Speak            🔮 AI Oracle           📜 Preview            🌐 Publish
+  ─────────── ──▶ ─────────────── ──▶ ─────────────── ──▶ ───────────────
+  Record your       Deepgram + AI        Edit per-platform      Slack, Teams,
+  daily standup     extract tasks,       formatted output       Jira — all at
+  naturally         times, blockers      with toggles           once
+```
+
+1. 🎙️ **Invoke** — Record audio (with live waveform) or type your daily update
+2. 🔮 **Oracle** — AI extracts tasks, blockers, time entries and formats output for each realm
+3. 👁️ **Preview** — Tabbed view (Slack / Teams / Jira) with editable content and per-platform toggles
+4. 🌐 **Deliver** — One click sends your scrolls to all enabled worlds simultaneously
+
+---
+
+## 🛠️ Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 16 + React 19 (App Router) |
-| Desktop | Electron 33 (macOS native, hiddenInset titlebar) |
-| Language | TypeScript |
-| UI | Tailwind CSS 4 + shadcn/ui + Framer Motion |
-| State | Zustand 5 |
-| Database | SQLite + Prisma 6 |
-| Speech-to-Text | Deepgram Nova-3 |
-| AI Processing | Claude API / Gemini / Local Claude CLI |
-| Icons | Lucide React |
+|:------|:-----------|
+| **Framework** | Next.js 16 + React 19 (App Router) |
+| **Desktop** | Electron 33 (macOS native, hiddenInset titlebar) |
+| **Language** | TypeScript |
+| **UI** | Tailwind CSS 4 + shadcn/ui + Framer Motion |
+| **State** | Zustand 5 |
+| **Database** | SQLite + Prisma 6 |
+| **Speech-to-Text** | Deepgram Nova-3 |
+| **AI Processing** | Claude API / Gemini / Local Claude CLI |
+| **Icons** | Lucide React |
 
-## Getting Started
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
@@ -43,51 +80,28 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### API Keys
+### 🔑 API Keys
 
 No `.env` files needed. All API keys are configured from the **Settings** page inside the app and stored in the database.
 
-- **Deepgram** — required for voice input (configured in the "Divine Oracle" card)
-- **Claude API / Gemini** — optional, depends on your chosen AI provider
-
-### Where to Get Keys & URLs
-
 | Service | What You Need | Where to Get It |
-|---------|--------------|-----------------|
-| **Deepgram** | API Key | [console.deepgram.com](https://console.deepgram.com/) — create a project, go to API Keys |
+|:--------|:-------------|:----------------|
+| **Deepgram** | API Key | [console.deepgram.com](https://console.deepgram.com/) |
 | **Claude API** | API Key | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
 | **Gemini** | API Key | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
-| **Slack** | Incoming Webhook URL | [api.slack.com/apps](https://api.slack.com/apps) — create app, enable Incoming Webhooks, add to channel |
-| **Teams** | Incoming Webhook URL | In Teams channel: Connectors > Incoming Webhook > configure and copy URL |
-| **Jira** | Base URL | Your Atlassian instance, e.g. `https://yourcompany.atlassian.net` |
-| **Jira** | Email | The email tied to your Atlassian account |
-| **Jira** | API Token | [id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens) — Create API Token |
+| **Slack** | Incoming Webhook URL | [api.slack.com/apps](https://api.slack.com/apps) — Incoming Webhooks |
+| **Teams** | Incoming Webhook URL | Channel > Connectors > Incoming Webhook |
+| **Jira** | Base URL + Email + API Token | [id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens) |
 
-## How It Works
+---
 
-```
-Calendar day click
-  -> Record voice or type text
-  -> Deepgram transcribes audio to text
-  -> AI parses transcript into structured data
-     (tasks, blockers, time entries, Slack/Teams formats)
-  -> Preview & edit per-platform output
-  -> "Share All" publishes to enabled platforms
-  -> Results saved to SQLite
-```
+## 🔁 Repeat Entries
 
-### The 4-Step Flow
+A sacred feature — configure recurring Jira work log entries (e.g. daily standup, EOD sync) in Settings. These are auto-injected into every day's work log and the AI scales times to meet the 8-hour minimum. Never re-enter the same entries manually again.
 
-1. **Input** — Record audio (with live waveform) or type your daily update
-2. **Processing** — AI extracts tasks, blockers, time entries and formats output for each platform
-3. **Preview** — Tabbed view (Slack / Teams / Jira) with editable content and per-platform toggles
-4. **Publish** — One click sends to all enabled platforms simultaneously
+---
 
-### Repeat Entries
-
-A core feature — configure recurring Jira work log entries (e.g. daily standup, EOD sync) in Settings. These are auto-injected into every day's work log so you never have to re-enter them manually.
-
-## Scripts
+## 📜 Scripts
 
 ```bash
 # Web
@@ -97,7 +111,7 @@ npm run lint             # ESLint
 
 # Electron
 npm run electron:dev     # Dev mode (Next.js + Electron concurrently)
-npm run electron:build   # Production build + package (.dmg/.app)
+npm run electron:build   # Production build + package
 
 # Database
 npm run db:push          # Push Prisma schema to SQLite
@@ -105,7 +119,9 @@ npm run db:seed          # Seed default platform configs
 npm run db:reset         # Reset DB + re-seed
 ```
 
-## Project Structure
+---
+
+## 📂 Project Structure
 
 ```
 src/
@@ -140,4 +156,29 @@ electron/
   config.ts               # User config (window bounds, DB path)
   dev-start.js            # Dev mode orchestrator
   preload.ts              # Context bridge
+docs/
+  index.html              # GitHub Pages landing page
 ```
+
+---
+
+## 🏷️ Releasing
+
+Pushing a version tag triggers the CI/CD pipeline which builds cross-platform installers and creates a GitHub Release.
+
+```bash
+npm version patch    # or minor / major
+git push origin main --follow-tags
+```
+
+The [landing page](https://nonstopio.github.io/Narad-Muni/) automatically picks up the latest release.
+
+---
+
+<div align="center">
+
+Built with devotion at [nonstop.io](https://nonstopio.com) ✨
+
+*Narayan Narayan!* 🙏
+
+</div>
