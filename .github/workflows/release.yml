@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+            arch: arm64
+            artifact: narada-mac-arm64
+          - os: macos-13
+            platform: mac
+            arch: x64
+            artifact: narada-mac-x64
+          - os: windows-latest
+            platform: win
+            arch: x64
+            artifact: narada-win-x64
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.platform }}-${{ matrix.arch }})
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Build Next.js
+        run: npm run build
+
+      - name: Copy static assets into standalone
+        shell: bash
+        run: |
+          cp -r .next/static .next/standalone/.next/static
+          cp -r public .next/standalone/public
+
+      - name: Compile Electron TypeScript
+        run: npm run electron:compile
+
+      - name: Disable macOS code signing
+        if: matrix.platform == 'mac'
+        run: echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> $GITHUB_ENV
+
+      - name: Build Electron app
+        run: npx electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.exe
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Create Release
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: find artifacts -type f | head -20
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.zip
+            artifacts/**/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
