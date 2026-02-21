@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { SettingsClient } from "@/components/settings/settings-client";
 import type { PlatformConfigData } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 export default async function SettingsPage() {
   const configs = await prisma.platformConfig.findMany({
     include: { repeatEntries: true },

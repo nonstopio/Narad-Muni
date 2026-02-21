@@ -3,6 +3,8 @@ import { HistoryList } from "@/components/history/history-list";
 import type { UpdateData } from "@/types";
 import type { PublishStatus } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 export default async function HistoryPage() {
   const updates = await prisma.update.findMany({
     include: { workLogEntries: true },

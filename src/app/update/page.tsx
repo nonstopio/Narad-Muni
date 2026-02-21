@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { UpdatePageClient } from "@/components/update/update-page-client";
 import type { PlatformConfigData } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 export default async function UpdatePage() {
   const configs = await prisma.platformConfig.findMany({
     include: { repeatEntries: true },

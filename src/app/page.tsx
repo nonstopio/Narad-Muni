@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { UpdatesPageClient } from "@/components/updates/updates-page-client";
 import type { UpdateData, PublishStatus } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 export default async function UpdatesPage() {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
