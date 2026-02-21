@@ -32,6 +32,7 @@ jobs:
 
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DATABASE_URL: file:./dev.db
 
     steps:
       - name: Checkout
