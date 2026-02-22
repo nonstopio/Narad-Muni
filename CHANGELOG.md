@@ -5,6 +5,19 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-22
+
+### ✨ Features
+
+- Add in-app issue reporter ("Seek Aid") with AI-powered enrichment for submitting bug reports and feature requests
+- Add install instructions modal with platform-specific guidance for macOS and Windows
+- Add company logo link to the title bar for quick navigation
+
+### 🐛 Bug Fixes
+
+- Format issue title via AI and strip preamble from the enriched body to produce cleaner reports
+- Add keyboard shortcuts for the Seek Aid (/report) page
+
 ## [1.0.4] - 2026-02-21
 
 ### 🐛 Bug Fixes
