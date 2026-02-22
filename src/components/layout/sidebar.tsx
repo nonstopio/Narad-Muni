@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Clock, Settings } from "lucide-react";
+import { Calendar, Clock, Settings, LifeBuoy } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Scrolls", icon: Calendar },
   { href: "/history", label: "Chronicles", icon: Clock },
   { href: "/settings", label: "Configurations", icon: Settings },
+  { href: "/report", label: "Seek Aid", icon: LifeBuoy },
 ];
 
 export function Sidebar() {
