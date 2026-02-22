@@ -43,6 +43,11 @@ export function useKeyboardShortcuts() {
           router.push("/settings");
           return;
         }
+        if (e.key === "4") {
+          e.preventDefault();
+          router.push("/report");
+          return;
+        }
       }
 
       // ⌘+Enter — Invoke the Sage (works in textareas)
@@ -98,6 +103,12 @@ export function useKeyboardShortcuts() {
           e.preventDefault();
           lastKeyRef.current = null;
           router.push("/settings");
+          return;
+        }
+        if (e.key === "r") {
+          e.preventDefault();
+          lastKeyRef.current = null;
+          router.push("/report");
           return;
         }
       }
