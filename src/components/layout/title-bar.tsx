@@ -14,6 +14,20 @@ export function TitleBar() {
         <span className="text-sm font-semibold text-narada-text">Narad Muni</span>
         <span className="text-xs text-narada-text-muted hidden sm:inline">Narayan Narayan! I carry your word across all three worlds.</span>
       </div>
+      <a
+        href="https://nonstopio.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="absolute right-4 titlebar-no-drag"
+      >
+        <Image
+          src="/company-logo.png"
+          alt="Company Logo"
+          width={28}
+          height={28}
+          className="rounded-md"
+        />
+      </a>
     </div>
   );
 }
