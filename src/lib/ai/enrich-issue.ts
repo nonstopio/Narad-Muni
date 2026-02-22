@@ -3,10 +3,15 @@ import { prisma } from "@/lib/prisma";
 import type { AIProvider } from "@/types";
 import { buildIssueSystemPrompt, buildIssueUserMessage } from "./issue-prompt";
 
+export interface EnrichedIssue {
+  title: string;
+  body: string;
+}
+
 export async function enrichIssueDescription(
   title: string,
   description: string
-): Promise<string> {
+): Promise<EnrichedIssue> {
   const settings = await prisma.appSettings.findUnique({
     where: { id: "app-settings" },
   });
@@ -16,6 +21,8 @@ export async function enrichIssueDescription(
   const userMessage = buildIssueUserMessage(title, description);
 
   console.log(`[Narada → Issue Enrichment] Using provider: ${provider}`);
+
+  let rawOutput: string;
 
   try {
     switch (provider) {
@@ -34,7 +41,8 @@ export async function enrichIssueDescription(
         if (!textBlock || textBlock.type !== "text") {
           throw new Error("No text response from Claude API");
         }
-        return textBlock.text;
+        rawOutput = textBlock.text;
+        break;
       }
 
       case "gemini": {
@@ -47,11 +55,12 @@ export async function enrichIssueDescription(
           systemInstruction: systemPrompt,
         });
         const result = await model.generateContent(userMessage);
-        return result.response.text();
+        rawOutput = result.response.text();
+        break;
       }
 
       case "local-claude": {
-        return await spawnCli("claude", [
+        rawOutput = await spawnCli("claude", [
           "--print",
           "--no-session-persistence",
           "--model", "sonnet",
@@ -59,11 +68,13 @@ export async function enrichIssueDescription(
           "--append-system-prompt", systemPrompt,
           "--max-budget-usd", "0.50",
         ], userMessage);
+        break;
       }
 
       case "local-cursor": {
         const combined = `${systemPrompt}\n\n${userMessage}`;
-        return await spawnCli("agent", ["--trust", "-p", combined]);
+        rawOutput = await spawnCli("agent", ["--trust", "-p", combined]);
+        break;
       }
 
       default:
@@ -71,8 +82,37 @@ export async function enrichIssueDescription(
     }
   } catch (err) {
     console.error("[Narada → Issue Enrichment] AI enrichment failed, using raw description:", err);
-    return description.trim() || "No description provided.";
+    return { title, body: description.trim() || "No description provided." };
   }
+
+  return parseEnrichedOutput(rawOutput, title);
+}
+
+function parseEnrichedOutput(raw: string, fallbackTitle: string): EnrichedIssue {
+  // Strip any preamble before "TITLE:"
+  const titleIdx = raw.indexOf("TITLE:");
+  const cleaned = titleIdx >= 0 ? raw.slice(titleIdx) : raw;
+
+  // Split on the "---" separator between title and body
+  const separatorMatch = cleaned.match(/^TITLE:\s*(.+)\n---\n([\s\S]*)$/);
+  if (separatorMatch) {
+    return {
+      title: separatorMatch[1].trim(),
+      body: separatorMatch[2].trim(),
+    };
+  }
+
+  // Fallback: try to extract just a TITLE: line
+  const titleLineMatch = cleaned.match(/^TITLE:\s*(.+)\n([\s\S]*)$/);
+  if (titleLineMatch) {
+    return {
+      title: titleLineMatch[1].trim(),
+      body: titleLineMatch[2].replace(/^---\s*/, "").trim(),
+    };
+  }
+
+  // No parseable structure — use raw as body
+  return { title: fallbackTitle, body: cleaned.trim() };
 }
 
 function spawnCli(

@@ -18,10 +18,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Enrich via AI (graceful fallback on failure)
-    const enrichedBody = await enrichIssueDescription(
+    const enriched = await enrichIssueDescription(
       title.trim(),
       typeof description === "string" ? description : ""
     );
+
+    const enrichedTitle = enriched.title;
+    const enrichedBody = enriched.body;
 
     // Build issue body
     let issueBody = enrichedBody;
@@ -32,21 +35,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Construct GitHub URL, trimming logs if too long
-    let issueUrl = buildGitHubUrl(title.trim(), issueBody);
+    let issueUrl = buildGitHubUrl(enrichedTitle, issueBody);
 
     if (issueUrl.length > MAX_URL_LENGTH && attachLogs) {
       issueBody = appendLogs(enrichedBody, 50);
-      issueUrl = buildGitHubUrl(title.trim(), issueBody);
+      issueUrl = buildGitHubUrl(enrichedTitle, issueBody);
     }
 
     if (issueUrl.length > MAX_URL_LENGTH && attachLogs) {
       issueBody = appendLogs(enrichedBody, 20);
-      issueUrl = buildGitHubUrl(title.trim(), issueBody);
+      issueUrl = buildGitHubUrl(enrichedTitle, issueBody);
     }
 
     if (issueUrl.length > MAX_URL_LENGTH) {
       // Drop logs entirely
-      issueUrl = buildGitHubUrl(title.trim(), enrichedBody);
+      issueUrl = buildGitHubUrl(enrichedTitle, enrichedBody);
     }
 
     console.log(`[Narada → Report] Issue URL generated — length=${issueUrl.length} chars`);

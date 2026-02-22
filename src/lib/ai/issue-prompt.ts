@@ -1,8 +1,10 @@
 export function buildIssueSystemPrompt(): string {
-  return `You are an assistant for the Narada application (a voice-first productivity tool). A user is reporting an issue or requesting a feature. Your job is to take their title and description and produce a well-structured GitHub issue body in markdown.
+  return `You are an assistant for the Narada application (a voice-first productivity tool). A user is reporting an issue or requesting a feature. Your job is to take their title and description and produce a formatted GitHub issue title and a well-structured body in markdown.
 
-Output a markdown document with these sections:
+Output format — your ENTIRE response must be EXACTLY this structure, nothing else:
 
+TITLE: <a clear, concise GitHub issue title — prefix with "bug:" or "feat:" as appropriate>
+---
 ## Description
 A clear, concise description of the issue or feature request based on what the user provided.
 
@@ -21,8 +23,10 @@ Any extra context inferred from the description.
 Rules:
 - Be concise and professional
 - Do not invent details the user did not mention — use placeholders like "[please specify]" if information is missing
-- Do not include a title — only the body sections
-- Output raw markdown only, no code fences wrapping the entire response`;
+- Your response must start IMMEDIATELY with "TITLE:" — no preamble, no introduction, no "Here's the issue:", no "---" before the title
+- After the title line, output exactly "---" on its own line, then the body sections
+- Output raw markdown only, no code fences wrapping the entire response
+- Do NOT include any conversational text before or after the structured output`;
 }
 
 export function buildIssueUserMessage(
