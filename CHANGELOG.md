@@ -5,6 +5,14 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-02-23
+
+### 🖥️ Electron
+
+- Add auto-update functionality with support for automatic background updates and manual check option via the app menu
+- Integrate `electron-updater` and configure `electron-builder.yml` publish settings for GitHub Releases
+- Update GitHub Actions release workflow to publish platform artifacts for the updater
+
 ## [1.2.0] - 2026-02-23
 
 ### ✨ Features
