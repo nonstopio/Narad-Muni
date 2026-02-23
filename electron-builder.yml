@@ -22,6 +22,7 @@ extraResources:
       - "**/*.sql"
 
 mac:
+  artifactName: "Narad-Muni-${version}-${arch}.${ext}"
   category: public.app-category.productivity
   icon: resources/icon.icns
   target:
@@ -40,10 +41,12 @@ win:
     - nsis
 
 nsis:
+  artifactName: "Narad-Muni-Setup-${version}.${ext}"
   oneClick: true
   perMachine: false
 
 linux:
+  artifactName: "Narad-Muni-${version}-${arch}.${ext}"
   icon: resources
   target:
     - AppImage

@@ -14,6 +14,14 @@ autoUpdater.autoDownload = false;
 // Don't silently install on quit — we prompt explicitly
 autoUpdater.autoInstallOnAppQuit = false;
 
+const APP_TITLE = "Narad Muni";
+let isDownloading = false;
+let isManualCheck = false;
+
+function getMainWindow(): BrowserWindow | null {
+  return BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || null;
+}
+
 /**
  * Called on app startup. Delays 10 seconds then checks GitHub Releases.
  * No-ops in dev mode.
@@ -50,15 +58,19 @@ export function checkForUpdatesManual(): void {
 
   registerEvents();
 
+  isManualCheck = true;
+
   autoUpdater
     .checkForUpdates()
     .then((result) => {
+      isManualCheck = false;
       if (!result || !result.isUpdateAvailable) {
         showUpToDate();
       }
       // If an update IS available, the "update-available" event handler will fire
     })
     .catch((err) => {
+      isManualCheck = false;
       dialog.showMessageBox({
         type: "error",
         title: "Alas!",
@@ -87,7 +99,19 @@ function registerEvents(): void {
       })
       .then(({ response }) => {
         if (response === 0) {
-          autoUpdater.downloadUpdate();
+          isDownloading = true;
+
+          // Show immediate feedback while download initializes
+          const win = getMainWindow();
+          if (win) {
+            win.setTitle(`${APP_TITLE} — Fetching the scroll...`);
+            win.setProgressBar(0.01); // indeterminate-ish indicator
+          }
+
+          autoUpdater.downloadUpdate().catch((err) => {
+            // downloadUpdate() can reject before the error event fires
+            console.error("[updater] downloadUpdate() rejected:", err);
+          });
         }
       });
   });
@@ -98,17 +122,20 @@ function registerEvents(): void {
   });
 
   autoUpdater.on("download-progress", (progress) => {
-    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+    const win = getMainWindow();
     if (win) {
       win.setProgressBar(progress.percent / 100);
+      const pct = Math.round(progress.percent);
+      win.setTitle(`${APP_TITLE} — Downloading ${pct}%`);
     }
   });
 
   autoUpdater.on("update-downloaded", () => {
-    // Clear progress bar
-    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+    isDownloading = false;
+    const win = getMainWindow();
     if (win) {
       win.setProgressBar(-1);
+      win.setTitle(APP_TITLE);
     }
 
     dialog
@@ -130,7 +157,30 @@ function registerEvents(): void {
 
   autoUpdater.on("error", (err) => {
     console.error("[updater] Error:", err);
-    // Don't show dialog for auto-check errors — only log them
+
+    const wasDownloading = isDownloading;
+
+    // Clean up progress state
+    if (isDownloading) {
+      isDownloading = false;
+      const win = getMainWindow();
+      if (win) {
+        win.setProgressBar(-1);
+        win.setTitle(APP_TITLE);
+      }
+    }
+
+    // Only show dialog for download errors.
+    // Check errors are handled by their respective .catch() handlers
+    // (manual check shows its own dialog; auto-check stays silent).
+    if (wasDownloading) {
+      dialog.showMessageBox({
+        type: "error",
+        title: "Alas!",
+        message: "The sage encountered a disturbance while fetching the scroll.",
+        detail: String(err),
+      });
+    }
   });
 }
 
