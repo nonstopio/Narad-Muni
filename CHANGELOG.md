@@ -5,6 +5,20 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-02-24
+
+### 🐛 Bug Fixes
+
+- Add explicit `artifactName` to mac, nsis, and linux sections in `electron-builder.yml` to eliminate spaces from artifact filenames, fixing 404 errors when the auto-updater attempts to download a new release (fixes [#3](https://github.com/ajaykumar/Narada/issues/3))
+
+### 🖥️ Electron
+
+- Surface download progress in the title bar with percentage and macOS dock progress bar instead of downloading silently in the background
+- Show error dialogs when update downloads fail instead of swallowing errors silently
+- Provide immediate visual feedback when the user clicks "Download" before the download stream begins
+- Clean up title bar and progress bar state on download error or completion
+- Track manual vs automatic update checks to show appropriate UI for each path
+
 ## [1.3.1] - 2026-02-24
 
 ### 🐛 Bug Fixes
