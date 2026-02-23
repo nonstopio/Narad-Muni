@@ -76,6 +76,12 @@ export function UpdatesPageClient({
     router.refresh();
   }
 
+  function handleRetry(update: UpdateData) {
+    setSelectedUpdate(null);
+    const dateKey = update.date.split("T")[0];
+    router.push(`/update?date=${dateKey}&retry=${update.id}`);
+  }
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden p-6">
       <div className="flex-shrink-0"><StatsBar stats={stats} /></div>
@@ -86,6 +92,7 @@ export function UpdatesPageClient({
           update={selectedUpdate}
           onClose={() => setSelectedUpdate(null)}
           onDelete={handleDelete}
+          onRetry={handleRetry}
         />
       )}
     </div>

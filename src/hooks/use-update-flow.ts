@@ -156,17 +156,83 @@ export function useUpdateFlow() {
         throw new Error(data.error);
       }
 
+      setStep("editing");
       setIsProcessing(false);
       return true;
     } catch (error) {
       console.error("Share error:", error);
       const message = error instanceof Error ? error.message : "Alas! The message could not reach the worlds. Please try again.";
       useToastStore.getState().addToast(message, "error");
-      setIsProcessing(false);
       setStep("editing");
+      setIsProcessing(false);
       return false;
     }
   }, [store, selectedDate]);
 
-  return { processWithAI, shareAll };
+  const retryShare = useCallback(async (): Promise<boolean> => {
+    const {
+      retryUpdateId,
+      retrySlackStatus,
+      retryTeamsStatus,
+      retryJiraStatus,
+      slackOutput,
+      teamsOutput,
+      workLogEntries,
+      slackEnabled,
+      teamsEnabled,
+      jiraEnabled,
+      setStep,
+      setIsProcessing,
+    } = store;
+
+    if (!retryUpdateId) return false;
+
+    // Retry a platform if it's enabled AND was NOT already sent
+    const retrySlack = slackEnabled && retrySlackStatus !== "SENT";
+    const retryTeams = teamsEnabled && retryTeamsStatus !== "SENT";
+    const retryJira = jiraEnabled && retryJiraStatus !== "SENT";
+
+    // Nothing to retry — all platforms either succeeded or are disabled
+    if (!retrySlack && !retryTeams && !retryJira) {
+      useToastStore.getState().addToast("Narayan Narayan! There are no failed worlds to retry.", "success");
+      return false;
+    }
+
+    setStep("sharing");
+    setIsProcessing(true);
+
+    try {
+      const res = await fetch("/api/updates", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          updateId: retryUpdateId,
+          slackOutput,
+          teamsOutput,
+          workLogEntries,
+          retrySlack,
+          retryTeams,
+          retryJira,
+        }),
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+
+      setStep("editing");
+      setIsProcessing(false);
+      return true;
+    } catch (error) {
+      console.error("Retry error:", error);
+      const message = error instanceof Error ? error.message : "Alas! The retry could not reach the worlds. Please try again.";
+      useToastStore.getState().addToast(message, "error");
+      setStep("editing");
+      setIsProcessing(false);
+      return false;
+    }
+  }, [store]);
+
+  return { processWithAI, shareAll, retryShare };
 }

@@ -349,6 +349,21 @@ export async function DELETE(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
+
+  // Single update by ID (used by retry mode)
+  const id = searchParams.get("id");
+  if (id) {
+    const update = await prisma.update.findUnique({
+      where: { id },
+      include: { workLogEntries: true },
+    });
+    if (!update) {
+      return NextResponse.json({ success: false, error: "Update not found" }, { status: 404 });
+    }
+    return NextResponse.json({ update });
+  }
+
+  // List updates by month
   const month = searchParams.get("month");
 
   let where = {};
@@ -547,6 +562,235 @@ export async function POST(request: NextRequest) {
         success: false,
         error:
           error instanceof Error ? error.message : "Failed to create update",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PUT — Retry failed platforms on an existing update
+// ---------------------------------------------------------------------------
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const {
+      updateId,
+      slackOutput,
+      teamsOutput,
+      workLogEntries,
+      retrySlack,
+      retryTeams,
+      retryJira,
+    } = body;
+
+    if (!updateId) {
+      return NextResponse.json(
+        { success: false, error: "Missing updateId" },
+        { status: 400 }
+      );
+    }
+
+    // Fetch the existing update
+    const existing = await prisma.update.findUnique({
+      where: { id: updateId },
+      include: { workLogEntries: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: "Update not found" },
+        { status: 404 }
+      );
+    }
+
+    // Update stored outputs if user edited them
+    const dataUpdate: Record<string, unknown> = {};
+    if (retrySlack && slackOutput !== undefined) {
+      dataUpdate.slackOutput = slackOutput;
+      dataUpdate.slackStatus = "PENDING";
+    }
+    if (retryTeams && teamsOutput !== undefined) {
+      dataUpdate.teamsOutput = teamsOutput;
+      dataUpdate.teamsStatus = "PENDING";
+    }
+    if (retryJira) {
+      dataUpdate.jiraStatus = "PENDING";
+    }
+
+    const update = await prisma.update.update({
+      where: { id: updateId },
+      data: dataUpdate,
+      include: { workLogEntries: true },
+    });
+
+    // Fetch Jira baseUrl for linkifying ticket IDs
+    let jiraBaseUrl: string | null = null;
+    try {
+      const jiraConfigForLinks = await prisma.platformConfig.findFirst({
+        where: { platform: "JIRA" },
+        select: { baseUrl: true },
+      });
+      jiraBaseUrl = jiraConfigForLinks?.baseUrl ?? null;
+    } catch { /* non-critical */ }
+
+    // Retry Slack
+    if (retrySlack) {
+      try {
+        const slackConfig = await prisma.platformConfig.findFirst({
+          where: { platform: "SLACK", isActive: true },
+        });
+
+        if (slackConfig?.webhookUrl) {
+          const dateStr = existing.date.toISOString().split("T")[0];
+          const finalOutput = jiraBaseUrl
+            ? linkifyTickets(slackOutput ?? update.slackOutput, jiraBaseUrl, "slack")
+            : (slackOutput ?? update.slackOutput);
+          await sendSlackWebhook(slackConfig.webhookUrl, finalOutput, slackConfig.userId, dateStr);
+          await prisma.update.update({
+            where: { id: updateId },
+            data: { slackStatus: "SENT" },
+          });
+          update.slackStatus = "SENT";
+        } else {
+          await prisma.update.update({
+            where: { id: updateId },
+            data: { slackStatus: "FAILED" },
+          });
+          update.slackStatus = "FAILED";
+        }
+      } catch (err) {
+        console.error("[Narada] Slack retry error:", err);
+        await prisma.update.update({
+          where: { id: updateId },
+          data: { slackStatus: "FAILED" },
+        });
+        update.slackStatus = "FAILED";
+      }
+    }
+
+    // Retry Teams
+    if (retryTeams) {
+      try {
+        const teamsConfig = await prisma.platformConfig.findFirst({
+          where: { platform: "TEAMS", isActive: true },
+        });
+
+        if (teamsConfig?.webhookUrl) {
+          const dateStr = existing.date.toISOString().split("T")[0];
+          const finalOutput = jiraBaseUrl
+            ? linkifyTickets(teamsOutput ?? update.teamsOutput, jiraBaseUrl, "teams")
+            : (teamsOutput ?? update.teamsOutput);
+          await sendTeamsWebhook(teamsConfig.webhookUrl, finalOutput, teamsConfig.userName, teamsConfig.userId, dateStr);
+          await prisma.update.update({
+            where: { id: updateId },
+            data: { teamsStatus: "SENT" },
+          });
+          update.teamsStatus = "SENT";
+        } else {
+          await prisma.update.update({
+            where: { id: updateId },
+            data: { teamsStatus: "FAILED" },
+          });
+          update.teamsStatus = "FAILED";
+        }
+      } catch (err) {
+        console.error("[Narada] Teams retry error:", err);
+        await prisma.update.update({
+          where: { id: updateId },
+          data: { teamsStatus: "FAILED" },
+        });
+        update.teamsStatus = "FAILED";
+      }
+    }
+
+    // Retry Jira — delete unposted entries, create new ones from request body, publish
+    if (retryJira && workLogEntries?.length > 0) {
+      try {
+        // Delete entries that were never posted (no jiraWorklogId)
+        await prisma.workLogEntry.deleteMany({
+          where: {
+            updateId,
+            OR: [{ jiraWorklogId: null }, { jiraWorklogId: "" }],
+          },
+        });
+
+        // Create new entries from request body (only unposted ones)
+        const newEntries = (workLogEntries as {
+          issueKey: string;
+          timeSpentSecs: number;
+          started: string;
+          comment?: string;
+          isRepeat: boolean;
+          jiraWorklogId?: string | null;
+        }[]).filter((e) => !e.jiraWorklogId);
+
+        const created = await Promise.all(
+          newEntries.map((entry) =>
+            prisma.workLogEntry.create({
+              data: {
+                updateId,
+                issueKey: entry.issueKey,
+                timeSpentSecs: entry.timeSpentSecs,
+                started: parseAsWallClock(entry.started),
+                comment: entry.comment || "",
+                isRepeat: entry.isRepeat || false,
+              },
+            })
+          )
+        );
+
+        const jiraConfig = await prisma.platformConfig.findFirst({
+          where: { platform: "JIRA", isActive: true },
+        });
+
+        if (jiraConfig?.baseUrl && jiraConfig?.email && jiraConfig?.apiToken) {
+          await publishJiraWorklogs(
+            {
+              baseUrl: jiraConfig.baseUrl,
+              email: jiraConfig.email,
+              apiToken: jiraConfig.apiToken,
+              timezone: jiraConfig.timezone || "Asia/Kolkata",
+            },
+            created,
+            updateId
+          );
+        } else {
+          await prisma.update.update({
+            where: { id: updateId },
+            data: { jiraStatus: "FAILED" },
+          });
+        }
+      } catch (err) {
+        console.error("[Narada] Jira retry error:", err);
+        await prisma.update.update({
+          where: { id: updateId },
+          data: { jiraStatus: "FAILED" },
+        });
+      }
+    } else if (retryJira) {
+      // retryJira requested but no work log entries — nothing to post, mark as success
+      console.log("[Narada] Jira retry requested but no work log entries — marking as SENT");
+      await prisma.update.update({
+        where: { id: updateId },
+        data: { jiraStatus: "SENT" },
+      });
+    }
+
+    // Return refreshed update
+    const final = await prisma.update.findUnique({
+      where: { id: updateId },
+      include: { workLogEntries: true },
+    });
+
+    return NextResponse.json({ success: true, update: final });
+  } catch (error) {
+    console.error("Retry update error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to retry update",
       },
       { status: 500 }
     );

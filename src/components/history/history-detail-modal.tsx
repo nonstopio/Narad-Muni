@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, ClipboardList } from "lucide-react";
+import { X, ClipboardList, RefreshCw } from "lucide-react";
 import type { UpdateData } from "@/types";
 
 function StatusBadge({
@@ -51,9 +51,10 @@ interface Props {
   update: UpdateData;
   onClose: () => void;
   onDelete: (id: string) => void;
+  onRetry?: (update: UpdateData) => void;
 }
 
-export function HistoryDetailModal({ update, onClose, onDelete }: Props) {
+export function HistoryDetailModal({ update, onClose, onDelete, onRetry }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -242,7 +243,7 @@ export function HistoryDetailModal({ update, onClose, onDelete }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center p-5 border-t border-white/[0.06] shrink-0">
+        <div className="flex items-center justify-between p-5 border-t border-white/[0.06] shrink-0">
           <button
             onClick={handleDelete}
             disabled={deleting}
@@ -258,6 +259,18 @@ export function HistoryDetailModal({ update, onClose, onDelete }: Props) {
                 ? "Truly erase this scroll?"
                 : "Erase"}
           </button>
+          {onRetry &&
+            (update.slackStatus === "FAILED" ||
+              update.teamsStatus === "FAILED" ||
+              update.jiraStatus === "FAILED") && (
+              <button
+                onClick={() => onRetry(update)}
+                className="px-4 py-2 rounded-xl text-sm font-medium bg-amber-500/10 border border-amber-500/30 text-narada-amber hover:bg-amber-500/20 transition-all duration-200 flex items-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Retry Failed Scrolls
+              </button>
+            )}
         </div>
       </div>
     </div>

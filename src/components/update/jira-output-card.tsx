@@ -4,7 +4,7 @@ import { useState } from "react";
 import parse from "parse-duration";
 import { useUpdateStore } from "@/stores/update-store";
 import { useAppStore } from "@/stores/app-store";
-import { ClipboardList, Check, Plus, X } from "lucide-react";
+import { ClipboardList, Check, Plus, X, Lock, CheckCircle2 } from "lucide-react";
 import type { WorkLogEntryData } from "@/types";
 
 function formatTime(secs: number) {
@@ -59,10 +59,14 @@ export function JiraOutputCard() {
     updateWorkLogEntry,
     addWorkLogEntry,
     removeWorkLogEntry,
+    retryMode,
+    retryJiraStatus,
   } = useUpdateStore();
   const selectedDate = useAppStore((s) => s.selectedDate);
 
   const [timeDrafts, setTimeDrafts] = useState<Record<number, string>>({});
+
+  const isLocked = retryMode && retryJiraStatus === "SENT";
 
   const totalHours =
     workLogEntries.reduce((sum, e) => sum + e.timeSpentSecs, 0) / 3600;
@@ -85,8 +89,12 @@ export function JiraOutputCard() {
 
   return (
     <div
-      className={`bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 backdrop-blur-[20px] transition-opacity duration-300 ${
-        !jiraEnabled ? "opacity-50" : ""
+      className={`bg-white/[0.03] border rounded-2xl p-5 backdrop-blur-[20px] transition-all duration-300 ${
+        isLocked
+          ? "border-emerald-500/20 opacity-75"
+          : !jiraEnabled
+            ? "border-white/[0.06] opacity-50"
+            : "border-white/[0.06]"
       }`}
     >
       {/* Header */}
@@ -108,17 +116,24 @@ export function JiraOutputCard() {
             </span>
           )}
         </div>
-        <button
-          onClick={() => togglePlatform("jira")}
-          className={`px-3 py-1 rounded-3xl text-[11px] font-medium flex items-center gap-1.5 transition-all duration-300 ${
-            jiraEnabled
-              ? "bg-narada-primary border border-narada-primary text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]"
-              : "bg-white/[0.03] border border-white/[0.06] text-narada-text-secondary hover:bg-white/[0.06]"
-          }`}
-        >
-          {jiraEnabled && <Check className="w-3 h-3" />}
-          <span>{jiraEnabled ? "Open" : "Sealed"}</span>
-        </button>
+        {isLocked ? (
+          <span className="px-3 py-1 rounded-3xl text-[11px] font-medium flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-narada-emerald">
+            <Lock className="w-3 h-3" />
+            <span>Sent</span>
+          </span>
+        ) : (
+          <button
+            onClick={() => togglePlatform("jira")}
+            className={`px-3 py-1 rounded-3xl text-[11px] font-medium flex items-center gap-1.5 transition-all duration-300 ${
+              jiraEnabled
+                ? "bg-narada-primary border border-narada-primary text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+                : "bg-white/[0.03] border border-white/[0.06] text-narada-text-secondary hover:bg-white/[0.06]"
+            }`}
+          >
+            {jiraEnabled && <Check className="w-3 h-3" />}
+            <span>{jiraEnabled ? "Open" : "Sealed"}</span>
+          </button>
+        )}
       </div>
 
       {/* Body — work log table */}
@@ -126,7 +141,48 @@ export function JiraOutputCard() {
         <p className="text-xs text-narada-text-muted">
           The work chronicles will appear once the sage has spoken...
         </p>
+      ) : isLocked ? (
+        /* Read-only table for locked (SENT) Jira */
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr>
+                <th className="bg-white/[0.03] p-2 text-left font-semibold text-narada-text-secondary border-b border-white/[0.06]">
+                  Ticket
+                </th>
+                <th className="bg-white/[0.03] p-2 text-left font-semibold text-narada-text-secondary border-b border-white/[0.06]">
+                  Time
+                </th>
+                <th className="bg-white/[0.03] p-2 text-left font-semibold text-narada-text-secondary border-b border-white/[0.06]">
+                  Start
+                </th>
+                <th className="bg-white/[0.03] p-2 text-left font-semibold text-narada-text-secondary border-b border-white/[0.06]">
+                  Comment
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {workLogEntries.map((entry, idx) => (
+                <tr key={idx}>
+                  <td className="p-2 border-b border-white/[0.06] text-narada-text-secondary font-mono">
+                    {entry.issueKey}
+                  </td>
+                  <td className="p-2 border-b border-white/[0.06] text-narada-text-secondary">
+                    {formatTime(entry.timeSpentSecs)}
+                  </td>
+                  <td className="p-2 border-b border-white/[0.06] text-narada-text-secondary">
+                    {formatStartTime(entry.started)}
+                  </td>
+                  <td className="p-2 border-b border-white/[0.06] text-narada-text-secondary">
+                    {entry.comment}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
+        /* Editable table */
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
             <thead>
@@ -147,110 +203,130 @@ export function JiraOutputCard() {
               </tr>
             </thead>
             <tbody>
-              {workLogEntries.map((entry, idx) => (
-                <tr
-                  key={idx}
-                  className={
-                    entry.isRepeat ? "border-l-2 border-l-violet-500" : ""
-                  }
-                >
-                  <td className="p-1.5 border-b border-white/[0.06]">
-                    <input
-                      type="text"
-                      value={entry.issueKey}
-                      onChange={(e) =>
-                        updateWorkLogEntry(idx, {
-                          issueKey: e.target.value.toUpperCase(),
-                        })
-                      }
-                      className="glass-input w-full px-2 py-1 text-xs font-mono text-narada-text-secondary bg-transparent"
-                      placeholder="PROJ-123"
-                    />
-                  </td>
-                  <td className="p-1.5 border-b border-white/[0.06]">
-                    <input
-                      type="text"
-                      value={
-                        timeDrafts[idx] !== undefined
-                          ? timeDrafts[idx]
-                          : formatTime(entry.timeSpentSecs)
-                      }
-                      onFocus={() =>
-                        setTimeDrafts((prev) => ({
-                          ...prev,
-                          [idx]: formatTime(entry.timeSpentSecs),
-                        }))
-                      }
-                      onChange={(e) =>
-                        setTimeDrafts((prev) => ({
-                          ...prev,
-                          [idx]: e.target.value,
-                        }))
-                      }
-                      onBlur={() => {
-                        const draft = timeDrafts[idx];
-                        if (draft !== undefined) {
-                          const parsed = parseTimeInput(draft);
-                          if (parsed !== null) {
+              {workLogEntries.map((entry, idx) => {
+                const isPosted = retryMode && !!entry.jiraWorklogId;
+                return (
+                  <tr
+                    key={idx}
+                    className={
+                      entry.isRepeat ? "border-l-2 border-l-violet-500" : ""
+                    }
+                  >
+                    <td className="p-1.5 border-b border-white/[0.06]">
+                      <div className="flex items-center gap-1.5">
+                        {isPosted && (
+                          <span title="Already posted">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-narada-emerald shrink-0" />
+                          </span>
+                        )}
+                        <input
+                          type="text"
+                          value={entry.issueKey}
+                          onChange={(e) =>
                             updateWorkLogEntry(idx, {
-                              timeSpentSecs: parsed,
-                            });
+                              issueKey: e.target.value.toUpperCase(),
+                            })
                           }
+                          disabled={isPosted}
+                          className="glass-input w-full px-2 py-1 text-xs font-mono text-narada-text-secondary bg-transparent disabled:opacity-50"
+                          placeholder="PROJ-123"
+                        />
+                      </div>
+                    </td>
+                    <td className="p-1.5 border-b border-white/[0.06]">
+                      <input
+                        type="text"
+                        value={
+                          timeDrafts[idx] !== undefined
+                            ? timeDrafts[idx]
+                            : formatTime(entry.timeSpentSecs)
                         }
-                        setTimeDrafts((prev) => {
-                          const next = { ...prev };
-                          delete next[idx];
-                          return next;
-                        });
-                      }}
-                      className="glass-input w-24 px-2 py-1 text-xs text-narada-text-secondary bg-transparent"
-                      placeholder="1h 30m"
-                    />
-                  </td>
-                  <td className="p-1.5 border-b border-white/[0.06]">
-                    <input
-                      type="time"
-                      value={formatStartTime(entry.started)}
-                      onChange={(e) =>
-                        updateWorkLogEntry(idx, {
-                          started: patchStartTime(
-                            entry.started,
-                            e.target.value
-                          ),
-                        })
-                      }
-                      className="glass-input px-2 py-1 text-xs text-narada-text-secondary bg-transparent"
-                    />
-                  </td>
-                  <td className="p-1.5 border-b border-white/[0.06]">
-                    <input
-                      type="text"
-                      value={entry.comment ?? ""}
-                      onChange={(e) =>
-                        updateWorkLogEntry(idx, { comment: e.target.value })
-                      }
-                      className="glass-input w-full px-2 py-1 text-xs text-narada-text-secondary bg-transparent"
-                      placeholder="What was done..."
-                    />
-                  </td>
-                  <td className="p-1.5 border-b border-white/[0.06] text-center">
-                    <button
-                      onClick={() => handleRemoveEntry(idx)}
-                      className="text-narada-text-muted hover:text-rose-400 transition-colors p-0.5"
-                      title="Remove entry"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                        onFocus={() =>
+                          setTimeDrafts((prev) => ({
+                            ...prev,
+                            [idx]: formatTime(entry.timeSpentSecs),
+                          }))
+                        }
+                        onChange={(e) =>
+                          setTimeDrafts((prev) => ({
+                            ...prev,
+                            [idx]: e.target.value,
+                          }))
+                        }
+                        onBlur={() => {
+                          const draft = timeDrafts[idx];
+                          if (draft !== undefined) {
+                            const parsed = parseTimeInput(draft);
+                            if (parsed !== null) {
+                              updateWorkLogEntry(idx, {
+                                timeSpentSecs: parsed,
+                              });
+                            }
+                          }
+                          setTimeDrafts((prev) => {
+                            const next = { ...prev };
+                            delete next[idx];
+                            return next;
+                          });
+                        }}
+                        disabled={isPosted}
+                        className="glass-input w-24 px-2 py-1 text-xs text-narada-text-secondary bg-transparent disabled:opacity-50"
+                        placeholder="1h 30m"
+                      />
+                    </td>
+                    <td className="p-1.5 border-b border-white/[0.06]">
+                      <input
+                        type="time"
+                        value={formatStartTime(entry.started)}
+                        onChange={(e) =>
+                          updateWorkLogEntry(idx, {
+                            started: patchStartTime(
+                              entry.started,
+                              e.target.value
+                            ),
+                          })
+                        }
+                        disabled={isPosted}
+                        className="glass-input px-2 py-1 text-xs text-narada-text-secondary bg-transparent disabled:opacity-50"
+                      />
+                    </td>
+                    <td className="p-1.5 border-b border-white/[0.06]">
+                      <input
+                        type="text"
+                        value={entry.comment ?? ""}
+                        onChange={(e) =>
+                          updateWorkLogEntry(idx, { comment: e.target.value })
+                        }
+                        disabled={isPosted}
+                        className="glass-input w-full px-2 py-1 text-xs text-narada-text-secondary bg-transparent disabled:opacity-50"
+                        placeholder="What was done..."
+                      />
+                    </td>
+                    <td className="p-1.5 border-b border-white/[0.06] text-center">
+                      {isPosted ? (
+                        <span className="text-narada-emerald" title="Posted">
+                          <Check className="w-3.5 h-3.5" />
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleRemoveEntry(idx)}
+                          className="text-narada-text-muted hover:text-rose-400 transition-colors p-0.5"
+                          title="Remove entry"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* Add Entry button */}
-      {jiraEnabled && (
+      {/* Add Entry button — only in editable mode */}
+      {jiraEnabled && !isLocked && (
         <button
           onClick={handleAddEntry}
           className="mt-3 flex items-center gap-1.5 text-xs text-narada-text-muted hover:text-narada-text-secondary transition-colors"

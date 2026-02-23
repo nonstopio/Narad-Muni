@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ModalStep, ProcessingStage, WorkLogEntryData, PlatformConfigData } from "@/types";
+import type { ModalStep, ProcessingStage, WorkLogEntryData, PlatformConfigData, PublishStatus } from "@/types";
 
 interface UpdateStore {
   step: ModalStep;
@@ -19,6 +19,13 @@ interface UpdateStore {
   analyserNode: AnalyserNode | null;
   previewReady: boolean;
   isProcessing: boolean;
+
+  // Retry mode
+  retryMode: boolean;
+  retryUpdateId: string | null;
+  retrySlackStatus: PublishStatus | null;
+  retryTeamsStatus: PublishStatus | null;
+  retryJiraStatus: PublishStatus | null;
 
   setStep: (step: ModalStep) => void;
   setRawTranscript: (text: string) => void;
@@ -42,6 +49,9 @@ interface UpdateStore {
   onDispatch: (() => void) | null;
   setOnInvokeSage: (cb: (() => void) | null) => void;
   setOnDispatch: (cb: (() => void) | null) => void;
+  setRetryMode: (mode: boolean) => void;
+  setRetryUpdateId: (id: string | null) => void;
+  setRetryStatuses: (slack: PublishStatus | null, teams: PublishStatus | null, jira: PublishStatus | null) => void;
   initPlatformToggles: (configs: PlatformConfigData[]) => void;
   resetForNewUpdate: () => void;
   reset: () => void;
@@ -67,6 +77,11 @@ const initialState = {
   isProcessing: false,
   onInvokeSage: null as (() => void) | null,
   onDispatch: null as (() => void) | null,
+  retryMode: false,
+  retryUpdateId: null as string | null,
+  retrySlackStatus: null as PublishStatus | null,
+  retryTeamsStatus: null as PublishStatus | null,
+  retryJiraStatus: null as PublishStatus | null,
 };
 
 export const useUpdateStore = create<UpdateStore>((set) => ({
@@ -93,6 +108,12 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
     })),
   togglePlatform: (platform) =>
     set((state) => {
+      // In retry mode, prevent toggling platforms that already succeeded or were skipped
+      if (state.retryMode) {
+        if (platform === "slack" && (state.retrySlackStatus === "SENT" || state.retrySlackStatus === "SKIPPED")) return {};
+        if (platform === "teams" && (state.retryTeamsStatus === "SENT" || state.retryTeamsStatus === "SKIPPED")) return {};
+        if (platform === "jira" && (state.retryJiraStatus === "SENT" || state.retryJiraStatus === "SKIPPED")) return {};
+      }
       if (platform === "slack") return { slackEnabled: !state.slackEnabled };
       if (platform === "teams") return { teamsEnabled: !state.teamsEnabled };
       return { jiraEnabled: !state.jiraEnabled };
@@ -105,6 +126,10 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
   setIsProcessing: (processing) => set({ isProcessing: processing }),
   setOnInvokeSage: (cb) => set({ onInvokeSage: cb }),
   setOnDispatch: (cb) => set({ onDispatch: cb }),
+  setRetryMode: (mode) => set({ retryMode: mode }),
+  setRetryUpdateId: (id) => set({ retryUpdateId: id }),
+  setRetryStatuses: (slack, teams, jira) =>
+    set({ retrySlackStatus: slack, retryTeamsStatus: teams, retryJiraStatus: jira }),
   initPlatformToggles: (configs) =>
     set({
       slackEnabled: configs.find((c) => c.platform === "SLACK")?.isActive ?? false,
@@ -129,6 +154,11 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
       isProcessing: false,
       onInvokeSage: null,
       onDispatch: null,
+      retryMode: false,
+      retryUpdateId: null,
+      retrySlackStatus: null,
+      retryTeamsStatus: null,
+      retryJiraStatus: null,
       // Note: platform toggles are NOT reset — they're set by initPlatformToggles
     }),
   reset: () => set(initialState),

@@ -56,6 +56,12 @@ export function HistoryList({ updates: initialUpdates }: Props) {
     router.refresh();
   }
 
+  function handleRetry(update: UpdateData) {
+    setSelectedUpdate(null);
+    const dateKey = update.date.split("T")[0];
+    router.push(`/update?date=${dateKey}&retry=${update.id}`);
+  }
+
   return (
     <div className="flex-1 overflow-y-auto p-8">
       <h1 className="text-[28px] font-bold text-narada-text mb-6">Chronicles</h1>
@@ -114,6 +120,7 @@ export function HistoryList({ updates: initialUpdates }: Props) {
           update={selectedUpdate}
           onClose={() => setSelectedUpdate(null)}
           onDelete={handleDelete}
+          onRetry={handleRetry}
         />
       )}
     </div>
