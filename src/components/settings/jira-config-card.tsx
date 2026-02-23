@@ -49,6 +49,8 @@ const TIMEZONES = [
 export function JiraConfigCard({ config, onSave, onToggle }: Props) {
   const [form, setForm] = useState(config);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [hoursDrafts, setHoursDrafts] = useState<Record<number, string>>({});
   const addToast = useToastStore((s) => s.addToast);
@@ -125,6 +127,37 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
     } else {
       setForm((prev) => ({ ...prev, isActive: !newActive }));
       addToast(result.error ?? "Alas! Could not change the portal's state", "error");
+    }
+  };
+
+  const handleTest = async () => {
+    setTestResult(null);
+    if (!form.baseUrl?.trim() || !form.email?.trim() || !form.apiToken?.trim() || !form.projectKey?.trim()) {
+      setTestResult({ type: "error", message: "All fields are required: Base URL, Email, API Token, and Project Key" });
+      return;
+    }
+    setTesting(true);
+    try {
+      const res = await fetch("/api/settings/test-jira", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseUrl: form.baseUrl,
+          email: form.email,
+          apiToken: form.apiToken,
+          projectKey: form.projectKey,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestResult({ type: "success", message: data.message });
+      } else {
+        setTestResult({ type: "error", message: data.error });
+      }
+    } catch {
+      setTestResult({ type: "error", message: "Alas! Could not reach the Jira realm" });
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -336,16 +369,63 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
           </button>
         </div>
 
-        <div className="flex justify-end mt-4 pt-4 border-t border-white/[0.06]">
+        <div className="mt-4 pt-4 border-t border-white/[0.06] mb-4">
+          <button
+            onClick={handleTest}
+            disabled={saving || testing}
+            className="w-full h-9 rounded-xl border border-white/[0.12] text-narada-text-secondary text-xs font-semibold hover:border-narada-violet/50 hover:text-narada-text hover:bg-narada-violet/[0.05] transition-all duration-300 disabled:opacity-50"
+          >
+            {testing ? "Seeking the Jira realm..." : "Test Jira Connection"}
+          </button>
+        </div>
+
+        <div className="flex justify-end pt-4 border-t border-white/[0.06]">
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || testing}
             className="h-8 px-3 rounded-xl bg-narada-primary text-white text-xs font-semibold shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:bg-blue-600 transition-all duration-300 disabled:opacity-50"
           >
             {saving ? "Inscribing..." : "Inscribe"}
           </button>
         </div>
       </div>
+
+      {testResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setTestResult(null)} />
+          <div className="relative glass-card p-6 max-w-sm w-full shadow-2xl border border-white/[0.08]">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
+                testResult.type === "success"
+                  ? "bg-narada-emerald/10 text-narada-emerald"
+                  : "bg-narada-rose/10 text-narada-rose"
+              }`}>
+                {testResult.type === "success" ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                )}
+              </div>
+              <h3 className="text-sm font-semibold text-narada-text">
+                {testResult.type === "success" ? "Jira Realm Reached" : "Jira Realm Unreachable"}
+              </h3>
+            </div>
+            <p className="text-xs text-narada-text-secondary leading-relaxed mb-4">
+              {testResult.message}
+            </p>
+            <button
+              onClick={() => setTestResult(null)}
+              className={`w-full h-8 rounded-xl text-xs font-semibold transition-all duration-300 ${
+                testResult.type === "success"
+                  ? "bg-narada-emerald/20 text-narada-emerald hover:bg-narada-emerald/30"
+                  : "bg-narada-rose/20 text-narada-rose hover:bg-narada-rose/30"
+              }`}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
