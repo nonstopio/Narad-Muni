@@ -39,6 +39,8 @@ export function AIProviderCard() {
   const [claudeKey, setClaudeKey] = useState(aiSettings.claudeApiKey);
   const [deepgramKey, setDeepgramKey] = useState(aiSettings.deepgramApiKey);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [keyError, setKeyError] = useState(false);
   const [removingKey, setRemovingKey] = useState<string | null>(null);
 
@@ -70,6 +72,62 @@ export function AIProviderCard() {
     setClaudeKey(aiSettings.claudeApiKey);
     setDeepgramKey(aiSettings.deepgramApiKey);
   }, [aiSettings]);
+
+  const busy = saving || testing;
+
+  const handleTest = async () => {
+    setKeyError(false);
+    setTestResult(null);
+    // Client-side validation for API-key providers
+    if (selected === "gemini" && !geminiKey.trim() && !aiSettings.hasGeminiKey) {
+      setKeyError(true);
+      setTestResult({ type: "error", message: "The Gemini oracle requires an API key to speak" });
+      return;
+    }
+    if (selected === "claude-api" && !claudeKey.trim() && !aiSettings.hasClaudeKey) {
+      setKeyError(true);
+      setTestResult({ type: "error", message: "The Claude gateway requires an API key to open" });
+      return;
+    }
+
+    setTesting(true);
+    try {
+      const isMasked = (v: string) => v.includes("••••••••");
+      const payload: Record<string, unknown> = { provider: selected };
+
+      if (selected === "gemini") {
+        if (geminiKey && !isMasked(geminiKey)) {
+          payload.geminiApiKey = geminiKey;
+        } else {
+          payload.useStoredKey = true;
+        }
+      }
+      if (selected === "claude-api") {
+        if (claudeKey && !isMasked(claudeKey)) {
+          payload.claudeApiKey = claudeKey;
+        } else {
+          payload.useStoredKey = true;
+        }
+      }
+
+      const res = await fetch("/api/settings/test-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setTestResult({ type: "success", message: "Narayan Narayan! The oracle responds — the connection is divine!" });
+      } else {
+        setTestResult({ type: "error", message: `Alas! The oracle is silent: ${data.error}` });
+      }
+    } catch {
+      setTestResult({ type: "error", message: "Alas! Could not reach the oracle" });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const handleSave = async () => {
     setKeyError(false);
@@ -204,6 +262,16 @@ export function AIProviderCard() {
         </div>
       )}
 
+      <div className="mt-4 pt-4 border-t border-white/[0.06] mb-4">
+        <button
+          onClick={handleTest}
+          disabled={busy}
+          className="w-full h-9 rounded-xl border border-white/[0.12] text-narada-text-secondary text-xs font-semibold hover:border-narada-violet/50 hover:text-narada-text hover:bg-narada-violet/[0.05] transition-all duration-300 disabled:opacity-50"
+        >
+          {testing ? "Consulting the Oracle..." : "Test Connection with Oracle"}
+        </button>
+      </div>
+
       <div className="mt-4 pt-4 border-t border-white/[0.06]">
         <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
           Deepgram API Key
@@ -233,15 +301,52 @@ export function AIProviderCard() {
         </p>
       </div>
 
-      <div className="flex gap-3 mt-4 pt-4 border-t border-white/[0.06]">
+      <div className="flex justify-end mt-4 pt-4 border-t border-white/[0.06]">
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={busy}
           className="h-8 px-3 rounded-xl bg-narada-primary text-white text-xs font-semibold shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:bg-blue-600 transition-all duration-300 disabled:opacity-50"
         >
           {saving ? "Inscribing..." : "Inscribe"}
         </button>
       </div>
+
+      {testResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setTestResult(null)} />
+          <div className="relative glass-card p-6 max-w-sm w-full shadow-2xl border border-white/[0.08]">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
+                testResult.type === "success"
+                  ? "bg-narada-emerald/10 text-narada-emerald"
+                  : "bg-narada-rose/10 text-narada-rose"
+              }`}>
+                {testResult.type === "success" ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                )}
+              </div>
+              <h3 className="text-sm font-semibold text-narada-text">
+                {testResult.type === "success" ? "Oracle Connected" : "Oracle Unreachable"}
+              </h3>
+            </div>
+            <p className="text-xs text-narada-text-secondary leading-relaxed mb-4">
+              {testResult.message}
+            </p>
+            <button
+              onClick={() => setTestResult(null)}
+              className={`w-full h-8 rounded-xl text-xs font-semibold transition-all duration-300 ${
+                testResult.type === "success"
+                  ? "bg-narada-emerald/20 text-narada-emerald hover:bg-narada-emerald/30"
+                  : "bg-narada-rose/20 text-narada-rose hover:bg-narada-rose/30"
+              }`}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

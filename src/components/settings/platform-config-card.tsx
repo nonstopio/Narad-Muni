@@ -146,7 +146,7 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
           />
         </div>
 
-        <div className="flex gap-3 mt-4 pt-4 border-t border-white/[0.06]">
+        <div className="flex justify-end mt-4 pt-4 border-t border-white/[0.06]">
           <button
             onClick={handleSave}
             disabled={saving}
