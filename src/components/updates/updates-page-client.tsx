@@ -50,7 +50,7 @@ export function UpdatesPageClient({
     },
     {
       label: "Time Reclaimed",
-      value: `${updateCount * 15}m`,
+      value: `${updateCount * 12}m`,
       icon: "\u23F1\uFE0F",
       color: "emerald",
     },

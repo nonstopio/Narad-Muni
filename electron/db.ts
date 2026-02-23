@@ -71,7 +71,18 @@ export function initializeDatabase(dbPath: string, appRoot: string): void {
       const sql = fs.readFileSync(sqlPath, "utf-8");
 
       console.log(`Running migration: ${migrationName}`);
-      db.exec(sql);
+      try {
+        db.exec(sql);
+      } catch (err: unknown) {
+        // Handle cases where `prisma db push` already applied the schema change
+        // but didn't record it in the migrations table (e.g. "duplicate column name").
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("duplicate column name") || msg.includes("already exists")) {
+          console.log(`Migration ${migrationName} already applied (schema in sync), recording it.`);
+        } else {
+          throw err;
+        }
+      }
 
       // Record migration in tracking table
       const id = generateMigrationId();
