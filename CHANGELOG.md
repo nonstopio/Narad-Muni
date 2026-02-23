@@ -5,6 +5,15 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-02-24
+
+### ✨ Features
+
+- Add `R` keyboard shortcut for toggling voice recording on the update page
+- Auto-start recording when navigating to the update page from other pages
+- Handle edge cases for recording shortcut: missing Deepgram key, active transcription/processing, and retry mode
+- Display recording shortcut in Sacred Gestures settings
+
 ## [1.3.2] - 2026-02-24
 
 ### 🐛 Bug Fixes
