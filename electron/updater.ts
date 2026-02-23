@@ -1,4 +1,4 @@
-import { app, dialog, BrowserWindow } from "electron";
+import { app, dialog, shell, BrowserWindow } from "electron";
 import { autoUpdater, UpdateInfo } from "electron-updater";
 
 // Console-based logger to avoid adding electron-log dependency
@@ -15,8 +15,13 @@ autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
 
 const APP_TITLE = "Narad Muni";
+const RELEASES_URL = "https://github.com/nonstopio/Narad-Muni/releases/latest";
+
 let isDownloading = false;
+let isInstallingUpdate = false;
+let installErrorHandled = false;
 let isManualCheck = false;
+let pendingUpdateVersion: string | null = null;
 
 function getMainWindow(): BrowserWindow | null {
   return BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || null;
@@ -87,6 +92,8 @@ function registerEvents(): void {
   eventsRegistered = true;
 
   autoUpdater.on("update-available", (info: UpdateInfo) => {
+    pendingUpdateVersion = info.version;
+
     dialog
       .showMessageBox({
         type: "info",
@@ -150,7 +157,31 @@ function registerEvents(): void {
       })
       .then(({ response }) => {
         if (response === 0) {
-          autoUpdater.quitAndInstall();
+          isInstallingUpdate = true;
+          installErrorHandled = false;
+
+          try {
+            autoUpdater.quitAndInstall();
+          } catch (err) {
+            console.error("[updater] quitAndInstall() threw:", err);
+            if (!installErrorHandled) {
+              installErrorHandled = true;
+              isInstallingUpdate = false;
+              showInstallFailedDialog();
+            }
+            return;
+          }
+
+          // Fallback: if the app hasn't quit within 8 seconds, the
+          // install likely failed silently (e.g. Squirrel.Mac code
+          // signature validation failure). Show error dialog.
+          setTimeout(() => {
+            if (isInstallingUpdate && !installErrorHandled) {
+              installErrorHandled = true;
+              isInstallingUpdate = false;
+              showInstallFailedDialog();
+            }
+          }, 8_000);
         }
       });
   });
@@ -170,6 +201,16 @@ function registerEvents(): void {
       }
     }
 
+    // Handle errors during update installation (e.g. code signature
+    // validation failure on macOS). Without this, quitAndInstall()
+    // fails silently and the app stays running with no feedback.
+    if (isInstallingUpdate && !installErrorHandled) {
+      installErrorHandled = true;
+      isInstallingUpdate = false;
+      showInstallFailedDialog();
+      return;
+    }
+
     // Only show dialog for download errors.
     // Check errors are handled by their respective .catch() handlers
     // (manual check shows its own dialog; auto-check stays silent).
@@ -182,6 +223,31 @@ function registerEvents(): void {
       });
     }
   });
+}
+
+function showInstallFailedDialog(): void {
+  const versionInfo = pendingUpdateVersion
+    ? ` (v${pendingUpdateVersion})`
+    : "";
+
+  dialog
+    .showMessageBox({
+      type: "warning",
+      title: "Alas!",
+      message: "The sage could not apply the update automatically.",
+      detail:
+        `The new scroll${versionInfo} was inscribed but could not be installed. ` +
+        "This may happen if the sacred seal (code signature) could not be verified.\n\n" +
+        "Please download the latest version from the celestial repository.",
+      buttons: ["Download Manually", "Later"],
+      defaultId: 0,
+      cancelId: 1,
+    })
+    .then(({ response }) => {
+      if (response === 0) {
+        shell.openExternal(RELEASES_URL);
+      }
+    });
 }
 
 function showUpToDate(): void {

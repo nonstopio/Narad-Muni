@@ -66,7 +66,114 @@ jobs:
         run: echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> $GITHUB_ENV
 
       - name: Build Electron app
-        run: npx electron-builder ${{ matrix.build_args }} --publish never
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "mac" ]; then
+            # When code signing is disabled, also disable hardenedRuntime to prevent
+            # electron-builder from adding signing metadata without a valid identity.
+            # Inconsistent metadata causes Squirrel.Mac signature validation to fail
+            # during auto-updates, making the restart prompt do nothing (issue #4).
+            npx electron-builder ${{ matrix.build_args }} --publish never -c.mac.hardenedRuntime=false
+          else
+            npx electron-builder ${{ matrix.build_args }} --publish never
+          fi
+
+      - name: Ad-hoc sign macOS builds for auto-update compatibility
+        if: matrix.platform == 'mac'
+        shell: bash
+        run: |
+          # CI builds without a signing certificate can leave app bundles with
+          # inconsistent signature state (Electron framework binaries are signed
+          # by the Electron team but the app itself is unsigned). Squirrel.Mac's
+          # code signature verification rejects this during auto-updates.
+          #
+          # Fix: ad-hoc sign all app bundles to create consistent, valid (but not
+          # identity-verified) signatures, then recreate the zip artifacts that
+          # electron-updater uses for macOS auto-updates.
+
+          shopt -s nullglob
+
+          # 1. Ad-hoc sign all .app bundles
+          for mac_dir in dist/mac dist/mac-arm64 dist/mac-x64 dist/mac-universal; do
+            [ -d "$mac_dir" ] || continue
+            for app_bundle in "$mac_dir"/*.app; do
+              [ -d "$app_bundle" ] || continue
+              echo "Ad-hoc signing: $app_bundle"
+              codesign --force --deep --sign - "$app_bundle"
+              codesign --verify --deep --strict "$app_bundle" && echo "  Signature valid"
+            done
+          done
+
+          # 2. Recreate zip files with signed apps and update latest-mac.yml checksums
+          for zip_file in dist/*.zip; do
+            [ -f "$zip_file" ] || continue
+
+            zip_name=$(basename "$zip_file")
+            echo "Repackaging: $zip_name"
+
+            # Find the source directory for this zip
+            if [[ "$zip_name" == *"arm64"* ]]; then
+              src_dir="dist/mac-arm64"
+            else
+              src_dir="dist/mac"
+              [ -d "dist/mac-x64" ] && src_dir="dist/mac-x64"
+            fi
+            [ -d "$src_dir" ] || continue
+
+            app_name=$(ls "$src_dir" | grep '\.app$' | head -1)
+            [ -n "$app_name" ] || continue
+
+            # Recreate zip using ditto (same tool electron-builder uses on macOS).
+            # Remove old blockmap — electron-updater falls back to full download.
+            rm -f "$zip_file" "${zip_file}.blockmap"
+            ditto -c -k --keepParent "$src_dir/$app_name" "$zip_file"
+
+            # Compute new SHA512 (base64-encoded, as electron-updater expects) and size
+            new_sha=$(shasum -a 512 "$zip_file" | awk '{print $1}' | xxd -r -p | base64 | tr -d '\n')
+            new_size=$(stat -f %z "$zip_file")
+
+            echo "  SHA512: ${new_sha:0:16}..."
+            echo "  Size: $new_size"
+
+            # Update latest-mac.yml with correct checksums for the repackaged zip
+            if [ -f "dist/latest-mac.yml" ]; then
+              node -e "
+                const fs = require('fs');
+                const lines = fs.readFileSync('dist/latest-mac.yml', 'utf8').split('\n');
+                const zipName = process.argv[1];
+                const newSha = process.argv[2];
+                const newSize = process.argv[3];
+                let inTargetFile = false;
+                for (let i = 0; i < lines.length; i++) {
+                  const urlMatch = lines[i].match(/^\s+-\s+url:\s+(.+)/);
+                  if (urlMatch) {
+                    inTargetFile = urlMatch[1].trim() === zipName;
+                    continue;
+                  }
+                  if (inTargetFile) {
+                    if (lines[i].match(/^\s+sha512:/)) {
+                      lines[i] = lines[i].replace(/sha512:\s+.*/, 'sha512: ' + newSha);
+                    }
+                    if (lines[i].match(/^\s+size:/)) {
+                      lines[i] = lines[i].replace(/size:\s+.*/, 'size: ' + newSize);
+                      inTargetFile = false;
+                    }
+                  }
+                  if (lines[i].match(/^path:\s/) && lines[i].includes(zipName)) {
+                    for (let j = i + 1; j < lines.length; j++) {
+                      if (lines[j].match(/^sha512:/)) {
+                        lines[j] = 'sha512: ' + newSha;
+                        break;
+                      }
+                    }
+                  }
+                }
+                fs.writeFileSync('dist/latest-mac.yml', lines.join('\n'));
+              " "$zip_name" "$new_sha" "$new_size"
+            fi
+          done
+
+          echo "macOS signing and repackaging complete"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
