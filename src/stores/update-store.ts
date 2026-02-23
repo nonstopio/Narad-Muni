@@ -47,8 +47,12 @@ interface UpdateStore {
   setIsProcessing: (processing: boolean) => void;
   onInvokeSage: (() => void) | null;
   onDispatch: (() => void) | null;
+  onToggleRecording: (() => void) | null;
   setOnInvokeSage: (cb: (() => void) | null) => void;
   setOnDispatch: (cb: (() => void) | null) => void;
+  setOnToggleRecording: (cb: (() => void) | null) => void;
+  autoStartRecording: boolean;
+  setAutoStartRecording: (auto: boolean) => void;
   setRetryMode: (mode: boolean) => void;
   setRetryUpdateId: (id: string | null) => void;
   setRetryStatuses: (slack: PublishStatus | null, teams: PublishStatus | null, jira: PublishStatus | null) => void;
@@ -77,6 +81,8 @@ const initialState = {
   isProcessing: false,
   onInvokeSage: null as (() => void) | null,
   onDispatch: null as (() => void) | null,
+  onToggleRecording: null as (() => void) | null,
+  autoStartRecording: false,
   retryMode: false,
   retryUpdateId: null as string | null,
   retrySlackStatus: null as PublishStatus | null,
@@ -126,6 +132,8 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
   setIsProcessing: (processing) => set({ isProcessing: processing }),
   setOnInvokeSage: (cb) => set({ onInvokeSage: cb }),
   setOnDispatch: (cb) => set({ onDispatch: cb }),
+  setOnToggleRecording: (cb) => set({ onToggleRecording: cb }),
+  setAutoStartRecording: (auto) => set({ autoStartRecording: auto }),
   setRetryMode: (mode) => set({ retryMode: mode }),
   setRetryUpdateId: (id) => set({ retryUpdateId: id }),
   setRetryStatuses: (slack, teams, jira) =>
@@ -154,6 +162,8 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
       isProcessing: false,
       onInvokeSage: null,
       onDispatch: null,
+      onToggleRecording: null,
+      autoStartRecording: false,
       retryMode: false,
       retryUpdateId: null,
       retrySlackStatus: null,

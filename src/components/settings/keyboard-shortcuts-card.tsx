@@ -19,6 +19,7 @@ const shortcuts: Shortcut[] = [
   { description: "Go to Settings", keys: ["G", "then", "S"] },
   { description: "Go to Seek Aid", keys: ["G", "then", "R"] },
   { description: "New update for today", keys: ["N"] },
+  { description: "Toggle voice recording", keys: ["R"] },
   { description: "Invoke the Sage", keys: ["Ctrl", "Enter"], macKeys: ["\u2318", "Enter"] },
   { description: "Dispatch to All Worlds", keys: ["Ctrl", "\u21E7", "Enter"], macKeys: ["\u2318", "\u21E7", "Enter"] },
   { description: "Close modal / Go back", keys: ["Esc"] },

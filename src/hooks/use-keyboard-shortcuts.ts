@@ -127,6 +127,22 @@ export function useKeyboardShortcuts() {
         return;
       }
 
+      // R — toggle voice recording
+      if (e.key === "r" && !mod && !e.shiftKey && !e.altKey) {
+        const state = useUpdateStore.getState();
+        if (state.onToggleRecording) {
+          e.preventDefault();
+          state.onToggleRecording();
+          return;
+        }
+        if (state.retryMode) return;
+        e.preventDefault();
+        state.setAutoStartRecording(true);
+        const today = new Date().toISOString().split("T")[0];
+        router.push(`/update?date=${today}`);
+        return;
+      }
+
       // ? — view keyboard shortcuts
       if (e.key === "?" || (e.shiftKey && e.key === "/")) {
         e.preventDefault();

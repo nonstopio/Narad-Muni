@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useUpdateStore } from "@/stores/update-store";
+import { useToastStore } from "@/components/ui/toast";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { AudioVisualizer } from "./audio-visualizer";
 import { Mic, Square, Loader2, Zap, RotateCcw } from "lucide-react";
@@ -33,6 +34,41 @@ export function InputSection({ onProcess }: InputSectionProps) {
       .then((data) => setHasDeepgramKey(!!data.hasDeepgramKey))
       .catch(() => setHasDeepgramKey(false));
   }, []);
+
+  // Register onToggleRecording callback for keyboard shortcut
+  useEffect(() => {
+    const { setOnToggleRecording } = useUpdateStore.getState();
+    setOnToggleRecording(() => {
+      if (hasDeepgramKey === false) {
+        useToastStore.getState().addToast("Grant me the Deepgram mantra in Sacred Configurations to hear your voice", "error");
+        return;
+      }
+      if (hasDeepgramKey === null) return;
+      if (useUpdateStore.getState().isTranscribing) {
+        useToastStore.getState().addToast("Patience! I am still transcribing your words...", "error");
+        return;
+      }
+      if (useUpdateStore.getState().isProcessing) {
+        useToastStore.getState().addToast("The sage is channeling! Wait for the oracle to finish...", "error");
+        return;
+      }
+      toggleRecording();
+    });
+    return () => useUpdateStore.getState().setOnToggleRecording(null);
+  }, [hasDeepgramKey, toggleRecording]);
+
+  // Consume autoStartRecording flag (set by keyboard shortcut from another page)
+  useEffect(() => {
+    if (hasDeepgramKey === null) return;
+    const { autoStartRecording, setAutoStartRecording } = useUpdateStore.getState();
+    if (!autoStartRecording) return;
+    setAutoStartRecording(false);
+    if (hasDeepgramKey === false) {
+      useToastStore.getState().addToast("Grant me the Deepgram mantra in Sacred Configurations to hear your voice", "error");
+      return;
+    }
+    setTimeout(() => startRecording(), 100);
+  }, [hasDeepgramKey, startRecording]);
 
   const deepgramDisabled = hasDeepgramKey === false;
 
