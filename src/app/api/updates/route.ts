@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { linkifyTickets } from "@/lib/linkify-tickets";
 
 // ---------------------------------------------------------------------------
 // Jira worklog helpers
@@ -412,6 +413,16 @@ export async function POST(request: NextRequest) {
       include: { workLogEntries: true },
     });
 
+    // Fetch Jira baseUrl for linkifying ticket IDs in Slack/Teams messages
+    let jiraBaseUrl: string | null = null;
+    try {
+      const jiraConfigForLinks = await prisma.platformConfig.findFirst({
+        where: { platform: "JIRA" },
+        select: { baseUrl: true },
+      });
+      jiraBaseUrl = jiraConfigForLinks?.baseUrl ?? null;
+    } catch { /* non-critical, skip linkification */ }
+
     // Publish to Slack if enabled
     if (slackEnabled && slackOutput) {
       try {
@@ -420,7 +431,10 @@ export async function POST(request: NextRequest) {
         });
 
         if (slackConfig?.webhookUrl) {
-          await sendSlackWebhook(slackConfig.webhookUrl, slackOutput, slackConfig.userId, date);
+          const linkedSlackOutput = jiraBaseUrl
+            ? linkifyTickets(slackOutput, jiraBaseUrl, "slack")
+            : slackOutput;
+          await sendSlackWebhook(slackConfig.webhookUrl, linkedSlackOutput, slackConfig.userId, date);
           await prisma.update.update({
             where: { id: update.id },
             data: { slackStatus: "SENT" },
@@ -452,7 +466,10 @@ export async function POST(request: NextRequest) {
         });
 
         if (teamsConfig?.webhookUrl) {
-          await sendTeamsWebhook(teamsConfig.webhookUrl, teamsOutput, teamsConfig.userName, teamsConfig.userId, date);
+          const linkedTeamsOutput = jiraBaseUrl
+            ? linkifyTickets(teamsOutput, jiraBaseUrl, "teams")
+            : teamsOutput;
+          await sendTeamsWebhook(teamsConfig.webhookUrl, linkedTeamsOutput, teamsConfig.userName, teamsConfig.userId, date);
           await prisma.update.update({
             where: { id: update.id },
             data: { teamsStatus: "SENT" },
