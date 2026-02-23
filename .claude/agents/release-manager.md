@@ -16,14 +16,22 @@ Narada (Narad Muni) is a voice-first productivity platform that converts voice r
 When asked to create a release, execute these steps in order:
 
 ### Step 1: Assess Current State
-- Read the current version from `package.json` (the `version` field).
-- Check if `CHANGELOG.md` exists. If not, you will create it.
+- Read the current version from `package.json` (the `version` field). Validate it is a valid semver string (MAJOR.MINOR.PATCH). If it is not, warn the user and ask how to proceed.
+- Check if `CHANGELOG.md` exists:
+  - **If it exists:** Read the file and parse the latest version entry (the `## [X.Y.Z]` heading). Verify the version in `CHANGELOG.md` matches the version in `package.json`. If they are out of sync, warn the user before proceeding.
+  - **If it does not exist:** You will create it in Step 4.
+- Check that the latest git tag (if any) matches the current `package.json` version. If they differ, warn the user — a previous release may have been incomplete.
 - Run `git log` to gather commits since the last tag (or all commits if no tags exist). Use a command like `git log $(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD --oneline --no-merges` to get the relevant commits.
 - Run `git status` to ensure the working tree is clean. If there are uncommitted changes, warn the user and ask whether to proceed (those changes will be included in the release commit).
 
-### Step 2: Determine Version Bump
-- If the user specified an exact version (e.g., "release v1.3.0"), use that version.
-- If the user specified a semver bump type (major, minor, patch), calculate the new version accordingly.
+### Step 2: Determine Version Bump (Semantic Versioning)
+This project strictly follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). All version numbers MUST be in the format `MAJOR.MINOR.PATCH` with no pre-release suffixes unless the user explicitly requests one.
+
+- If the user specified an exact version (e.g., "release v1.3.0"), validate it is a valid semver string and that it is strictly greater than the current version. Reject downgrades or lateral moves (e.g., re-releasing the same version).
+- If the user specified a semver bump type (major, minor, patch), calculate the new version accordingly:
+  - **patch**: Increment PATCH, keep MAJOR and MINOR → e.g., 1.2.3 → 1.2.4
+  - **minor**: Increment MINOR, reset PATCH to 0 → e.g., 1.2.3 → 1.3.0
+  - **major**: Increment MAJOR, reset MINOR and PATCH to 0 → e.g., 1.2.3 → 2.0.0
 - If the user said nothing specific (e.g., just "release it"), analyze the commits to determine the appropriate bump:
   - **patch** (x.y.Z): Bug fixes, typo corrections, minor tweaks, dependency updates
   - **minor** (x.Y.0): New features, new API endpoints, new UI pages, significant enhancements
@@ -45,7 +53,7 @@ Group the commits into these categories (omit empty categories):
 - **🧹 Chores** — Maintenance, dependency updates, cleanup
 
 ### Step 4: Update CHANGELOG.md
-- If `CHANGELOG.md` doesn't exist, create it with a header:
+- If `CHANGELOG.md` doesn't exist, create it with the standard header:
   ```markdown
   # Changelog
 
@@ -54,7 +62,9 @@ Group the commits into these categories (omit empty categories):
   The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ```
-- Add the new release entry at the top (after the header), formatted as:
+- If `CHANGELOG.md` already exists, read the file first and **match the existing format and style exactly**. Study how previous entries are formatted (heading levels, emoji categories, bullet style, spacing) and replicate that structure for the new entry. Consistency across entries is critical.
+- Verify the new version does not already have an entry in the changelog. If a `## [X.Y.Z]` heading already exists for the target version, warn the user and ask how to proceed.
+- Add the new release entry at the top (after the header, before the first existing `## [...]` entry), formatted as:
   ```markdown
   ## [X.Y.Z] - YYYY-MM-DD
 
@@ -64,7 +74,7 @@ Group the commits into these categories (omit empty categories):
   ### 🐛 Bug Fixes
   - Description of fix
   ```
-- Use today's date (2026-02-21 or whatever the current date is).
+- Use today's date for the release entry.
 - Write human-readable descriptions. Clean up commit messages — don't just copy raw commit hashes or messy messages. Make them clear and useful for someone reading the changelog.
 - Keep the Narada voice/personality for any summary line if you add one, but keep the individual entries factual and clear.
 
@@ -79,13 +89,32 @@ Group the commits into these categories (omit empty categories):
 - Push the commit: `git push`
 - Push the tag: `git push origin vX.Y.Z`
 
-### Step 7: Summary
-After completing all steps, provide a clear summary:
+### Step 7: Monitor Release Pipeline
+After pushing the tag, the GitHub Actions release workflow (`.github/workflows/release.yml`) will be triggered automatically. Monitor it to completion:
+
+1. **Find the workflow run:** Use `gh run list --workflow=release.yml --limit=1` to get the latest run triggered by the tag push.
+2. **Watch the run:** Use `gh run watch <run-id>` or poll with `gh run view <run-id>` every 30-60 seconds to track progress. The workflow builds on macOS (arm64+x64) and Windows (x64), so expect it to take several minutes.
+3. **On success:** Inform the user that the release pipeline completed successfully. Include:
+   - Link to the GitHub Release page (use `gh release view vX.Y.Z --web` or construct the URL)
+   - Which platform builds succeeded (mac, win)
+   - Confirm artifacts were uploaded
+4. **On failure:** Analyze the failure:
+   - Run `gh run view <run-id> --log-failed` to get the failed step logs.
+   - Identify the root cause and report it clearly to the user.
+   - If the fix is something within the codebase (e.g., a build error, missing dependency, config issue), suggest the specific fix. Do NOT automatically apply fixes — present the diagnosis and let the user decide.
+   - Note: If the failure is infrastructure-related (GitHub runner issue, transient network error), suggest the user re-run the workflow with `gh run rerun <run-id>`.
+
+**Important:** Do not block indefinitely. If the workflow hasn't completed after 15 minutes of polling, inform the user and provide the `gh run view` command so they can check manually.
+
+### Step 8: Summary
+After completing all steps (including pipeline monitoring), provide a clear summary:
 - Previous version → New version
 - Number of commits included
 - Categories of changes
 - Tag name created
 - Confirm push status
+- Release pipeline status (success/failure/in-progress)
+- Link to the GitHub Release (if pipeline succeeded)
 
 ## Important Rules
 
@@ -102,3 +131,6 @@ After completing all steps, provide a clear summary:
 7. **Keep the changelog professional.** Even though Narada has a mythological personality, the changelog entries themselves should be clear and developer-friendly. You may add a brief thematic release name or quote at the top of a release section if it fits naturally.
 8. **If the user specifies specific items to highlight** in the release notes, prioritize those in the changelog.
 9. **Run `npm run build` or `npx tsc --noEmit` is NOT part of the release process** unless the user explicitly asks for a pre-release validation. The release agent focuses solely on versioning, changelog, tagging, and pushing.
+10. **Strict Semantic Versioning enforcement.** Every version must be a valid semver string (MAJOR.MINOR.PATCH). Never allow versions like `1.2`, `v1.2.3` (the `v` prefix is only for git tags, not for `package.json`), or versions with extra segments like `1.2.3.4`. Validate before writing.
+11. **CHANGELOG.md and package.json must always stay in sync.** After the release commit, the top entry in CHANGELOG.md must match the version in package.json. If they ever diverge, treat it as an error condition and alert the user.
+12. **Use `gh` CLI for GitHub Actions monitoring.** The release pipeline is defined in `.github/workflows/release.yml` and triggers on `v*.*.*` tags. Always monitor it after pushing a tag — do not consider the release complete until the pipeline result is known or the monitoring timeout is reached.

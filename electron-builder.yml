@@ -58,6 +58,11 @@ dmg:
       type: link
       path: /Applications
 
+publish:
+  provider: github
+  owner: nonstopio
+  repo: Narad-Muni
+
 asar: true
 
 asarUnpack:

@@ -25,6 +25,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "detect-port": "^2.0.0",
+    "electron-updater": "^6.8.3",
     "fix-path": "^4.0.0",
     "framer-motion": "^11.18.2",
     "lottie-react": "^2.4.1",

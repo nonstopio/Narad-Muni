@@ -3,6 +3,7 @@ import * as path from "path";
 import { readConfig, getDbPath, saveWindowBounds } from "./config";
 import { initializeDatabase } from "./db";
 import { findAvailablePort } from "./port";
+import { initAutoUpdater, checkForUpdatesManual } from "./updater";
 
 // Next.js Turbopack generates hashed Prisma client modules (e.g. @prisma/client-<hash>)
 // as symlinks in .next/node_modules/. Inside the asar archive these symlinks break because
@@ -83,6 +84,10 @@ async function createWindow(port: number): Promise<void> {
       label: APP_NAME,
       submenu: [
         { role: "about", label: `About ${APP_NAME}` },
+        {
+          label: "Check for Updates...",
+          click: () => checkForUpdatesManual(),
+        },
         { type: "separator" },
         { role: "services" },
         { type: "separator" },
@@ -199,6 +204,8 @@ async function startApp(): Promise<void> {
 
     await createWindow(port);
   }
+
+  initAutoUpdater();
 }
 
 // macOS lifecycle
