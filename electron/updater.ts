@@ -1,5 +1,8 @@
-import { app, dialog, BrowserWindow } from "electron";
+import { app, dialog, BrowserWindow, shell } from "electron";
 import { autoUpdater, UpdateInfo } from "electron-updater";
+import * as path from "path";
+import * as fs from "fs";
+import * as os from "os";
 
 // Console-based logger to avoid adding electron-log dependency
 autoUpdater.logger = {
@@ -15,11 +18,26 @@ autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
 
 const APP_TITLE = "Narad Muni";
+const DOWNLOAD_PAGE_URL = "https://nonstopio.github.io/Narad-Muni/";
 let isDownloading = false;
+let isInstalling = false;
 let isManualCheck = false;
+let pendingUpdateVersion: string | null = null;
 
 function getMainWindow(): BrowserWindow | null {
   return BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || null;
+}
+
+/** Send update status to the renderer so it can show/hide the blocking overlay. */
+function sendUpdateStatus(status: string, progress?: number): void {
+  const win = getMainWindow();
+  if (win && !win.isDestroyed()) {
+    win.webContents.send("update:status", {
+      status,
+      progress,
+      version: pendingUpdateVersion,
+    });
+  }
 }
 
 /**
@@ -87,6 +105,8 @@ function registerEvents(): void {
   eventsRegistered = true;
 
   autoUpdater.on("update-available", (info: UpdateInfo) => {
+    pendingUpdateVersion = info.version;
+
     dialog
       .showMessageBox({
         type: "info",
@@ -107,6 +127,7 @@ function registerEvents(): void {
             win.setTitle(`${APP_TITLE} — Fetching the scroll...`);
             win.setProgressBar(0.01); // indeterminate-ish indicator
           }
+          sendUpdateStatus("downloading", 0);
 
           autoUpdater.downloadUpdate().catch((err) => {
             // downloadUpdate() can reject before the error event fires
@@ -122,12 +143,13 @@ function registerEvents(): void {
   });
 
   autoUpdater.on("download-progress", (progress) => {
+    const pct = Math.round(progress.percent);
     const win = getMainWindow();
     if (win) {
       win.setProgressBar(progress.percent / 100);
-      const pct = Math.round(progress.percent);
       win.setTitle(`${APP_TITLE} — Downloading ${pct}%`);
     }
+    sendUpdateStatus("downloading", pct);
   });
 
   autoUpdater.on("update-downloaded", () => {
@@ -137,6 +159,7 @@ function registerEvents(): void {
       win.setProgressBar(-1);
       win.setTitle(APP_TITLE);
     }
+    sendUpdateStatus("idle");
 
     dialog
       .showMessageBox({
@@ -150,7 +173,18 @@ function registerEvents(): void {
       })
       .then(({ response }) => {
         if (response === 0) {
-          autoUpdater.quitAndInstall();
+          isInstalling = true;
+          sendUpdateStatus("installing");
+          setImmediate(() => {
+            try {
+              autoUpdater.quitAndInstall(false, true);
+            } catch (err) {
+              isInstalling = false;
+              console.error("[updater] quitAndInstall failed:", err);
+              sendUpdateStatus("idle");
+              showManualUpdateDialog(err);
+            }
+          });
         }
       });
   });
@@ -159,6 +193,7 @@ function registerEvents(): void {
     console.error("[updater] Error:", err);
 
     const wasDownloading = isDownloading;
+    const wasInstalling = isInstalling;
 
     // Clean up progress state
     if (isDownloading) {
@@ -169,19 +204,72 @@ function registerEvents(): void {
         win.setTitle(APP_TITLE);
       }
     }
+    isInstalling = false;
+    sendUpdateStatus("idle");
 
-    // Only show dialog for download errors.
+    // Show manual update dialog for download or install errors.
     // Check errors are handled by their respective .catch() handlers
     // (manual check shows its own dialog; auto-check stays silent).
-    if (wasDownloading) {
-      dialog.showMessageBox({
-        type: "error",
-        title: "Alas!",
-        message: "The sage encountered a disturbance while fetching the scroll.",
-        detail: String(err),
-      });
+    if (wasDownloading || wasInstalling) {
+      showManualUpdateDialog(err);
     }
   });
+}
+
+function getPendingDownloadPath(): string | null {
+  const arch = process.arch === "arm64" ? "arm64" : "x64";
+  const version = pendingUpdateVersion;
+  if (!version) return null;
+
+  const cacheDir = path.join(
+    os.homedir(),
+    "Library",
+    "Caches",
+    "narada-app-updater",
+    "pending"
+  );
+  const zipName = `Narad-Muni-${version}-${arch}.zip`;
+  const fullPath = path.join(cacheDir, zipName);
+
+  if (fs.existsSync(fullPath)) return fullPath;
+
+  // Fallback: check for any zip in the pending directory
+  if (fs.existsSync(cacheDir)) {
+    const files = fs.readdirSync(cacheDir).filter((f) => f.endsWith(".zip"));
+    if (files.length > 0) return path.join(cacheDir, files[0]);
+  }
+
+  return null;
+}
+
+function showManualUpdateDialog(err: unknown): void {
+  const cachedFile = getPendingDownloadPath();
+  const buttons = ["Open Download Page"];
+  if (cachedFile) buttons.push("Show in Finder");
+  buttons.push("Dismiss");
+
+  const dismissIndex = buttons.length - 1;
+
+  dialog
+    .showMessageBox({
+      type: "warning",
+      title: "Alas! The sacred update could not be applied",
+      message:
+        "The celestial scroll was delivered, but a seal prevents its unfurling.",
+      detail:
+        "This often happens with unsigned builds. You can download the latest version manually or reveal the cached file.\n\n" +
+        String(err),
+      buttons,
+      defaultId: 0,
+      cancelId: dismissIndex,
+    })
+    .then(({ response }) => {
+      if (buttons[response] === "Open Download Page") {
+        shell.openExternal(DOWNLOAD_PAGE_URL);
+      } else if (buttons[response] === "Show in Finder" && cachedFile) {
+        shell.showItemInFolder(cachedFile);
+      }
+    });
 }
 
 function showUpToDate(): void {
