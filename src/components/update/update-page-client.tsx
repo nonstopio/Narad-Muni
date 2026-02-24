@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useAppStore } from "@/stores/app-store";
 import { useUpdateStore } from "@/stores/update-store";
 import { useUpdateFlow } from "@/hooks/use-update-flow";
+import { useDraftAutoSave } from "@/hooks/use-draft-auto-save";
 import { useToastStore } from "@/components/ui/toast";
 import { InputSection } from "./input-section";
 import { RetryInputSection } from "./retry-input-section";
@@ -27,6 +28,9 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
 
   const dateParam = searchParams.get("date");
   const retryParam = searchParams.get("retry");
+
+  // Auto-save draft text per date (disabled in retry mode)
+  const { deleteDraft } = useDraftAutoSave(dateParam, !retryParam && !!dateParam);
 
   // Derive which platforms are globally active from DB configs
   const activePlatforms = useMemo(
@@ -152,10 +156,11 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
   const handleShareAll = useCallback(async () => {
     const success = await shareAll();
     if (success) {
+      await deleteDraft();
       useToastStore.getState().addToast("Narayan Narayan! Your word has reached all three worlds!", "success");
       router.push("/");
     }
-  }, [shareAll, router]);
+  }, [shareAll, deleteDraft, router]);
 
   const handleRetryShare = useCallback(async () => {
     const success = await retryShare();

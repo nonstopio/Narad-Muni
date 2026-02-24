@@ -65,3 +65,10 @@ model AppSettings {
   claudeApiKey    String?
   deepgramApiKey  String?
 }
+
+model Draft {
+  id            String   @id @default(uuid())
+  date          DateTime @unique
+  rawTranscript String
+  updatedAt     DateTime @updatedAt
+}
