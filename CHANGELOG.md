@@ -5,6 +5,19 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-02-24
+
+### 🐛 Bug Fixes
+
+- Fix `quitAndInstall()` failing silently on unsigned macOS builds by showing a manual update dialog with "Open Download Page" and "Show in Finder" fallback options (fixes [#4](https://github.com/AjayKumar4/Narada/issues/4))
+- Apply `setImmediate` workaround and proper try-catch for `quitAndInstall()` inside the update callback
+
+### 🖥️ Electron
+
+- Add full-screen blocking overlay during download and install phases to prevent user interaction with the app
+- Track `isInstalling` state so error events during the install phase are properly caught and surfaced
+- Extend the preload bridge with `onUpdateStatus` IPC listener for renderer-side update status communication
+
 ## [1.4.0] - 2026-02-24
 
 ### ✨ Features
