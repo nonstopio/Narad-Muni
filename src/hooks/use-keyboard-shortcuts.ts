@@ -78,7 +78,10 @@ export function useKeyboardShortcuts() {
           state.onToggleRecording();
           return;
         }
-        if (state.retryMode) return;
+        if (state.retryMode) {
+          e.preventDefault();
+          return;
+        }
         e.preventDefault();
         state.setAutoStartRecording(true);
         const today = new Date().toISOString().split("T")[0];
