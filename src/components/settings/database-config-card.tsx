@@ -9,9 +9,6 @@ declare global {
     narada?: {
       isElectron: boolean;
       pickFilePath: () => Promise<string | null>;
-      onUpdateStatus: (
-        callback: (event: unknown, data: { status: string; progress?: number; version?: string }) => void
-      ) => () => void;
     };
   }
 }

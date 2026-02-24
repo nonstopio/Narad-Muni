@@ -29,9 +29,7 @@ mac:
     - dmg
     - zip
   darkModeSupport: true
-  hardenedRuntime: true
-  entitlements: resources/entitlements.mac.plist
-  entitlementsInherit: resources/entitlements.mac.plist
+  hardenedRuntime: false
   extendInfo:
     NSMicrophoneUsageDescription: "Narada needs microphone access to record your daily standup updates."
 

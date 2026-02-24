@@ -1,42 +1,220 @@
 import { app, dialog, BrowserWindow, shell } from "electron";
-import { autoUpdater, UpdateInfo } from "electron-updater";
-import * as path from "path";
+import * as https from "https";
 import * as fs from "fs";
+import * as path from "path";
 import * as os from "os";
-
-// Console-based logger to avoid adding electron-log dependency
-autoUpdater.logger = {
-  info: (...args: unknown[]) => console.log("[updater]", ...args),
-  warn: (...args: unknown[]) => console.warn("[updater]", ...args),
-  error: (...args: unknown[]) => console.error("[updater]", ...args),
-  debug: (...args: unknown[]) => console.log("[updater:debug]", ...args),
-};
-
-// Don't auto-download — let the user choose
-autoUpdater.autoDownload = false;
-// Don't silently install on quit — we prompt explicitly
-autoUpdater.autoInstallOnAppQuit = false;
 
 const APP_TITLE = "Narad Muni";
 const DOWNLOAD_PAGE_URL = "https://nonstopio.github.io/Narad-Muni/";
-let isDownloading = false;
-let isInstalling = false;
-let isManualCheck = false;
-let pendingUpdateVersion: string | null = null;
+const GITHUB_API_LATEST =
+  "https://api.github.com/repos/nonstopio/Narad-Muni/releases/latest";
+
+interface GitHubAsset {
+  name: string;
+  browser_download_url: string;
+}
+
+interface GitHubRelease {
+  tag_name: string;
+  assets: GitHubAsset[];
+}
 
 function getMainWindow(): BrowserWindow | null {
   return BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || null;
 }
 
-/** Send update status to the renderer so it can show/hide the blocking overlay. */
-function sendUpdateStatus(status: string, progress?: number): void {
-  const win = getMainWindow();
-  if (win && !win.isDestroyed()) {
-    win.webContents.send("update:status", {
-      status,
-      progress,
-      version: pendingUpdateVersion,
+/** Compare two semver strings (e.g. "1.5.0" vs "1.6.0"). Returns true if remote > local. */
+function isNewer(remote: string, local: string): boolean {
+  const parse = (v: string) => v.replace(/^v/, "").split(".").map(Number);
+  const [rMaj, rMin, rPatch] = parse(remote);
+  const [lMaj, lMin, lPatch] = parse(local);
+  if (rMaj !== lMaj) return rMaj > lMaj;
+  if (rMin !== lMin) return rMin > lMin;
+  return rPatch > lPatch;
+}
+
+/** Fetch JSON from a URL (follows one redirect). */
+function fetchJSON(url: string): Promise<GitHubRelease> {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { headers: { "User-Agent": "Narad-Muni-Updater" } }, (res) => {
+      // Follow one redirect
+      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        fetchJSON(res.headers.location).then(resolve, reject);
+        return;
+      }
+      if (res.statusCode !== 200) {
+        reject(new Error(`GitHub API returned ${res.statusCode}`));
+        return;
+      }
+      let data = "";
+      res.on("data", (chunk: string) => { data += chunk; });
+      res.on("end", () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(e);
+        }
+      });
     });
+    req.on("error", reject);
+    req.setTimeout(15_000, () => {
+      req.destroy();
+      reject(new Error("Request timed out"));
+    });
+  });
+}
+
+/** Find the DMG asset URL for the current architecture. */
+function findDmgUrl(assets: GitHubAsset[], version: string): string | null {
+  const arch = process.arch === "arm64" ? "arm64" : "x64";
+  const cleanVersion = version.replace(/^v/, "");
+  const expectedName = `Narad-Muni-${cleanVersion}-${arch}.dmg`;
+  const asset = assets.find((a) => a.name === expectedName);
+  return asset?.browser_download_url ?? null;
+}
+
+/** Download a file to ~/Downloads with progress shown in the title bar. */
+function downloadDmg(url: string, filename: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const destPath = path.join(os.homedir(), "Downloads", filename);
+    const file = fs.createWriteStream(destPath);
+    const win = getMainWindow();
+
+    const doDownload = (downloadUrl: string) => {
+      https.get(downloadUrl, { headers: { "User-Agent": "Narad-Muni-Updater" } }, (res) => {
+        // Follow redirect (GitHub asset URLs redirect to S3)
+        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          doDownload(res.headers.location);
+          return;
+        }
+        if (res.statusCode !== 200) {
+          file.close();
+          fs.unlink(destPath, () => {});
+          reject(new Error(`Download failed with status ${res.statusCode}`));
+          return;
+        }
+
+        const totalBytes = parseInt(res.headers["content-length"] || "0", 10);
+        let receivedBytes = 0;
+
+        res.on("data", (chunk: Buffer) => {
+          receivedBytes += chunk.length;
+          if (totalBytes > 0 && win && !win.isDestroyed()) {
+            const pct = Math.round((receivedBytes / totalBytes) * 100);
+            win.setProgressBar(receivedBytes / totalBytes);
+            win.setTitle(`${APP_TITLE} — Downloading ${pct}%`);
+          }
+        });
+
+        res.pipe(file);
+
+        file.on("finish", () => {
+          file.close(() => {
+            if (win && !win.isDestroyed()) {
+              win.setProgressBar(-1);
+              win.setTitle(APP_TITLE);
+            }
+            resolve(destPath);
+          });
+        });
+
+        file.on("error", (err) => {
+          fs.unlink(destPath, () => {});
+          reject(err);
+        });
+      }).on("error", (err) => {
+        file.close();
+        fs.unlink(destPath, () => {});
+        reject(err);
+      });
+    };
+
+    doDownload(url);
+  });
+}
+
+/** Check GitHub Releases for a newer version and prompt the user. */
+async function checkForUpdate(manual: boolean): Promise<void> {
+  const currentVersion = app.getVersion();
+
+  let release: GitHubRelease;
+  try {
+    release = await fetchJSON(GITHUB_API_LATEST);
+  } catch (err) {
+    if (manual) {
+      dialog.showMessageBox({
+        type: "error",
+        title: "Alas!",
+        message: "The sage could not reach the celestial repository.",
+        detail: String(err),
+      });
+    }
+    console.error("[updater] Failed to check for updates:", err);
+    return;
+  }
+
+  const remoteVersion = release.tag_name.replace(/^v/, "");
+
+  if (!isNewer(remoteVersion, currentVersion)) {
+    if (manual) {
+      dialog.showMessageBox({
+        type: "info",
+        title: "Narayan Narayan!",
+        message: "You possess the latest sacred scroll.",
+        detail: `Version ${currentVersion} — the sage has nothing newer to offer.`,
+      });
+    }
+    console.log(`[updater] Up to date (v${currentVersion})`);
+    return;
+  }
+
+  console.log(`[updater] Update available: v${remoteVersion} (current: v${currentVersion})`);
+
+  const dmgUrl = findDmgUrl(release.assets, remoteVersion);
+
+  const buttons = dmgUrl
+    ? ["Download & Show in Finder", "Open Download Page", "Later"]
+    : ["Open Download Page", "Later"];
+
+  const { response } = await dialog.showMessageBox({
+    type: "info",
+    title: "Narayan Narayan!",
+    message: `A new sacred scroll has arrived — v${remoteVersion}!`,
+    detail: `You are on v${currentVersion}. Choose how to receive the update.`,
+    buttons,
+    defaultId: 0,
+    cancelId: buttons.length - 1,
+  });
+
+  const chosen = buttons[response];
+
+  if (chosen === "Download & Show in Finder" && dmgUrl) {
+    const arch = process.arch === "arm64" ? "arm64" : "x64";
+    const filename = `Narad-Muni-${remoteVersion}-${arch}.dmg`;
+
+    try {
+      const filePath = await downloadDmg(dmgUrl, filename);
+      shell.showItemInFolder(filePath);
+    } catch (err) {
+      console.error("[updater] Download failed:", err);
+      const win = getMainWindow();
+      if (win && !win.isDestroyed()) {
+        win.setProgressBar(-1);
+        win.setTitle(APP_TITLE);
+      }
+      dialog.showMessageBox({
+        type: "error",
+        title: "Alas!",
+        message: "The sacred scroll could not be fetched.",
+        detail: `${String(err)}\n\nYou can download it manually from the website.`,
+        buttons: ["Open Download Page", "Dismiss"],
+        defaultId: 0,
+      }).then(({ response: r }) => {
+        if (r === 0) shell.openExternal(DOWNLOAD_PAGE_URL);
+      });
+    }
+  } else if (chosen === "Open Download Page") {
+    shell.openExternal(DOWNLOAD_PAGE_URL);
   }
 }
 
@@ -52,17 +230,14 @@ export function initAutoUpdater(): void {
 
   setTimeout(() => {
     console.log("[updater] Checking for updates...");
-    autoUpdater.checkForUpdates().catch((err) => {
+    checkForUpdate(false).catch((err) => {
       console.error("[updater] Auto-check failed:", err);
     });
   }, 10_000);
-
-  registerEvents();
 }
 
 /**
  * Triggered from "Check for Updates..." menu item.
- * Shows "no updates" dialog if already on latest.
  */
 export function checkForUpdatesManual(): void {
   if (!app.isPackaged) {
@@ -74,209 +249,13 @@ export function checkForUpdatesManual(): void {
     return;
   }
 
-  registerEvents();
-
-  isManualCheck = true;
-
-  autoUpdater
-    .checkForUpdates()
-    .then((result) => {
-      isManualCheck = false;
-      if (!result || !result.isUpdateAvailable) {
-        showUpToDate();
-      }
-      // If an update IS available, the "update-available" event handler will fire
-    })
-    .catch((err) => {
-      isManualCheck = false;
-      dialog.showMessageBox({
-        type: "error",
-        title: "Alas!",
-        message: "The sage could not reach the celestial repository.",
-        detail: String(err),
-      });
+  checkForUpdate(true).catch((err) => {
+    console.error("[updater] Manual check failed:", err);
+    dialog.showMessageBox({
+      type: "error",
+      title: "Alas!",
+      message: "The sage could not reach the celestial repository.",
+      detail: String(err),
     });
-}
-
-let eventsRegistered = false;
-
-function registerEvents(): void {
-  if (eventsRegistered) return;
-  eventsRegistered = true;
-
-  autoUpdater.on("update-available", (info: UpdateInfo) => {
-    pendingUpdateVersion = info.version;
-
-    dialog
-      .showMessageBox({
-        type: "info",
-        title: "Narayan Narayan!",
-        message: `A new sacred scroll has arrived — v${info.version}!`,
-        detail: "Shall I fetch it from the celestial repository?",
-        buttons: ["Download", "Later"],
-        defaultId: 0,
-        cancelId: 1,
-      })
-      .then(({ response }) => {
-        if (response === 0) {
-          isDownloading = true;
-
-          // Show immediate feedback while download initializes
-          const win = getMainWindow();
-          if (win) {
-            win.setTitle(`${APP_TITLE} — Fetching the scroll...`);
-            win.setProgressBar(0.01); // indeterminate-ish indicator
-          }
-          sendUpdateStatus("downloading", 0);
-
-          autoUpdater.downloadUpdate().catch((err) => {
-            // downloadUpdate() can reject before the error event fires
-            console.error("[updater] downloadUpdate() rejected:", err);
-          });
-        }
-      });
-  });
-
-  autoUpdater.on("update-not-available", () => {
-    // Only show dialog for manual checks — auto-check stays silent.
-    // The manual flow calls showUpToDate() via the .then() handler.
-  });
-
-  autoUpdater.on("download-progress", (progress) => {
-    const pct = Math.round(progress.percent);
-    const win = getMainWindow();
-    if (win) {
-      win.setProgressBar(progress.percent / 100);
-      win.setTitle(`${APP_TITLE} — Downloading ${pct}%`);
-    }
-    sendUpdateStatus("downloading", pct);
-  });
-
-  autoUpdater.on("update-downloaded", () => {
-    isDownloading = false;
-    const win = getMainWindow();
-    if (win) {
-      win.setProgressBar(-1);
-      win.setTitle(APP_TITLE);
-    }
-    sendUpdateStatus("idle");
-
-    dialog
-      .showMessageBox({
-        type: "info",
-        title: "Narayan Narayan!",
-        message: "The new scroll has been inscribed!",
-        detail: "The sage must briefly retire to apply the sacred update. Restart now?",
-        buttons: ["Restart", "Later"],
-        defaultId: 0,
-        cancelId: 1,
-      })
-      .then(({ response }) => {
-        if (response === 0) {
-          isInstalling = true;
-          sendUpdateStatus("installing");
-          setImmediate(() => {
-            try {
-              autoUpdater.quitAndInstall(false, true);
-            } catch (err) {
-              isInstalling = false;
-              console.error("[updater] quitAndInstall failed:", err);
-              sendUpdateStatus("idle");
-              showManualUpdateDialog(err);
-            }
-          });
-        }
-      });
-  });
-
-  autoUpdater.on("error", (err) => {
-    console.error("[updater] Error:", err);
-
-    const wasDownloading = isDownloading;
-    const wasInstalling = isInstalling;
-
-    // Clean up progress state
-    if (isDownloading) {
-      isDownloading = false;
-      const win = getMainWindow();
-      if (win) {
-        win.setProgressBar(-1);
-        win.setTitle(APP_TITLE);
-      }
-    }
-    isInstalling = false;
-    sendUpdateStatus("idle");
-
-    // Show manual update dialog for download or install errors.
-    // Check errors are handled by their respective .catch() handlers
-    // (manual check shows its own dialog; auto-check stays silent).
-    if (wasDownloading || wasInstalling) {
-      showManualUpdateDialog(err);
-    }
-  });
-}
-
-function getPendingDownloadPath(): string | null {
-  const arch = process.arch === "arm64" ? "arm64" : "x64";
-  const version = pendingUpdateVersion;
-  if (!version) return null;
-
-  const cacheDir = path.join(
-    os.homedir(),
-    "Library",
-    "Caches",
-    "narada-app-updater",
-    "pending"
-  );
-  const zipName = `Narad-Muni-${version}-${arch}.zip`;
-  const fullPath = path.join(cacheDir, zipName);
-
-  if (fs.existsSync(fullPath)) return fullPath;
-
-  // Fallback: check for any zip in the pending directory
-  if (fs.existsSync(cacheDir)) {
-    const files = fs.readdirSync(cacheDir).filter((f) => f.endsWith(".zip"));
-    if (files.length > 0) return path.join(cacheDir, files[0]);
-  }
-
-  return null;
-}
-
-function showManualUpdateDialog(err: unknown): void {
-  const cachedFile = getPendingDownloadPath();
-  const buttons = ["Open Download Page"];
-  if (cachedFile) buttons.push("Show in Finder");
-  buttons.push("Dismiss");
-
-  const dismissIndex = buttons.length - 1;
-
-  dialog
-    .showMessageBox({
-      type: "warning",
-      title: "Alas! The sacred update could not be applied",
-      message:
-        "The celestial scroll was delivered, but a seal prevents its unfurling.",
-      detail:
-        "This often happens with unsigned builds. You can download the latest version manually or reveal the cached file.\n\n" +
-        String(err),
-      buttons,
-      defaultId: 0,
-      cancelId: dismissIndex,
-    })
-    .then(({ response }) => {
-      if (buttons[response] === "Open Download Page") {
-        shell.openExternal(DOWNLOAD_PAGE_URL);
-      } else if (buttons[response] === "Show in Finder" && cachedFile) {
-        shell.showItemInFolder(cachedFile);
-      }
-    });
-}
-
-function showUpToDate(): void {
-  dialog.showMessageBox({
-    type: "info",
-    title: "Narayan Narayan!",
-    message: "You possess the latest sacred scroll.",
-    detail: `Version ${app.getVersion()} — the sage has nothing newer to offer.`,
   });
 }
