@@ -5,6 +5,17 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-02-24
+
+### ✨ Features
+
+- Update voice recording shortcut to Ctrl+R for Windows and Cmd+R for Mac for a more intuitive keybinding
+- Add clear button in the issue reporter client for resetting form state
+
+### 🐛 Bug Fixes
+
+- Prevent default browser action when pressing keyboard shortcuts while in retry mode
+
 ## [1.5.0] - 2026-02-24
 
 ### 🐛 Bug Fixes
