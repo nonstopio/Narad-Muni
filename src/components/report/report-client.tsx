@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LifeBuoy, ExternalLink, Loader2, CheckCircle2 } from "lucide-react";
+import { LifeBuoy, ExternalLink, Loader2, CheckCircle2, RotateCcw } from "lucide-react";
 
 export function ReportClient() {
   const [title, setTitle] = useState("");
@@ -135,23 +135,40 @@ export function ReportClient() {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading || !title.trim()}
-              className="w-full py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 bg-narada-amber/20 text-narada-amber border border-narada-amber/20 hover:bg-narada-amber/30 hover:border-narada-amber/30 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  The sage is preparing your petition...
-                </>
-              ) : (
-                <>
-                  <ExternalLink className="w-4 h-4" />
-                  Send Petition
-                </>
-              )}
-            </button>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={loading || (!title.trim() && !description.trim() && !success && !error)}
+                onClick={() => {
+                  setTitle("");
+                  setDescription("");
+                  setAttachLogs(true);
+                  setSuccess(false);
+                  setError("");
+                }}
+                className="py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 bg-white/[0.03] text-narada-text-secondary border border-white/[0.06] hover:bg-white/[0.06] hover:text-narada-text disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Clear
+              </button>
+              <button
+                type="submit"
+                disabled={loading || !title.trim()}
+                className="flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 bg-narada-amber/20 text-narada-amber border border-narada-amber/20 hover:bg-narada-amber/30 hover:border-narada-amber/30 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    The sage is preparing your petition...
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="w-4 h-4" />
+                    Send Petition
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>
