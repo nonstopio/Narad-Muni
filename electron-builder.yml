@@ -1,6 +1,6 @@
 appId: com.narada.app
 productName: Narad Muni
-copyright: Copyright © 2026
+copyright: Copyright © 2026 NonStop IO Technologies Pvt. Ltd.
 
 directories:
   output: dist
@@ -51,11 +51,15 @@ linux:
   category: Office
 
 dmg:
+  background: resources/DMG-background.png
+  window:
+    width: 540
+    height: 380
   contents:
-    - x: 130
-      y: 220
-    - x: 410
-      y: 220
+    - x: 140
+      y: 250
+    - x: 400
+      y: 250
       type: link
       path: /Applications
 

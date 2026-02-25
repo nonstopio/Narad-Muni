@@ -1,6 +1,17 @@
 {
   "name": "narada-app",
   "version": "1.5.2",
+  "productName": "Narad Muni",
+  "description": "Voice-first productivity platform — record once, publish to Slack, Teams, and Jira",
+  "author": {
+    "name": "NonStop IO",
+    "url": "https://nonstopio.com"
+  },
+  "homepage": "https://github.com/nonstopio/Narad-Muni",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nonstopio/Narad-Muni.git"
+  },
   "private": true,
   "main": "dist-electron/main.js",
   "scripts": {

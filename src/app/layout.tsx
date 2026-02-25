@@ -20,9 +20,24 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://github.com/nonstopio/Narad-Muni"),
   title: "Narada — Narayan Narayan! Speak once, inform all three worlds",
   description:
     "Narayan Narayan! Like the divine sage who travels the three worlds, Narada carries your voice to Slack, Teams, and Jira — so the right souls know at the right time.",
+  openGraph: {
+    title: "Narada — Speak once, inform all three worlds",
+    description:
+      "Voice-first productivity platform. Record once, publish to Slack, Teams, and Jira.",
+    type: "website",
+    images: [{ url: "/icon.png", width: 1024, height: 1024, alt: "Narad Muni" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "Narada — Speak once, inform all three worlds",
+    description:
+      "Voice-first productivity platform. Record once, publish to Slack, Teams, and Jira.",
+    images: ["/icon.png"],
+  },
 };
 
 export default function RootLayout({
