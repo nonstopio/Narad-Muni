@@ -133,6 +133,37 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
           </div>
         </div>
 
+        {/* Team Lead for blocker notifications */}
+        <div className="grid grid-cols-2 gap-3 mb-1">
+          <div>
+            <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+              Team Lead Name
+            </label>
+            <input
+              className="glass-input text-[13px]"
+              type="text"
+              placeholder={isSlack ? "Lead's display name" : "Lead's Teams name"}
+              value={form.teamLeadName || ""}
+              onChange={(e) => update("teamLeadName", e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+              Team Lead ID
+            </label>
+            <input
+              className="glass-input font-mono text-[13px]"
+              type="text"
+              placeholder={isSlack ? "Lead's Slack ID (e.g. U0456XYZ)" : "Lead's Teams user ID"}
+              value={form.teamLeadId || ""}
+              onChange={(e) => update("teamLeadId", e.target.value)}
+            />
+          </div>
+        </div>
+        <p className="text-[11px] text-narada-text-secondary/60 mb-4">
+          The sage shall summon your lead when blockers arise
+        </p>
+
         <div className="mb-4">
           <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
             Webhook URL

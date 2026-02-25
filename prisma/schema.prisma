@@ -44,6 +44,8 @@ model PlatformConfig {
   email           String?
   projectKey      String?
   timezone        String?
+  teamLeadName    String?
+  teamLeadId      String?
   isActive        Boolean  @default(true)
   repeatEntries   RepeatEntry[]
 }

@@ -5,10 +5,23 @@ import type { PlatformConfigData } from "@/types";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const configs = await prisma.platformConfig.findMany({
-    include: { repeatEntries: true },
-    orderBy: { platform: "asc" },
-  });
+  let configs;
+  try {
+    console.log("[Narada Settings] Fetching platform configs...");
+    console.log("[Narada Settings] DATABASE_URL:", process.env.DATABASE_URL);
+    configs = await prisma.platformConfig.findMany({
+      include: { repeatEntries: true },
+      orderBy: { platform: "asc" },
+    });
+    console.log("[Narada Settings] Fetched configs:", configs.length, "platforms:", configs.map((c) => c.platform).join(", "));
+  } catch (err) {
+    console.error("[Narada Settings] Failed to fetch platform configs:", err);
+    throw err;
+  }
+
+  if (configs.length === 0) {
+    console.warn("[Narada Settings] No platform configs found in database. Did you run `npm run db:seed`?");
+  }
 
   const serialized: PlatformConfigData[] = configs.map((c) => ({
     id: c.id,
@@ -21,6 +34,8 @@ export default async function SettingsPage() {
     email: c.email,
     projectKey: c.projectKey,
     timezone: c.timezone,
+    teamLeadName: c.teamLeadName,
+    teamLeadId: c.teamLeadId,
     isActive: c.isActive,
     repeatEntries: c.repeatEntries.map((r) => ({
       id: r.id,
@@ -30,6 +45,8 @@ export default async function SettingsPage() {
       comment: r.comment,
     })),
   }));
+
+  console.log("[Narada Settings] Serialized", serialized.length, "configs for client");
 
   return <SettingsClient initialConfigs={serialized} />;
 }

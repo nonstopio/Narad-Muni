@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const configs = await prisma.platformConfig.findMany({
-    include: { repeatEntries: true },
-    orderBy: { platform: "asc" },
-  });
-
-  return NextResponse.json({ configs });
+  try {
+    console.log("[Narada API Settings] GET /api/settings — fetching configs...");
+    const configs = await prisma.platformConfig.findMany({
+      include: { repeatEntries: true },
+      orderBy: { platform: "asc" },
+    });
+    console.log(`[Narada API Settings] Found ${configs.length} configs:`, configs.map((c) => c.platform).join(", "));
+    return NextResponse.json({ configs });
+  } catch (error) {
+    console.error("[Narada API Settings] GET failed:", error);
+    return NextResponse.json({ configs: [], error: error instanceof Error ? error.message : "Failed to fetch settings" }, { status: 500 });
+  }
 }
 
 export async function PUT(request: NextRequest) {
@@ -23,6 +29,8 @@ export async function PUT(request: NextRequest) {
       email,
       projectKey,
       timezone,
+      teamLeadName,
+      teamLeadId,
       isActive,
       repeatEntries,
     } = body;
@@ -44,6 +52,8 @@ export async function PUT(request: NextRequest) {
         email,
         projectKey,
         timezone,
+        teamLeadName,
+        teamLeadId,
         isActive,
         repeatEntries: {
           create: (repeatEntries || []).map(

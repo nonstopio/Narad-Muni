@@ -223,16 +223,49 @@ function formatDateDisplay(dateStr: string): string {
   return `${day} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** Detect whether the formatted output contains real blockers (not just "NA"). */
+function hasRealBlockers(text: string, platform: "slack" | "teams"): boolean {
+  const marker = platform === "slack" ? "`BLOCKER`" : "**BLOCKER**";
+  const idx = text.indexOf(marker);
+  if (idx === -1) return false;
+
+  // Extract everything after the marker until the next section or end
+  const afterMarker = text.slice(idx + marker.length);
+  const nextSection = platform === "slack"
+    ? afterMarker.search(/\n`(?:TODAY|TOMORROW)`/)
+    : afterMarker.search(/\n\*\*(?:TODAY|TOMORROW)\*\*/);
+  const blockerContent = nextSection === -1
+    ? afterMarker
+    : afterMarker.slice(0, nextSection);
+
+  // Strip whitespace and bullet markers, check if anything meaningful remains
+  const cleaned = blockerContent
+    .replace(/[\n\r]/g, " ")
+    .replace(/[•\-–—]/g, "")
+    .trim()
+    .toLowerCase();
+
+  if (!cleaned || cleaned === "na" || cleaned === "none" || cleaned === "n/a") {
+    return false;
+  }
+  return true;
+}
+
 async function sendSlackWebhook(
   webhookUrl: string,
   text: string,
   userId?: string | null,
-  date?: string
+  date?: string,
+  teamLeadId?: string | null
 ): Promise<void> {
   let finalText = text;
   if (userId && date) {
     const displayDate = formatDateDisplay(date);
     finalText = `<@${userId}>'s Updates for \`${displayDate}\` :\n\n${text}`;
+  }
+
+  if (teamLeadId && hasRealBlockers(text, "slack")) {
+    finalText += `\n\ncc <@${teamLeadId}>`;
   }
 
   const maskedUrl = "…" + webhookUrl.slice(-8);
@@ -256,7 +289,9 @@ async function sendTeamsWebhook(
   teamsOutput: string,
   userName?: string | null,
   userId?: string | null,
-  date?: string
+  date?: string,
+  teamLeadName?: string | null,
+  teamLeadId?: string | null
 ): Promise<void> {
   // Split the teamsOutput into sections by **HEADER** markers
   const sections = teamsOutput
@@ -292,6 +327,20 @@ async function sendTeamsWebhook(
       ...(textBlocks.length > 0 || i > 0 ? { spacing: "Medium" } : {}),
     });
   });
+
+  if (teamLeadName && teamLeadId && hasRealBlockers(teamsOutput, "teams")) {
+    textBlocks.push({
+      type: "TextBlock",
+      text: `cc <at>${teamLeadName}</at>`,
+      wrap: true,
+      spacing: "Medium",
+    });
+    entities.push({
+      type: "mention",
+      text: `<at>${teamLeadName}</at>`,
+      mentioned: { id: teamLeadId, name: teamLeadName },
+    });
+  }
 
   const cardContent: Record<string, unknown> = {
     type: "AdaptiveCard",
@@ -449,7 +498,7 @@ export async function POST(request: NextRequest) {
           const linkedSlackOutput = jiraBaseUrl
             ? linkifyTickets(slackOutput, jiraBaseUrl, "slack")
             : slackOutput;
-          await sendSlackWebhook(slackConfig.webhookUrl, linkedSlackOutput, slackConfig.userId, date);
+          await sendSlackWebhook(slackConfig.webhookUrl, linkedSlackOutput, slackConfig.userId, date, slackConfig.teamLeadId);
           await prisma.update.update({
             where: { id: update.id },
             data: { slackStatus: "SENT" },
@@ -484,7 +533,7 @@ export async function POST(request: NextRequest) {
           const linkedTeamsOutput = jiraBaseUrl
             ? linkifyTickets(teamsOutput, jiraBaseUrl, "teams")
             : teamsOutput;
-          await sendTeamsWebhook(teamsConfig.webhookUrl, linkedTeamsOutput, teamsConfig.userName, teamsConfig.userId, date);
+          await sendTeamsWebhook(teamsConfig.webhookUrl, linkedTeamsOutput, teamsConfig.userName, teamsConfig.userId, date, teamsConfig.teamLeadName, teamsConfig.teamLeadId);
           await prisma.update.update({
             where: { id: update.id },
             data: { teamsStatus: "SENT" },
@@ -647,7 +696,7 @@ export async function PUT(request: NextRequest) {
           const finalOutput = jiraBaseUrl
             ? linkifyTickets(slackOutput ?? update.slackOutput, jiraBaseUrl, "slack")
             : (slackOutput ?? update.slackOutput);
-          await sendSlackWebhook(slackConfig.webhookUrl, finalOutput, slackConfig.userId, dateStr);
+          await sendSlackWebhook(slackConfig.webhookUrl, finalOutput, slackConfig.userId, dateStr, slackConfig.teamLeadId);
           await prisma.update.update({
             where: { id: updateId },
             data: { slackStatus: "SENT" },
@@ -682,7 +731,7 @@ export async function PUT(request: NextRequest) {
           const finalOutput = jiraBaseUrl
             ? linkifyTickets(teamsOutput ?? update.teamsOutput, jiraBaseUrl, "teams")
             : (teamsOutput ?? update.teamsOutput);
-          await sendTeamsWebhook(teamsConfig.webhookUrl, finalOutput, teamsConfig.userName, teamsConfig.userId, dateStr);
+          await sendTeamsWebhook(teamsConfig.webhookUrl, finalOutput, teamsConfig.userName, teamsConfig.userId, dateStr, teamsConfig.teamLeadName, teamsConfig.teamLeadId);
           await prisma.update.update({
             where: { id: updateId },
             data: { teamsStatus: "SENT" },

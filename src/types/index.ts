@@ -43,6 +43,8 @@ export interface PlatformConfigData {
   email?: string | null;
   projectKey?: string | null;
   timezone?: string | null;
+  teamLeadName?: string | null;
+  teamLeadId?: string | null;
   isActive: boolean;
   repeatEntries: RepeatEntryData[];
 }
