@@ -20,6 +20,10 @@ interface UpdateStore {
   previewReady: boolean;
   isProcessing: boolean;
 
+  // Jira linkification
+  jiraBaseUrl: string | null;
+  setJiraBaseUrl: (url: string | null) => void;
+
   // Retry mode
   retryMode: boolean;
   retryUpdateId: string | null;
@@ -83,6 +87,7 @@ const initialState = {
   onDispatch: null as (() => void) | null,
   onToggleRecording: null as (() => void) | null,
   autoStartRecording: false,
+  jiraBaseUrl: null as string | null,
   retryMode: false,
   retryUpdateId: null as string | null,
   retrySlackStatus: null as PublishStatus | null,
@@ -134,6 +139,7 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
   setOnDispatch: (cb) => set({ onDispatch: cb }),
   setOnToggleRecording: (cb) => set({ onToggleRecording: cb }),
   setAutoStartRecording: (auto) => set({ autoStartRecording: auto }),
+  setJiraBaseUrl: (url) => set({ jiraBaseUrl: url }),
   setRetryMode: (mode) => set({ retryMode: mode }),
   setRetryUpdateId: (id) => set({ retryUpdateId: id }),
   setRetryStatuses: (slack, teams, jira) =>

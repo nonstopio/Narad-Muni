@@ -22,7 +22,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
   const router = useRouter();
   const setSelectedDate = useAppStore((s) => s.setSelectedDate);
   const store = useUpdateStore();
-  const { initPlatformToggles, resetForNewUpdate } = store;
+  const { initPlatformToggles, resetForNewUpdate, setJiraBaseUrl } = store;
   const { processWithAI, shareAll, retryShare } = useUpdateFlow();
   const [retryLoading, setRetryLoading] = useState(false);
 
@@ -126,6 +126,10 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
       initPlatformToggles(platformConfigs);
       resetForNewUpdate();
     }
+
+    // Set Jira baseUrl for linkification info note (both normal and retry modes)
+    const jiraConfig = platformConfigs.find((c) => c.platform === "JIRA");
+    setJiraBaseUrl(jiraConfig?.baseUrl?.trim() || null);
 
     // Cleanup retry state on unmount
     return () => {

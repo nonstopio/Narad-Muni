@@ -484,8 +484,11 @@ export async function POST(request: NextRequest) {
         where: { platform: "JIRA" },
         select: { baseUrl: true },
       });
-      jiraBaseUrl = jiraConfigForLinks?.baseUrl ?? null;
-    } catch { /* non-critical, skip linkification */ }
+      jiraBaseUrl = jiraConfigForLinks?.baseUrl?.trim() || null;
+      console.log(`[Narada] Jira baseUrl for linkification: ${jiraBaseUrl ?? "(not configured)"}`);
+    } catch (err) {
+      console.warn("[Narada] Could not fetch Jira baseUrl for ticket linkification:", err);
+    }
 
     // Publish to Slack if enabled
     if (slackEnabled && slackOutput) {
@@ -681,8 +684,11 @@ export async function PUT(request: NextRequest) {
         where: { platform: "JIRA" },
         select: { baseUrl: true },
       });
-      jiraBaseUrl = jiraConfigForLinks?.baseUrl ?? null;
-    } catch { /* non-critical */ }
+      jiraBaseUrl = jiraConfigForLinks?.baseUrl?.trim() || null;
+      console.log(`[Narada] Jira baseUrl for linkification: ${jiraBaseUrl ?? "(not configured)"}`);
+    } catch (err) {
+      console.warn("[Narada] Could not fetch Jira baseUrl for ticket linkification:", err);
+    }
 
     // Retry Slack
     if (retrySlack) {

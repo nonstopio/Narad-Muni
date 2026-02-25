@@ -4,7 +4,7 @@ import { useUpdateStore } from "@/stores/update-store";
 import { MessageSquare, Check, Lock } from "lucide-react";
 
 export function SlackOutputCard() {
-  const { slackOutput, setSlackOutput, slackEnabled, togglePlatform, retryMode, retrySlackStatus } =
+  const { slackOutput, setSlackOutput, slackEnabled, togglePlatform, retryMode, retrySlackStatus, jiraBaseUrl } =
     useUpdateStore();
 
   const isLocked = retryMode && retrySlackStatus === "SENT";
@@ -53,6 +53,11 @@ export function SlackOutputCard() {
         disabled={!slackEnabled || isLocked}
         placeholder="The scroll for Slack will materialize once the sage has spoken..."
       />
+      {jiraBaseUrl && slackOutput && (
+        <p className="mt-2 text-[11px] text-narada-text-muted italic">
+          Ticket IDs will be linked to Jira upon dispatch
+        </p>
+      )}
     </div>
   );
 }

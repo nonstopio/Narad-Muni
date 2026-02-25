@@ -5,9 +5,16 @@ export function linkifyTickets(
   baseUrl: string,
   format: "slack" | "teams"
 ): string {
+  if (!baseUrl?.trim()) return text;
   const base = baseUrl.replace(/\/+$/, "");
-  return text.replace(TICKET_REGEX, (match) => {
+  let count = 0;
+  const result = text.replace(TICKET_REGEX, (match) => {
+    count++;
     const url = `${base}/browse/${match}`;
     return format === "slack" ? `<${url}|${match}>` : `[${match}](${url})`;
   });
+  if (count > 0) {
+    console.log(`[Narada] Linkified ${count} ticket(s) for ${format}`);
+  }
+  return result;
 }

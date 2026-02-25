@@ -4,7 +4,7 @@ import { useUpdateStore } from "@/stores/update-store";
 import { Users, Check, Lock } from "lucide-react";
 
 export function TeamsOutputCard() {
-  const { teamsOutput, setTeamsOutput, teamsEnabled, togglePlatform, retryMode, retryTeamsStatus } =
+  const { teamsOutput, setTeamsOutput, teamsEnabled, togglePlatform, retryMode, retryTeamsStatus, jiraBaseUrl } =
     useUpdateStore();
 
   const isLocked = retryMode && retryTeamsStatus === "SENT";
@@ -53,6 +53,11 @@ export function TeamsOutputCard() {
         disabled={!teamsEnabled || isLocked}
         placeholder="The scroll for Teams will materialize once the sage has spoken..."
       />
+      {jiraBaseUrl && teamsOutput && (
+        <p className="mt-2 text-[11px] text-narada-text-muted italic">
+          Ticket IDs will be linked to Jira upon dispatch
+        </p>
+      )}
     </div>
   );
 }
