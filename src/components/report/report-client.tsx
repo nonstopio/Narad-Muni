@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LifeBuoy, ExternalLink, Loader2, CheckCircle2, RotateCcw } from "lucide-react";
+import { Bug, ExternalLink, Loader2, CheckCircle2, RotateCcw } from "lucide-react";
 
 export function ReportClient() {
   const [title, setTitle] = useState("");
@@ -64,7 +64,7 @@ export function ReportClient() {
           <div className="glass-card p-6 flex flex-col gap-5">
             <div className="flex items-center gap-3 mb-1">
               <div className="w-9 h-9 rounded-xl bg-narada-amber/10 flex items-center justify-center">
-                <LifeBuoy className="w-[18px] h-[18px] text-narada-amber" />
+                <Bug className="w-[18px] h-[18px] text-narada-amber" />
               </div>
               <h2 className="text-base font-semibold text-narada-text">
                 Petition to the Celestial Maintainers
