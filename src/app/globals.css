@@ -220,3 +220,8 @@
   border-color: #3B82F6;
   box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
 }
+
+.glass-input option {
+  background: #12121A;
+  color: #F1F5F9;
+}

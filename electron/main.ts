@@ -1,9 +1,11 @@
-import { app, BrowserWindow, shell, ipcMain, dialog, Menu } from "electron";
+import { app, BrowserWindow, shell, ipcMain, dialog, Menu, powerSaveBlocker } from "electron";
 import * as path from "path";
 import { readConfig, getDbPath, saveWindowBounds } from "./config";
 import { initializeDatabase } from "./db";
 import { findAvailablePort } from "./port";
 import { initAutoUpdater, checkForUpdatesManual } from "./updater";
+import { setupTray } from "./tray";
+import { setupScheduler, reloadSchedule, fireTestNotification, NotificationSettings } from "./scheduler";
 
 // Next.js Turbopack generates hashed Prisma client modules (e.g. @prisma/client-<hash>)
 // as symlinks in .next/node_modules/. Inside the asar archive these symlinks break because
@@ -35,6 +37,8 @@ const isDev = !app.isPackaged;
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
+let appPort = 3947; // default dev port; overridden in production
+let appDbPath = "";
 
 // Enforce single instance
 const gotTheLock = app.requestSingleInstanceLock();
@@ -95,7 +99,14 @@ async function createWindow(port: number): Promise<void> {
         { role: "hideOthers" },
         { role: "unhide" },
         { type: "separator" },
-        { role: "quit", label: `Quit ${APP_NAME}` },
+        {
+          label: `Quit ${APP_NAME}`,
+          accelerator: "CmdOrCtrl+Q",
+          click: () => {
+            // Hide to tray instead of quitting so notifications keep firing
+            mainWindow?.hide();
+          },
+        },
       ],
     },
     { role: "editMenu" },
@@ -119,14 +130,25 @@ async function createWindow(port: number): Promise<void> {
     return { action: "deny" };
   });
 
-  // Save window bounds on close
+  // Save window bounds on close — hide to tray instead of quitting (all platforms)
   mainWindow.on("close", (e) => {
-    if (!isQuitting && process.platform === "darwin") {
+    if (!isQuitting) {
       e.preventDefault();
       mainWindow?.hide();
       return;
     }
 
+    if (mainWindow) {
+      const bounds = mainWindow.getBounds();
+      saveWindowBounds({
+        ...bounds,
+        isMaximized: mainWindow.isMaximized(),
+      });
+    }
+  });
+
+  // Save window bounds when hiding to tray
+  mainWindow.on("hide", () => {
     if (mainWindow) {
       const bounds = mainWindow.getBounds();
       saveWindowBounds({
@@ -156,6 +178,7 @@ async function startApp(): Promise<void> {
 
   // Resolve database path and initialize if needed
   const dbPath = getDbPath();
+  appDbPath = dbPath;
   const appRoot = getAppRoot();
 
   console.log(`App root: ${appRoot}`);
@@ -170,12 +193,13 @@ async function startApp(): Promise<void> {
 
   if (isDev) {
     // In dev, connect to the already-running Next.js dev server on port 3947
-    const devPort = 3947;
-    console.log(`Dev mode: connecting to Next.js on port ${devPort}`);
-    await createWindow(devPort);
+    appPort = 3947;
+    console.log(`Dev mode: connecting to Next.js on port ${appPort}`);
+    await createWindow(appPort);
   } else {
     // Find available port for production server
     const port = await findAvailablePort();
+    appPort = port;
     console.log(`Using port: ${port}`);
 
     // The standalone Next.js build lives inside the asar at .next/standalone/
@@ -206,6 +230,45 @@ async function startApp(): Promise<void> {
   }
 
   initAutoUpdater();
+
+  // Prevent macOS App Nap from throttling timers when window is hidden.
+  // Without this, scheduled notifications may never fire in the background.
+  const blockerId = powerSaveBlocker.start("prevent-app-suspension");
+  console.log(`[Main] Power save blocker started (id: ${blockerId})`);
+
+  // System tray — keeps app alive when window is hidden
+  try {
+    setupTray(() => mainWindow);
+  } catch (err) {
+    console.error("[Main] Failed to setup system tray:", err);
+  }
+
+  // Notification scheduler — fires native reminders on configured schedule
+  const getMainWindow = () => mainWindow;
+  try {
+    setupScheduler(appDbPath, getMainWindow, appPort);
+  } catch (err) {
+    console.error("[Main] Failed to setup notification scheduler:", err);
+  }
+
+  // IPC: renderer passes config directly to avoid cross-process SQLite WAL issues
+  ipcMain.handle("reload-notification-schedule", (_event, config: NotificationSettings) => {
+    console.log("[Main] IPC: reload-notification-schedule received, config:", JSON.stringify(config));
+    try {
+      reloadSchedule(config, getMainWindow, appPort);
+    } catch (err) {
+      console.error("[Main] Failed to reload notification schedule:", err);
+    }
+  });
+
+  // IPC: renderer asks to fire a test notification
+  ipcMain.handle("test-notification", () => {
+    try {
+      fireTestNotification(getMainWindow, appPort);
+    } catch (err) {
+      console.error("[Main] Failed to fire test notification:", err);
+    }
+  });
 }
 
 // macOS lifecycle
@@ -214,9 +277,7 @@ app.on("before-quit", () => {
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  // Don't quit — app stays alive in system tray for notifications
 });
 
 app.on("activate", () => {

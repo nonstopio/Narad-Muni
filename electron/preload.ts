@@ -5,4 +5,11 @@ import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("narada", {
   isElectron: true,
   pickFilePath: (): Promise<string | null> => ipcRenderer.invoke("pick-file-path"),
+  reloadNotificationSchedule: (config: {
+    notificationsEnabled: boolean;
+    notificationHour: number;
+    notificationMinute: number;
+    notificationDays: string;
+  }): Promise<void> => ipcRenderer.invoke("reload-notification-schedule", config),
+  testNotification: (): Promise<void> => ipcRenderer.invoke("test-notification"),
 });

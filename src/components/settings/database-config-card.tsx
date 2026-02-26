@@ -4,15 +4,6 @@ import { useState, useEffect } from "react";
 import { Database, FolderOpen } from "lucide-react";
 import { useToastStore } from "@/components/ui/toast";
 
-declare global {
-  interface Window {
-    narada?: {
-      isElectron: boolean;
-      pickFilePath: () => Promise<string | null>;
-    };
-  }
-}
-
 export function DatabaseConfigCard() {
   const [dbPath, setDbPath] = useState("");
   const [newPath, setNewPath] = useState("");
