@@ -150,13 +150,15 @@ export function useKeyboardShortcuts() {
       if (e.key === "?" || (e.shiftKey && e.key === "/")) {
         e.preventDefault();
         router.push("/settings");
-        // Use rAF to wait for navigation, then scroll
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            const el = document.getElementById("keyboard-shortcuts");
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-          }, 300);
-        });
+        // Poll for the element since server component render takes variable time
+        const poll = setInterval(() => {
+          const el = document.getElementById("keyboard-shortcuts");
+          if (el) {
+            clearInterval(poll);
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }, 100);
+        setTimeout(() => clearInterval(poll), 3000);
         return;
       }
 
