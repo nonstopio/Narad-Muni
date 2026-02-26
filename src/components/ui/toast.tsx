@@ -2,6 +2,8 @@
 
 import { create } from "zustand";
 import { AnimatePresence, motion } from "framer-motion";
+import Lottie from "lottie-react";
+import muniAnimation from "@/../public/muni.json";
 
 type ToastType = "success" | "error" | "warning";
 
@@ -17,6 +19,33 @@ interface ToastStore {
   removeToast: (id: string) => void;
 }
 
+const TOAST_STYLES = {
+  success: {
+    bg: "rgba(16,185,129,0.18)",
+    border: "1px solid rgba(16,185,129,0.45)",
+    shadow:
+      "0 4px 24px rgba(0,0,0,0.6), 0 0 30px rgba(16,185,129,0.35)",
+  },
+  warning: {
+    bg: "rgba(245,158,11,0.18)",
+    border: "1px solid rgba(245,158,11,0.45)",
+    shadow:
+      "0 4px 24px rgba(0,0,0,0.6), 0 0 30px rgba(245,158,11,0.35)",
+  },
+  error: {
+    bg: "rgba(239,68,68,0.18)",
+    border: "1px solid rgba(239,68,68,0.45)",
+    shadow:
+      "0 4px 24px rgba(0,0,0,0.6), 0 0 30px rgba(239,68,68,0.35)",
+  },
+};
+
+const AUTO_DISMISS_MS: Record<ToastType, number> = {
+  success: 4000,
+  error: 5000,
+  warning: 6000,
+};
+
 export const useToastStore = create<ToastStore>((set) => ({
   toasts: [],
   addToast: (message, type) => {
@@ -26,7 +55,7 @@ export const useToastStore = create<ToastStore>((set) => ({
       set((state) => ({
         toasts: state.toasts.filter((t) => t.id !== id),
       }));
-    }, type === "warning" ? 5000 : 3000);
+    }, AUTO_DISMISS_MS[type]);
   },
   removeToast: (id) =>
     set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
@@ -36,72 +65,66 @@ export function ToastContainer() {
   const { toasts, removeToast } = useToastStore();
 
   return (
-    <div className="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-3 pointer-events-none">
       <AnimatePresence>
-        {toasts.map((toast) => (
-          <motion.div
-            key={toast.id}
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-[20px] shadow-lg min-w-[260px] ${
-              toast.type === "success"
-                ? "bg-white/[0.03] border-l-[3px] border-l-narada-emerald border-white/[0.06]"
-                : toast.type === "warning"
-                  ? "bg-white/[0.03] border-l-[3px] border-l-narada-amber border-white/[0.06]"
-                  : "bg-white/[0.03] border-l-[3px] border-l-narada-rose border-white/[0.06]"
-            }`}
-          >
-            <span className="text-sm flex-shrink-0">
-              {toast.type === "success" ? (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M13.5 4.5L6 12L2.5 8.5"
-                    stroke="#10B981"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              ) : toast.type === "warning" ? (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M8 1.5L14.5 13H1.5L8 1.5Z"
-                    stroke="#F59E0B"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M8 6v3"
-                    stroke="#F59E0B"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                  <circle cx="8" cy="11" r="0.5" fill="#F59E0B" />
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M12 4L4 12M4 4l8 8"
-                    stroke="#EF4444"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
-            </span>
-            <span className="text-sm text-narada-text">{toast.message}</span>
-            <button
-              onClick={() => removeToast(toast.id)}
-              className="ml-auto text-narada-text-muted hover:text-narada-text transition-colors text-xs"
+        {toasts.map((toast) => {
+          const style = TOAST_STYLES[toast.type];
+          return (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: 40, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              transition={{
+                type: "spring",
+                stiffness: 400,
+                damping: 25,
+              }}
+              style={{
+                background: style.bg,
+                border: style.border,
+                boxShadow: style.shadow,
+              }}
+              className="pointer-events-auto flex items-center gap-4 px-5 py-4 rounded-2xl backdrop-blur-[20px] min-w-[420px] max-w-[520px]"
             >
-              ✕
-            </button>
-          </motion.div>
-        ))}
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: [0, 1.15, 1] }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="flex-shrink-0 w-12 h-12"
+              >
+                <Lottie
+                  animationData={muniAnimation}
+                  loop
+                  className="w-12 h-12"
+                />
+              </motion.div>
+              <span className="text-sm leading-relaxed text-narada-text flex-1">
+                {toast.message}
+              </span>
+              <button
+                onClick={() => removeToast(toast.id)}
+                className="flex-shrink-0 p-1.5 rounded-lg text-narada-text-muted hover:text-narada-text hover:bg-white/[0.08] transition-colors"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M11 3L3 11M3 3l8 8"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </motion.div>
+          );
+        })}
       </AnimatePresence>
     </div>
   );
