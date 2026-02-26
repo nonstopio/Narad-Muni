@@ -10,6 +10,7 @@ import { useToastStore } from "@/components/ui/toast";
 import { InputSection } from "./input-section";
 import { RetryInputSection } from "./retry-input-section";
 import { PlatformOutputs } from "./platform-outputs";
+import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { computeCombinedStatus } from "@/types";
 import type { PlatformConfigData, PublishStatus } from "@/types";
@@ -250,12 +251,13 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Header */}
       <div className="px-8 py-5 border-b border-white/[0.06] flex items-center gap-4 flex-shrink-0">
-        <button
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => router.push("/")}
-          className="text-narada-text-secondary hover:text-narada-text transition-all duration-300 p-1.5 rounded-lg hover:bg-white/[0.06]"
         >
           <ArrowLeft className="w-5 h-5" />
-        </button>
+        </Button>
         <h1 className="text-xl font-semibold text-narada-text">{dateTitle}</h1>
         {isRetryMode && (
           <span className="px-2.5 py-0.5 rounded-lg text-xs font-medium bg-amber-500/10 border border-amber-500/30 text-narada-amber">

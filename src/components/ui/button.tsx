@@ -5,34 +5,41 @@ import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl font-semibold transition-all duration-200 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none cursor-pointer",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+        primary:
+          "bg-narada-primary text-white shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:brightness-110 hover:shadow-[0_0_30px_rgba(59,130,246,0.4)]",
+        success:
+          "bg-narada-emerald text-white shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:brightness-110 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)]",
+        danger:
+          "bg-narada-rose text-white shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:brightness-110 hover:shadow-[0_0_30px_rgba(239,68,68,0.4)]",
+        "warning-soft":
+          "bg-amber-500/10 text-narada-amber border border-amber-500/30 hover:bg-amber-500/20",
+        "danger-soft":
+          "bg-rose-500/10 text-narada-rose border border-rose-500/30 hover:bg-rose-500/20",
+        "success-soft":
+          "bg-emerald-500/10 text-narada-emerald border border-emerald-500/30 hover:bg-emerald-500/20",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "bg-white/[0.05] text-narada-text-secondary border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/[0.1] hover:text-narada-text",
         ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline",
+          "text-narada-text-secondary hover:bg-white/[0.06] hover:text-narada-text",
+        link:
+          "text-narada-primary hover:underline underline-offset-4",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
-        "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
+        xs: "h-7 px-2.5 text-xs",
+        sm: "h-8 px-3 text-xs",
+        default: "h-9 px-4 text-sm",
+        lg: "h-10 px-5 text-sm",
+        "icon-xs": "size-7 [&_svg:not([class*='size-'])]:size-3.5",
         "icon-sm": "size-8",
-        "icon-lg": "size-10",
+        icon: "size-9",
       },
     },
     defaultVariants: {
-      variant: "default",
+      variant: "primary",
       size: "default",
     },
   }
@@ -40,7 +47,7 @@ const buttonVariants = cva(
 
 function Button({
   className,
-  variant = "default",
+  variant = "primary",
   size = "default",
   asChild = false,
   ...props

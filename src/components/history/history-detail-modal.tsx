@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, ClipboardList, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { UpdateData } from "@/types";
 
 function StatusBadge({
@@ -117,12 +118,9 @@ export function HistoryDetailModal({ update, onClose, onDelete, onRetry }: Props
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/[0.06] shrink-0">
           <h2 className="text-lg font-semibold text-narada-text">{dateStr}</h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-white/[0.06] text-narada-text-muted hover:text-narada-text transition-colors"
-          >
+          <Button variant="ghost" size="icon-sm" onClick={onClose}>
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Body — scrollable */}
@@ -244,32 +242,30 @@ export function HistoryDetailModal({ update, onClose, onDelete, onRetry }: Props
 
         {/* Footer */}
         <div className="flex items-center justify-between p-5 border-t border-white/[0.06] shrink-0">
-          <button
+          <Button
+            variant={confirmDelete ? "danger" : "danger-soft"}
+            size="default"
             onClick={handleDelete}
             disabled={deleting}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-              confirmDelete
-                ? "bg-narada-rose text-white hover:bg-rose-600"
-                : "bg-rose-500/10 border border-rose-500/30 text-narada-rose hover:bg-rose-500/20"
-            } disabled:opacity-50`}
           >
             {deleting
               ? "Erasing..."
               : confirmDelete
                 ? "Truly erase this scroll?"
                 : "Erase"}
-          </button>
+          </Button>
           {onRetry &&
             (update.slackStatus === "FAILED" ||
               update.teamsStatus === "FAILED" ||
               update.jiraStatus === "FAILED") && (
-              <button
+              <Button
+                variant="warning-soft"
+                size="default"
                 onClick={() => onRetry(update)}
-                className="px-4 py-2 rounded-xl text-sm font-medium bg-amber-500/10 border border-amber-500/30 text-narada-amber hover:bg-amber-500/20 transition-all duration-200 flex items-center gap-2"
               >
                 <RefreshCw className="w-4 h-4" />
                 Retry Failed Scrolls
-              </button>
+              </Button>
             )}
         </div>
       </div>

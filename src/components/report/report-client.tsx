@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Bug, ExternalLink, Loader2, CheckCircle2, RotateCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function ReportClient() {
   const [title, setTitle] = useState("");
@@ -136,8 +137,10 @@ export function ReportClient() {
             )}
 
             <div className="flex gap-3">
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="lg"
                 disabled={loading || (!title.trim() && !description.trim() && !success && !error)}
                 onClick={() => {
                   setTitle("");
@@ -146,15 +149,16 @@ export function ReportClient() {
                   setSuccess(false);
                   setError("");
                 }}
-                className="py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 bg-white/[0.03] text-narada-text-secondary border border-white/[0.06] hover:bg-white/[0.06] hover:text-narada-text disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <RotateCcw className="w-4 h-4" />
                 Clear
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
+                variant="warning-soft"
+                size="lg"
                 disabled={loading || !title.trim()}
-                className="flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 bg-narada-amber/20 text-narada-amber border border-narada-amber/20 hover:bg-narada-amber/30 hover:border-narada-amber/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1"
               >
                 {loading ? (
                   <>
@@ -167,7 +171,7 @@ export function ReportClient() {
                     Send Petition
                   </>
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         </form>

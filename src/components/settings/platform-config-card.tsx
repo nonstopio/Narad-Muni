@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { PlatformConfigData } from "@/types";
 import { useToastStore } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   config: PlatformConfigData;
@@ -178,13 +179,14 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
         </div>
 
         <div className="flex justify-end mt-4 pt-4 border-t border-white/[0.06]">
-          <button
+          <Button
+            variant="primary"
+            size="sm"
             onClick={handleSave}
             disabled={saving}
-            className="h-8 px-3 rounded-xl bg-narada-primary text-white text-xs font-semibold shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:bg-blue-600 transition-all duration-300 disabled:opacity-50"
           >
             {saving ? "Inscribing..." : "Inscribe"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

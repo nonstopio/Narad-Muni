@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Database, FolderOpen } from "lucide-react";
 import { useToastStore } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
 
 export function DatabaseConfigCard() {
   const [dbPath, setDbPath] = useState("");
@@ -81,13 +82,15 @@ export function DatabaseConfigCard() {
             {newPath}
           </div>
         </div>
-        <button
+        <Button
+          variant="secondary"
+          size="default"
           onClick={handleBrowse}
-          className="h-[42px] px-3 rounded-xl bg-white/[0.05] border border-white/[0.06] text-narada-text-secondary hover:text-white hover:bg-white/[0.08] transition-all duration-300 flex items-center gap-2 shrink-0"
+          className="h-[42px] shrink-0"
         >
           <FolderOpen className="w-3.5 h-3.5" />
-          <span className="text-xs font-medium">Browse</span>
-        </button>
+          Browse
+        </Button>
       </div>
 
       {restartNeeded && (
@@ -99,13 +102,14 @@ export function DatabaseConfigCard() {
       )}
 
       <div className="flex justify-end mt-4 pt-4 border-t border-white/[0.06]">
-        <button
+        <Button
+          variant="success"
+          size="sm"
           onClick={handleSave}
           disabled={saving || newPath === dbPath}
-          className="h-8 px-3 rounded-xl bg-narada-emerald text-white text-xs font-semibold shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:bg-emerald-600 transition-all duration-300 disabled:opacity-50"
         >
           {saving ? "Inscribing..." : "Inscribe Path"}
-        </button>
+        </Button>
       </div>
     </div>
   );

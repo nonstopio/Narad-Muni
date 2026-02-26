@@ -5,6 +5,7 @@ import { StepProcessing, MuniOrb } from "./step-processing";
 import { SlackOutputCard } from "./slack-output-card";
 import { TeamsOutputCard } from "./teams-output-card";
 import { JiraOutputCard } from "./jira-output-card";
+import { Button } from "@/components/ui/button";
 import { Send, Loader2, RefreshCw } from "lucide-react";
 
 interface PlatformOutputsProps {
@@ -76,9 +77,7 @@ export function PlatformOutputs({
   const ButtonIcon = retryMode ? RefreshCw : Send;
   const buttonText = retryMode ? "Retry Failed Worlds" : "Dispatch to All Worlds";
   const loadingText = retryMode ? "Re-dispatching..." : "Dispatching...";
-  const buttonColor = retryMode
-    ? "bg-narada-amber text-white shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:bg-amber-600 hover:shadow-[0_0_30px_rgba(245,158,11,0.3)]"
-    : "bg-narada-emerald text-white shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:bg-emerald-600 hover:shadow-[0_0_30px_rgba(16,185,129,0.3)]";
+  const buttonVariant = retryMode ? "warning-soft" as const : "success" as const;
 
   return (
     <div className="flex flex-col gap-5">
@@ -87,10 +86,12 @@ export function PlatformOutputs({
       {showJira && <JiraOutputCard />}
 
       {/* Share / Retry button */}
-      <button
+      <Button
+        variant={buttonVariant}
+        size="lg"
         onClick={onShareAll}
         disabled={isSharing}
-        className={`w-full h-10 rounded-xl font-semibold text-[13px] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${buttonColor}`}
+        className="w-full"
       >
         {isSharing ? (
           <>
@@ -103,7 +104,7 @@ export function PlatformOutputs({
             <span>{buttonText}</span>
           </>
         )}
-      </button>
+      </Button>
     </div>
   );
 }

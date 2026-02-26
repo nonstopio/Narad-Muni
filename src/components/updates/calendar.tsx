@@ -1,6 +1,7 @@
 "use client";
 
 import { useCalendar } from "@/hooks/use-calendar";
+import { Button } from "@/components/ui/button";
 import type { CombinedStatus } from "@/types";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -28,28 +29,19 @@ export function Calendar({ updateStatusMap, onDayClick }: CalendarProps) {
     <div className="glass-card p-5 flex-1 flex flex-col min-h-0">
       <div className="flex justify-between items-center mb-4">
         <div className="flex gap-3">
-          <button
-            onClick={prevMonth}
-            className="w-8 h-8 rounded-xl bg-white/[0.05] border border-white/[0.06] text-narada-text-secondary hover:bg-white/[0.1] hover:text-narada-text flex items-center justify-center transition-all duration-300"
-          >
+          <Button variant="secondary" size="icon-sm" onClick={prevMonth}>
             &larr;
-          </button>
-          <button
-            onClick={nextMonth}
-            className="w-8 h-8 rounded-xl bg-white/[0.05] border border-white/[0.06] text-narada-text-secondary hover:bg-white/[0.1] hover:text-narada-text flex items-center justify-center transition-all duration-300"
-          >
+          </Button>
+          <Button variant="secondary" size="icon-sm" onClick={nextMonth}>
             &rarr;
-          </button>
+          </Button>
         </div>
         <div className="text-lg font-semibold text-narada-text">
           {monthTitle}
         </div>
-        <button
-          onClick={goToToday}
-          className="h-8 px-3 rounded-xl bg-white/[0.05] border border-white/[0.06] text-xs font-medium text-narada-text-secondary hover:bg-white/[0.1] hover:text-narada-text transition-all duration-300"
-        >
+        <Button variant="secondary" size="sm" onClick={goToToday}>
           Today
-        </button>
+        </Button>
       </div>
 
       <div className="grid grid-cols-7 gap-1.5 mb-2">

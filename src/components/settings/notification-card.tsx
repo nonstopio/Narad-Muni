@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Bell } from "lucide-react";
 import { useToastStore } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
 
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
@@ -191,20 +192,22 @@ export function NotificationCard() {
       )}
 
       <div className="flex items-center justify-between pt-4 border-t border-white/[0.06]">
-        <button
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={handleTest}
           disabled={testing || saving}
-          className="h-8 px-3 rounded-xl border border-white/[0.12] text-narada-text-secondary text-xs font-semibold hover:border-narada-amber/50 hover:text-narada-text hover:bg-narada-amber/[0.05] transition-all duration-300 disabled:opacity-50"
         >
           {testing ? "Ringing..." : "Test Bell"}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
           onClick={handleSave}
           disabled={saving || testing}
-          className="h-8 px-3 rounded-xl bg-narada-primary text-white text-xs font-semibold shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:bg-blue-600 transition-all duration-300 disabled:opacity-50"
         >
           {saving ? "Inscribing..." : "Inscribe"}
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { useState } from "react";
 import parse from "parse-duration";
 import type { PlatformConfigData, RepeatEntryData } from "@/types";
 import { useToastStore } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
 
 function parseHoursInput(raw: string): number | null {
   const trimmed = raw.trim().toLowerCase();
@@ -351,42 +352,47 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
                   }
                   placeholder="Description"
                 />
-                <button
+                <Button
+                  variant="danger-soft"
+                  size="icon-xs"
                   onClick={() => removeRepeatEntry(idx)}
-                  className="w-7 h-7 bg-rose-500/10 border border-rose-500/30 rounded text-narada-rose flex items-center justify-center hover:bg-rose-500/20 transition-all duration-300 text-xs"
                 >
                   {"\u2715"}
-                </button>
+                </Button>
               </div>
             ))}
           </div>
 
-          <button
+          <Button
+            variant="success-soft"
+            size="sm"
             onClick={addRepeatEntry}
-            className="px-4 py-2 text-xs bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-narada-emerald hover:bg-emerald-500/20 transition-all duration-300"
           >
             + Add Ritual
-          </button>
+          </Button>
         </div>
 
         <div className="mt-4 pt-4 border-t border-white/[0.06] mb-4">
-          <button
+          <Button
+            variant="secondary"
+            size="default"
             onClick={handleTest}
             disabled={saving || testing}
-            className="w-full h-9 rounded-xl border border-white/[0.12] text-narada-text-secondary text-xs font-semibold hover:border-narada-violet/50 hover:text-narada-text hover:bg-narada-violet/[0.05] transition-all duration-300 disabled:opacity-50"
+            className="w-full hover:border-narada-violet/50 hover:text-narada-text hover:bg-narada-violet/[0.05]"
           >
             {testing ? "Seeking the Jira realm..." : "Test Jira Connection"}
-          </button>
+          </Button>
         </div>
 
         <div className="flex justify-end pt-4 border-t border-white/[0.06]">
-          <button
+          <Button
+            variant="primary"
+            size="sm"
             onClick={handleSave}
             disabled={saving || testing}
-            className="h-8 px-3 rounded-xl bg-narada-primary text-white text-xs font-semibold shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:bg-blue-600 transition-all duration-300 disabled:opacity-50"
           >
             {saving ? "Inscribing..." : "Inscribe"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -413,16 +419,14 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
             <p className="text-xs text-narada-text-secondary leading-relaxed mb-4">
               {testResult.message}
             </p>
-            <button
+            <Button
+              variant={testResult.type === "success" ? "success-soft" : "danger-soft"}
+              size="sm"
               onClick={() => setTestResult(null)}
-              className={`w-full h-8 rounded-xl text-xs font-semibold transition-all duration-300 ${
-                testResult.type === "success"
-                  ? "bg-narada-emerald/20 text-narada-emerald hover:bg-narada-emerald/30"
-                  : "bg-narada-rose/20 text-narada-rose hover:bg-narada-rose/30"
-              }`}
+              className="w-full"
             >
               Dismiss
-            </button>
+            </Button>
           </div>
         </div>
       )}

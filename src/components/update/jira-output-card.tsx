@@ -4,6 +4,7 @@ import { useState } from "react";
 import parse from "parse-duration";
 import { useUpdateStore } from "@/stores/update-store";
 import { useAppStore } from "@/stores/app-store";
+import { Button } from "@/components/ui/button";
 import { ClipboardList, Check, Plus, X, Lock, CheckCircle2 } from "lucide-react";
 import type { WorkLogEntryData } from "@/types";
 
@@ -308,13 +309,15 @@ export function JiraOutputCard() {
                           <Check className="w-3.5 h-3.5" />
                         </span>
                       ) : (
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="xs"
                           onClick={() => handleRemoveEntry(idx)}
-                          className="text-narada-text-muted hover:text-rose-400 transition-colors p-0.5"
+                          className="hover:text-rose-400 h-auto p-0.5"
                           title="Remove entry"
                         >
                           <X className="w-3.5 h-3.5" />
-                        </button>
+                        </Button>
                       )}
                     </td>
                   </tr>
@@ -327,13 +330,15 @@ export function JiraOutputCard() {
 
       {/* Add Entry button — only in editable mode */}
       {jiraEnabled && !isLocked && (
-        <button
+        <Button
+          variant="ghost"
+          size="xs"
           onClick={handleAddEntry}
-          className="mt-3 flex items-center gap-1.5 text-xs text-narada-text-muted hover:text-narada-text-secondary transition-colors"
+          className="mt-3 text-narada-text-muted"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Add Entry</span>
-        </button>
+        </Button>
       )}
     </div>
   );

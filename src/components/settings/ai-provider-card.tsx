@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useToastStore } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import type { AIProvider } from "@/types";
 
@@ -221,14 +222,16 @@ export function AIProviderCard() {
           {aiSettings.hasGeminiKey && (
             <div className="flex items-center gap-2 mt-1">
               <p className="text-xs text-narada-emerald">Key configured</p>
-              <button
+              <Button
+                variant="ghost"
+                size="xs"
                 onClick={() => handleRemoveKey("geminiApiKey", "Gemini")}
                 disabled={removingKey === "geminiApiKey"}
-                className="text-xs text-narada-text-muted hover:text-narada-rose transition-colors flex items-center gap-1"
+                className="text-narada-text-muted hover:text-narada-rose h-auto py-0 px-1"
               >
                 <X className="w-3 h-3" />
                 Remove
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -249,27 +252,31 @@ export function AIProviderCard() {
           {aiSettings.hasClaudeKey && (
             <div className="flex items-center gap-2 mt-1">
               <p className="text-xs text-narada-emerald">Key configured</p>
-              <button
+              <Button
+                variant="ghost"
+                size="xs"
                 onClick={() => handleRemoveKey("claudeApiKey", "Claude")}
                 disabled={removingKey === "claudeApiKey"}
-                className="text-xs text-narada-text-muted hover:text-narada-rose transition-colors flex items-center gap-1"
+                className="text-narada-text-muted hover:text-narada-rose h-auto py-0 px-1"
               >
                 <X className="w-3 h-3" />
                 Remove
-              </button>
+              </Button>
             </div>
           )}
         </div>
       )}
 
       <div className="mt-4 pt-4 border-t border-white/[0.06] mb-4">
-        <button
+        <Button
+          variant="secondary"
+          size="default"
           onClick={handleTest}
           disabled={busy}
-          className="w-full h-9 rounded-xl border border-white/[0.12] text-narada-text-secondary text-xs font-semibold hover:border-narada-violet/50 hover:text-narada-text hover:bg-narada-violet/[0.05] transition-all duration-300 disabled:opacity-50"
+          className="w-full hover:border-narada-violet/50 hover:text-narada-text hover:bg-narada-violet/[0.05]"
         >
           {testing ? "Consulting the Oracle..." : "Test Connection with Oracle"}
-        </button>
+        </Button>
       </div>
 
       <div className="mt-4 pt-4 border-t border-white/[0.06]">
@@ -286,14 +293,16 @@ export function AIProviderCard() {
         {aiSettings.hasDeepgramKey && (
           <div className="flex items-center gap-2 mt-1">
             <p className="text-xs text-narada-emerald">Key configured</p>
-            <button
+            <Button
+              variant="ghost"
+              size="xs"
               onClick={() => handleRemoveKey("deepgramApiKey", "Deepgram")}
               disabled={removingKey === "deepgramApiKey"}
-              className="text-xs text-narada-text-muted hover:text-narada-rose transition-colors flex items-center gap-1"
+              className="text-narada-text-muted hover:text-narada-rose h-auto py-0 px-1"
             >
               <X className="w-3 h-3" />
               Remove
-            </button>
+            </Button>
           </div>
         )}
         <p className="text-xs text-narada-text-secondary mt-1.5">
@@ -302,13 +311,14 @@ export function AIProviderCard() {
       </div>
 
       <div className="flex justify-end mt-4 pt-4 border-t border-white/[0.06]">
-        <button
+        <Button
+          variant="primary"
+          size="sm"
           onClick={handleSave}
           disabled={busy}
-          className="h-8 px-3 rounded-xl bg-narada-primary text-white text-xs font-semibold shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:bg-blue-600 transition-all duration-300 disabled:opacity-50"
         >
           {saving ? "Inscribing..." : "Inscribe"}
-        </button>
+        </Button>
       </div>
 
       {testResult && (
@@ -334,16 +344,14 @@ export function AIProviderCard() {
             <p className="text-xs text-narada-text-secondary leading-relaxed mb-4">
               {testResult.message}
             </p>
-            <button
+            <Button
+              variant={testResult.type === "success" ? "success-soft" : "danger-soft"}
+              size="sm"
               onClick={() => setTestResult(null)}
-              className={`w-full h-8 rounded-xl text-xs font-semibold transition-all duration-300 ${
-                testResult.type === "success"
-                  ? "bg-narada-emerald/20 text-narada-emerald hover:bg-narada-emerald/30"
-                  : "bg-narada-rose/20 text-narada-rose hover:bg-narada-rose/30"
-              }`}
+              className="w-full"
             >
               Dismiss
-            </button>
+            </Button>
           </div>
         </div>
       )}

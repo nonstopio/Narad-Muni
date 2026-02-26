@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useUpdateStore } from "@/stores/update-store";
 import { useToastStore } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { AudioVisualizer } from "./audio-visualizer";
 import { Mic, Square, Loader2, Zap, RotateCcw } from "lucide-react";
@@ -128,13 +129,15 @@ export function InputSection({ onProcess }: InputSectionProps) {
               {deepgramDisabled ? "Grant me the Deepgram mantra in Sacred Configurations to hear your voice" : "Speak your update"}
             </span>
             {audioBlob && (
-              <button
+              <Button
+                variant="ghost"
+                size="xs"
                 onClick={handleReRecord}
-                className="ml-auto flex items-center gap-1.5 text-xs text-narada-text-muted hover:text-narada-text transition-colors"
+                className="ml-auto text-narada-text-muted"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Speak again</span>
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -167,10 +170,12 @@ export function InputSection({ onProcess }: InputSectionProps) {
       </div>
 
       {/* Process with AI button */}
-      <button
+      <Button
+        variant="primary"
+        size="lg"
         onClick={onProcess}
         disabled={!hasText || isProcessing}
-        className="w-full h-10 rounded-xl bg-narada-primary text-white font-semibold text-[13px] shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:bg-blue-600 hover:shadow-[0_0_30px_rgba(59,130,246,0.3)] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full"
       >
         {isProcessing ? (
           <>
@@ -183,7 +188,7 @@ export function InputSection({ onProcess }: InputSectionProps) {
             <span>{previewReady ? "Consult Again" : "Invoke the Sage"}</span>
           </>
         )}
-      </button>
+      </Button>
 
       {/* Error display */}
       {processingError && (

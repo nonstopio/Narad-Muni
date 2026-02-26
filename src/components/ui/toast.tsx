@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { AnimatePresence, motion } from "framer-motion";
 import Lottie from "lottie-react";
 import muniAnimation from "@/../public/muni.json";
+import { Button } from "@/components/ui/button";
 
 type ToastType = "success" | "error" | "warning";
 
@@ -102,9 +103,11 @@ export function ToastContainer() {
               <span className="text-sm leading-relaxed text-narada-text flex-1">
                 {toast.message}
               </span>
-              <button
+              <Button
+                variant="ghost"
+                size="icon-xs"
                 onClick={() => removeToast(toast.id)}
-                className="flex-shrink-0 p-1.5 rounded-lg text-narada-text-muted hover:text-narada-text hover:bg-white/[0.08] transition-colors"
+                className="flex-shrink-0"
               >
                 <svg
                   width="14"
@@ -121,7 +124,7 @@ export function ToastContainer() {
                     strokeLinejoin="round"
                   />
                 </svg>
-              </button>
+              </Button>
             </motion.div>
           );
         })}
