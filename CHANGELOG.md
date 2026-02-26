@@ -5,6 +5,17 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.4] - 2026-02-26
+
+### ✨ Features
+
+- Add comprehensive presentation guide for the Narad Muni tool
+- Add team lead fields to platform config and enhance database initialization logging
+
+### 🐛 Bug Fixes
+
+- Resolve Jira ticket ID linkification in Slack/Teams messages
+
 ## [1.5.3] - 2026-02-25
 
 ### 🐛 Bug Fixes
