@@ -1,7 +1,7 @@
 "use client";
 
 import { useUpdateStore } from "@/stores/update-store";
-import { RefreshCw, Check, X, Minus } from "lucide-react";
+import { RefreshCw, Check, Minus } from "lucide-react";
 
 function PlatformStatusBadge({
   platform,

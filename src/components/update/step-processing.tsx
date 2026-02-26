@@ -86,7 +86,9 @@ export function MuniOrb({ active = false }: { active?: boolean }) {
 function TypewriterMessage({ text, onDone }: { text: string; onDone: () => void }) {
   const [charIndex, setCharIndex] = useState(0);
   const onDoneRef = useRef(onDone);
-  onDoneRef.current = onDone;
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  });
 
   useEffect(() => {
     if (charIndex < text.length) {
@@ -117,22 +119,19 @@ export function StepProcessing() {
   const activeIndex = getStageIndex(processingStage);
   const progress = getProgressPercent(processingStage);
 
-  // Thought stream state
+  // Thought stream state — reset when stage changes
   const [messages, setMessages] = useState<string[]>([]);
   const [currentMsgIndex, setCurrentMsgIndex] = useState(0);
   const [isTyping, setIsTyping] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const prevStageRef = useRef<ProcessingStage | null>(null);
+  const [prevStage, setPrevStage] = useState<ProcessingStage | null>(null);
 
-  // Reset messages when stage changes
-  useEffect(() => {
-    if (processingStage && processingStage !== prevStageRef.current) {
-      prevStageRef.current = processingStage;
-      setMessages([]);
-      setCurrentMsgIndex(0);
-      setIsTyping(true);
-    }
-  }, [processingStage]);
+  if (processingStage && processingStage !== prevStage) {
+    setPrevStage(processingStage);
+    setMessages([]);
+    setCurrentMsgIndex(0);
+    setIsTyping(true);
+  }
 
   // Auto-scroll to bottom
   useEffect(() => {

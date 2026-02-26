@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // Electron (CJS, not part of Next.js app):
     "dist-electron/**",
     "electron/**",
+    // Next.js standalone server (auto-generated CJS):
+    "server.js",
   ]),
 ]);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Keyboard } from "lucide-react";
 
 interface Shortcut {
@@ -27,11 +27,11 @@ const shortcuts: Shortcut[] = [
 ];
 
 export function KeyboardShortcutsCard() {
-  const [isMac, setIsMac] = useState(true);
-
-  useEffect(() => {
-    setIsMac(/Mac|iPhone|iPad|iPod/.test(navigator.platform));
-  }, []);
+  const [isMac] = useState(() =>
+    typeof navigator !== "undefined"
+      ? /Mac|iPhone|iPad|iPod/.test(navigator.platform)
+      : true
+  );
 
   return (
     <div id="keyboard-shortcuts" className="glass-card rounded-2xl p-5">
