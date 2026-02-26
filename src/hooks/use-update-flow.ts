@@ -4,6 +4,16 @@ import { useCallback } from "react";
 import { useUpdateStore } from "@/stores/update-store";
 import { useAppStore } from "@/stores/app-store";
 import { useToastStore } from "@/components/ui/toast";
+import type { PublishStatus } from "@/types";
+
+export interface ShareResult {
+  success: boolean;
+  statuses?: {
+    slackStatus: PublishStatus;
+    teamsStatus: PublishStatus;
+    jiraStatus: PublishStatus;
+  };
+}
 
 export function useUpdateFlow() {
   const store = useUpdateStore();
@@ -115,7 +125,7 @@ export function useUpdateFlow() {
     }
   }, [store, selectedDate]);
 
-  const shareAll = useCallback(async (): Promise<boolean> => {
+  const shareAll = useCallback(async (): Promise<ShareResult> => {
     const {
       rawTranscript,
       slackOutput,
@@ -158,18 +168,25 @@ export function useUpdateFlow() {
 
       setStep("editing");
       setIsProcessing(false);
-      return true;
+      return {
+        success: true,
+        statuses: {
+          slackStatus: data.update.slackStatus,
+          teamsStatus: data.update.teamsStatus,
+          jiraStatus: data.update.jiraStatus,
+        },
+      };
     } catch (error) {
       console.error("Share error:", error);
       const message = error instanceof Error ? error.message : "Alas! The message could not reach the worlds. Please try again.";
       useToastStore.getState().addToast(message, "error");
       setStep("editing");
       setIsProcessing(false);
-      return false;
+      return { success: false };
     }
   }, [store, selectedDate]);
 
-  const retryShare = useCallback(async (): Promise<boolean> => {
+  const retryShare = useCallback(async (): Promise<ShareResult> => {
     const {
       retryUpdateId,
       retrySlackStatus,
@@ -185,7 +202,7 @@ export function useUpdateFlow() {
       setIsProcessing,
     } = store;
 
-    if (!retryUpdateId) return false;
+    if (!retryUpdateId) return { success: false };
 
     // Retry a platform if it's enabled AND was NOT already sent
     const retrySlack = slackEnabled && retrySlackStatus !== "SENT";
@@ -195,7 +212,7 @@ export function useUpdateFlow() {
     // Nothing to retry — all platforms either succeeded or are disabled
     if (!retrySlack && !retryTeams && !retryJira) {
       useToastStore.getState().addToast("Narayan Narayan! There are no failed worlds to retry.", "success");
-      return false;
+      return { success: false };
     }
 
     setStep("sharing");
@@ -223,14 +240,21 @@ export function useUpdateFlow() {
 
       setStep("editing");
       setIsProcessing(false);
-      return true;
+      return {
+        success: true,
+        statuses: {
+          slackStatus: data.update.slackStatus,
+          teamsStatus: data.update.teamsStatus,
+          jiraStatus: data.update.jiraStatus,
+        },
+      };
     } catch (error) {
       console.error("Retry error:", error);
       const message = error instanceof Error ? error.message : "Alas! The retry could not reach the worlds. Please try again.";
       useToastStore.getState().addToast(message, "error");
       setStep("editing");
       setIsProcessing(false);
-      return false;
+      return { success: false };
     }
   }, [store]);
 

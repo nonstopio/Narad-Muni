@@ -11,7 +11,9 @@ import { InputSection } from "./input-section";
 import { RetryInputSection } from "./retry-input-section";
 import { PlatformOutputs } from "./platform-outputs";
 import { ArrowLeft } from "lucide-react";
+import { computeCombinedStatus } from "@/types";
 import type { PlatformConfigData, PublishStatus } from "@/types";
+import type { ShareResult } from "@/hooks/use-update-flow";
 
 interface UpdatePageClientProps {
   platformConfigs: PlatformConfigData[];
@@ -157,22 +159,54 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
     });
   }, [dateParam]);
 
+  const showShareToast = useCallback((result: ShareResult) => {
+    if (!result.success || !result.statuses) return;
+
+    const { slackStatus, teamsStatus, jiraStatus } = result.statuses;
+    const combined = computeCombinedStatus(slackStatus, teamsStatus, jiraStatus);
+
+    if (combined === "all-success") {
+      useToastStore.getState().addToast(
+        "Narayan Narayan! Your word has reached all three worlds!",
+        "success"
+      );
+    } else {
+      const failed: string[] = [];
+      if (slackStatus === "FAILED") failed.push("Slack");
+      if (teamsStatus === "FAILED") failed.push("Teams");
+      if (jiraStatus === "FAILED") failed.push("Jira");
+      const failedStr = failed.join(" & ");
+
+      if (combined === "partial") {
+        useToastStore.getState().addToast(
+          `Narayan Narayan! Most worlds received your word, but ${failedStr} could not be reached.`,
+          "warning"
+        );
+      } else {
+        useToastStore.getState().addToast(
+          "Alas! None of the worlds could be reached. The scroll has been saved for retry.",
+          "error"
+        );
+      }
+    }
+  }, []);
+
   const handleShareAll = useCallback(async () => {
-    const success = await shareAll();
-    if (success) {
+    const result = await shareAll();
+    if (result.success) {
       await deleteDraft();
-      useToastStore.getState().addToast("Narayan Narayan! Your word has reached all three worlds!", "success");
+      showShareToast(result);
       router.push("/");
     }
-  }, [shareAll, deleteDraft, router]);
+  }, [shareAll, deleteDraft, router, showShareToast]);
 
   const handleRetryShare = useCallback(async () => {
-    const success = await retryShare();
-    if (success) {
-      useToastStore.getState().addToast("Narayan Narayan! The failed scrolls have been re-dispatched!", "success");
+    const result = await retryShare();
+    if (result.success) {
+      showShareToast(result);
       router.push("/");
     }
-  }, [retryShare, router]);
+  }, [retryShare, router, showShareToast]);
 
   const isRetryMode = store.retryMode;
   const dispatchHandler = isRetryMode ? handleRetryShare : handleShareAll;

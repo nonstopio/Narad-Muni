@@ -63,3 +63,20 @@ export interface StatData {
   icon: string;
   color: "blue" | "violet" | "emerald" | "amber";
 }
+
+export type CombinedStatus = "all-success" | "partial" | "all-failed";
+
+export function computeCombinedStatus(
+  slackStatus: PublishStatus,
+  teamsStatus: PublishStatus,
+  jiraStatus: PublishStatus
+): CombinedStatus {
+  const enabled = [slackStatus, teamsStatus, jiraStatus].filter(
+    (s) => s !== "SKIPPED"
+  );
+  if (enabled.length === 0) return "all-success";
+  const failedCount = enabled.filter((s) => s === "FAILED").length;
+  if (failedCount === 0) return "all-success";
+  if (failedCount === enabled.length) return "all-failed";
+  return "partial";
+}

@@ -6,7 +6,8 @@ import { StatsBar } from "./stats-bar";
 import { Calendar } from "./calendar";
 import { HistoryDetailModal } from "@/components/history/history-detail-modal";
 import { useAppStore } from "@/stores/app-store";
-import type { StatData, UpdateData } from "@/types";
+import { computeCombinedStatus } from "@/types";
+import type { CombinedStatus, StatData, UpdateData } from "@/types";
 
 interface Props {
   updateCount: number;
@@ -20,10 +21,14 @@ export function UpdatesPageClient({
   monthUpdates: initialMonthUpdates,
 }: Props) {
   const [monthUpdates, setMonthUpdates] = useState(initialMonthUpdates);
-  const updateDatesSet = useMemo(
-    () => new Set(monthUpdates.map((u) => u.date.split("T")[0])),
-    [monthUpdates]
-  );
+  const updateStatusMap = useMemo(() => {
+    const map = new Map<string, CombinedStatus>();
+    for (const u of monthUpdates) {
+      const key = u.date.split("T")[0];
+      map.set(key, computeCombinedStatus(u.slackStatus, u.teamsStatus, u.jiraStatus));
+    }
+    return map;
+  }, [monthUpdates]);
   const [selectedUpdate, setSelectedUpdate] = useState<UpdateData | null>(null);
   const setSelectedDate = useAppStore((s) => s.setSelectedDate);
   const router = useRouter();
@@ -85,7 +90,7 @@ export function UpdatesPageClient({
   return (
     <div className="flex-1 flex flex-col overflow-hidden p-6">
       <div className="flex-shrink-0"><StatsBar stats={stats} /></div>
-      <Calendar updateDates={updateDatesSet} onDayClick={handleDayClick} />
+      <Calendar updateStatusMap={updateStatusMap} onDayClick={handleDayClick} />
 
       {selectedUpdate && (
         <HistoryDetailModal

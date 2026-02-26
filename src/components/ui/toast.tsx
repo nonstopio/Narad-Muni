@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { AnimatePresence, motion } from "framer-motion";
 
-type ToastType = "success" | "error";
+type ToastType = "success" | "error" | "warning";
 
 interface Toast {
   id: string;
@@ -26,7 +26,7 @@ export const useToastStore = create<ToastStore>((set) => ({
       set((state) => ({
         toasts: state.toasts.filter((t) => t.id !== id),
       }));
-    }, 3000);
+    }, type === "warning" ? 5000 : 3000);
   },
   removeToast: (id) =>
     set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
@@ -48,7 +48,9 @@ export function ToastContainer() {
             className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-[20px] shadow-lg min-w-[260px] ${
               toast.type === "success"
                 ? "bg-white/[0.03] border-l-[3px] border-l-narada-emerald border-white/[0.06]"
-                : "bg-white/[0.03] border-l-[3px] border-l-narada-rose border-white/[0.06]"
+                : toast.type === "warning"
+                  ? "bg-white/[0.03] border-l-[3px] border-l-narada-amber border-white/[0.06]"
+                  : "bg-white/[0.03] border-l-[3px] border-l-narada-rose border-white/[0.06]"
             }`}
           >
             <span className="text-sm flex-shrink-0">
@@ -61,6 +63,23 @@ export function ToastContainer() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
+                </svg>
+              ) : toast.type === "warning" ? (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M8 1.5L14.5 13H1.5L8 1.5Z"
+                    stroke="#F59E0B"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M8 6v3"
+                    stroke="#F59E0B"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="8" cy="11" r="0.5" fill="#F59E0B" />
                 </svg>
               ) : (
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
