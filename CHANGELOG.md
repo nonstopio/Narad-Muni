@@ -5,6 +5,20 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5] - 2026-02-26
+
+### ✨ Features
+
+- Add notification reminders, system tray integration, and hide-to-tray behavior on quit
+- Add per-platform status awareness in publishing toasts and calendar indicators
+- Redesign oracle toasts with MuniOrb animation and type-specific styling
+- Introduce unified Button design system with semantic variants and consistent animations
+
+### 🐛 Bug Fixes
+
+- Resolve all ESLint errors across the codebase
+- Fix keyboard shortcuts scroll behavior using poll instead of fixed timeout
+
 ## [1.5.4] - 2026-02-26
 
 ### ✨ Features
