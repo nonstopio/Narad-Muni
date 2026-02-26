@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useUpdateStore } from "@/stores/update-store";
+import { useShortcutsModalStore } from "@/components/settings/keyboard-shortcuts-card";
 
 function isInputFocused(): boolean {
   const el = document.activeElement;
@@ -89,8 +90,12 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Escape — close modal / go back (always active)
+      // Escape — close shortcuts modal first, then existing logic
       if (e.key === "Escape") {
+        if (useShortcutsModalStore.getState().open) {
+          useShortcutsModalStore.getState().close();
+          return;
+        }
         document.dispatchEvent(new CustomEvent("narada:escape"));
         if (pathname === "/update") {
           e.preventDefault();
@@ -146,19 +151,10 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // ? — view keyboard shortcuts
+      // ? — toggle keyboard shortcuts modal
       if (e.key === "?" || (e.shiftKey && e.key === "/")) {
         e.preventDefault();
-        router.push("/settings");
-        // Poll for the element since server component render takes variable time
-        const poll = setInterval(() => {
-          const el = document.getElementById("keyboard-shortcuts");
-          if (el) {
-            clearInterval(poll);
-            el.scrollIntoView({ behavior: "smooth", block: "start" });
-          }
-        }, 100);
-        setTimeout(() => clearInterval(poll), 3000);
+        useShortcutsModalStore.getState().toggle();
         return;
       }
 

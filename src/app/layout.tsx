@@ -5,6 +5,7 @@ import { GradientBlobs } from "@/components/layout/gradient-blobs";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TitleBar } from "@/components/layout/title-bar";
 import { ToastContainer } from "@/components/ui/toast";
+import { KeyboardShortcutsModal } from "@/components/settings/keyboard-shortcuts-card";
 import { KeyboardShortcutsProvider } from "@/components/layout/keyboard-shortcuts-provider";
 
 const inter = Inter({
@@ -59,6 +60,7 @@ export default function RootLayout({
           </main>
         </div>
         <ToastContainer />
+        <KeyboardShortcutsModal />
         <KeyboardShortcutsProvider />
       </body>
     </html>
