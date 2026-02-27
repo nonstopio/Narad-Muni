@@ -12,6 +12,7 @@ async function main() {
             userName: "",
             userId: "",
             webhookUrl: "",
+            slackThreadMode: true,
             isActive: true,
         },
     });

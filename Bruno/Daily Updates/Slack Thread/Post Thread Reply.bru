@@ -1,0 +1,75 @@
+meta {
+  name: Post Thread Reply
+  type: http
+  seq: 3
+}
+
+post {
+  url: https://slack.com/api/chat.postMessage
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{SLACK_BOT_TOKEN}}
+}
+
+headers {
+  Content-type: application/json
+}
+
+body:json {
+  {
+    "channel": "{{SLACK_CHANNEL_ID}}",
+    "thread_ts": "PASTE_WORKFLOW_MESSAGE_TS_HERE",
+    "text": "<@{{SLACK_USER_ID}}>'s Updates for `27 Feb 2026` :\n\n`TODAY`\n• NARADA-101 : Implemented Slack thread reply mode\n• NARADA-102 : Updated Bruno collection with thread API calls\n\n`TOMORROW`\n• Continue testing thread mode end-to-end\n\n`BLOCKER`\n• NA"
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  # Post Thread Reply
+
+  POST https://slack.com/api/chat.postMessage
+
+  Posts the daily update as a thread reply under a workflow message. Replace `thread_ts` with the `ts` from the "Find Workflow Message" response.
+
+  ## Required Bot Token Scopes
+
+  - `chat:write`
+
+  ## Request Body
+
+  | Field | Description |
+  |-------|-------------|
+  | channel | Channel ID to post in |
+  | thread_ts | Parent message timestamp (makes it a thread reply) |
+  | text | The formatted update text |
+
+  ## Sample 200 Response
+
+  ```json
+  {
+    "ok": true,
+    "channel": "C0123ABCDEF",
+    "ts": "1740700900.000003",
+    "message": {
+      "text": "<@U0123ABC>'s Updates for `27 Feb 2026` :...",
+      "type": "message",
+      "subtype": "bot_message",
+      "ts": "1740700900.000003"
+    }
+  }
+  ```
+
+  ## Common Errors
+
+  - `channel_not_found` — Invalid channel ID
+  - `not_in_channel` — Bot must be invited to channel first
+  - `thread_not_found` — Invalid thread_ts value
+  - `invalid_auth` — Bad or expired bot token
+}

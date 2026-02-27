@@ -36,6 +36,11 @@ export default async function SettingsPage() {
     timezone: c.timezone,
     teamLeadName: c.teamLeadName,
     teamLeadId: c.teamLeadId,
+    slackBotToken: c.slackBotToken,
+    slackChannelId: c.slackChannelId,
+    slackThreadMode: c.slackThreadMode,
+    slackThreadMatch: c.slackThreadMatch,
+    slackWorkflowTime: c.slackWorkflowTime,
     isActive: c.isActive,
     repeatEntries: c.repeatEntries.map((r) => ({
       id: r.id,

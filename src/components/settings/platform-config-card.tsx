@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MessageSquareReply, Link } from "lucide-react";
 import type { PlatformConfigData } from "@/types";
 import { useToastStore } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -11,27 +12,71 @@ interface Props {
   onToggle: (config: PlatformConfigData) => Promise<{ success: boolean; error?: string }>;
 }
 
+/** Generate 5-minute increment time options from 00:00 to 23:55. */
+function generateTimeOptions(): { value: string; label: string }[] {
+  return Array.from({ length: 288 }, (_, i) => {
+    const hh = String(Math.floor((i * 5) / 60)).padStart(2, "0");
+    const mm = String((i * 5) % 60).padStart(2, "0");
+    return { value: `${hh}:${mm}`, label: `${hh}:${mm}` };
+  });
+}
+
+const TIME_OPTIONS = generateTimeOptions();
+
 export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
   const [form, setForm] = useState(config);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const addToast = useToastStore((s) => s.addToast);
 
-  const update = (field: string, value: string) => {
+  const update = (field: string, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: false }));
   };
 
   const validate = (): string | null => {
     const newErrors: Record<string, boolean> = {};
-    const url = form.webhookUrl?.trim();
-    if (!url) {
-      newErrors.webhookUrl = true;
-    } else if (!/^https?:\/\/.+/.test(url)) {
-      newErrors.webhookUrl = true;
+
+    if (isSlack && form.slackThreadMode) {
+      // Thread mode: bot token + channel ID + workflow time required
+      const token = form.slackBotToken?.trim();
+      if (!token || !token.startsWith("xoxb-")) {
+        newErrors.slackBotToken = true;
+      }
+      const channel = form.slackChannelId?.trim();
+      if (!channel || !channel.startsWith("C")) {
+        newErrors.slackChannelId = true;
+      }
+      const wfTime = form.slackWorkflowTime?.trim();
+      if (!wfTime) {
+        newErrors.slackWorkflowTime = true;
+      }
+      setErrors(newErrors);
+      if (newErrors.slackBotToken) return "A valid Bot Token (xoxb-...) is needed for thread reply mode";
+      if (newErrors.slackChannelId) return "A valid Channel ID (C...) is needed for thread reply mode";
+      if (newErrors.slackWorkflowTime) return "Select the time when the workflow message posts";
+    } else if (isSlack) {
+      // Standard webhook mode
+      const url = form.webhookUrl?.trim();
+      if (!url) {
+        newErrors.webhookUrl = true;
+      } else if (!/^https?:\/\/.+/.test(url)) {
+        newErrors.webhookUrl = true;
+      }
+      setErrors(newErrors);
+      if (newErrors.webhookUrl) return "A valid Webhook URL is needed to open this portal";
+    } else {
+      // Teams — always webhook
+      const url = form.webhookUrl?.trim();
+      if (!url) {
+        newErrors.webhookUrl = true;
+      } else if (!/^https?:\/\/.+/.test(url)) {
+        newErrors.webhookUrl = true;
+      }
+      setErrors(newErrors);
+      if (newErrors.webhookUrl) return "A valid Webhook URL is needed to open this portal";
     }
-    setErrors(newErrors);
-    if (newErrors.webhookUrl) return "A valid Webhook URL is needed to open this portal";
+
     return null;
   };
 
@@ -79,7 +124,7 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
   const urlPlaceholder = isSlack
     ? "https://hooks.slack.com/services/..."
     : "https://outlook.webhook.office.com/...";
-  const namePlaceholder = isSlack ? "Slack display name" : "Teams display name";
+  const namePlaceholder = isSlack ? "Slack display name (optional)" : "Teams display name";
   const idPlaceholder = isSlack
     ? "Slack member ID (e.g. U0123ABC)"
     : "Teams user ID";
@@ -143,7 +188,7 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
             <input
               className="glass-input text-[13px]"
               type="text"
-              placeholder={isSlack ? "Lead's display name" : "Lead's Teams name"}
+              placeholder={isSlack ? "Lead's display name (optional)" : "Lead's Teams name"}
               value={form.teamLeadName || ""}
               onChange={(e) => update("teamLeadName", e.target.value)}
             />
@@ -165,18 +210,146 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
           The sage shall summon your lead when blockers arise
         </p>
 
-        <div className="mb-4">
-          <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
-            Webhook URL
-          </label>
-          <input
-            className={`glass-input font-mono text-[13px] ${errors.webhookUrl ? "!border-narada-rose" : ""}`}
-            type="text"
-            placeholder={urlPlaceholder}
-            value={form.webhookUrl || ""}
-            onChange={(e) => update("webhookUrl", e.target.value)}
-          />
-        </div>
+        {/* Slack Delivery Mode — segmented control */}
+        {isSlack && (
+          <div className="mb-4">
+            <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+              Delivery Mode
+            </label>
+            <div className="relative flex bg-white/[0.04] border border-white/[0.06] rounded-xl p-1">
+              {/* Sliding pill background */}
+              <div
+                className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-lg transition-all duration-300 ease-out ${
+                  form.slackThreadMode
+                    ? "left-1 bg-narada-violet/20 border border-narada-violet/30"
+                    : "left-[calc(50%+2px)] bg-narada-primary/20 border border-narada-primary/30"
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => update("slackThreadMode", true)}
+                className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[13px] font-medium transition-colors duration-300 ${
+                  form.slackThreadMode ? "text-narada-text-primary" : "text-narada-text-secondary"
+                }`}
+              >
+                <MessageSquareReply size={14} />
+                Thread Reply
+              </button>
+              <button
+                type="button"
+                onClick={() => update("slackThreadMode", false)}
+                className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[13px] font-medium transition-colors duration-300 ${
+                  !form.slackThreadMode ? "text-narada-text-primary" : "text-narada-text-secondary"
+                }`}
+              >
+                <Link size={14} />
+                Webhook
+              </button>
+            </div>
+            <p className="text-[11px] text-narada-text-secondary/60 mt-2">
+              {form.slackThreadMode
+                ? "The sage replies within your daily workflow thread"
+                : "The sage sends scrolls directly via webhook"}
+            </p>
+          </div>
+        )}
+
+        {/* Slack Thread Reply Mode fields — shown when thread mode ON */}
+        {isSlack && form.slackThreadMode && (
+          <div className="mb-4">
+            <div className="pl-0 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+                  Bot Token
+                </label>
+                <input
+                  className={`glass-input font-mono text-[13px] ${errors.slackBotToken ? "!border-narada-rose" : ""}`}
+                  type="password"
+                  placeholder="xoxb-..."
+                  value={form.slackBotToken || ""}
+                  onChange={(e) => update("slackBotToken", e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+                  Channel ID
+                </label>
+                <input
+                  className={`glass-input font-mono text-[13px] ${errors.slackChannelId ? "!border-narada-rose" : ""}`}
+                  type="text"
+                  placeholder="C0123ABCDEF"
+                  value={form.slackChannelId || ""}
+                  onChange={(e) => update("slackChannelId", e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+                  Workflow Time
+                </label>
+                <select
+                  className={`glass-input text-[13px] ${errors.slackWorkflowTime ? "!border-narada-rose" : ""}`}
+                  value={form.slackWorkflowTime || ""}
+                  onChange={(e) => update("slackWorkflowTime", e.target.value)}
+                >
+                  <option value="">Select time...</option>
+                  {TIME_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-narada-text-secondary/60 mt-1">
+                  When does the workflow message post? The sage searches a 10-minute window around this time.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+                  Thread Match Text
+                </label>
+                <input
+                  className="glass-input text-[13px]"
+                  type="text"
+                  placeholder="Daily Status Update"
+                  value={form.slackThreadMatch || ""}
+                  onChange={(e) => update("slackThreadMatch", e.target.value)}
+                />
+                <p className="text-[11px] text-narada-text-secondary/60 mt-1">
+                  Text to find in the workflow message (defaults to &quot;Daily Status Update&quot;)
+                </p>
+              </div>
+
+              <div className="text-[11px] text-narada-text-secondary/50 bg-white/[0.02] rounded-lg p-3 border border-white/[0.04]">
+                <p className="font-semibold text-narada-text-secondary/70 mb-1">Setup:</p>
+                <ol className="list-decimal list-inside space-y-0.5">
+                  <li>Create a Slack App at api.slack.com/apps</li>
+                  <li>Add scopes: <code className="font-mono text-narada-violet/80">channels:history</code>, <code className="font-mono text-narada-violet/80">chat:write</code></li>
+                  <li>Install to workspace, copy Bot Token</li>
+                  <li>Invite bot to channel: <code className="font-mono text-narada-violet/80">/invite @BotName</code></li>
+                  <li>Get Channel ID from channel details</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Webhook URL — hidden when Slack thread mode is ON */}
+        {!(isSlack && form.slackThreadMode) && (
+          <div className="mb-4">
+            <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+              Webhook URL
+            </label>
+            <input
+              className={`glass-input font-mono text-[13px] ${errors.webhookUrl ? "!border-narada-rose" : ""}`}
+              type="text"
+              placeholder={urlPlaceholder}
+              value={form.webhookUrl || ""}
+              onChange={(e) => update("webhookUrl", e.target.value)}
+            />
+          </div>
+        )}
 
         <div className="flex justify-end mt-4 pt-4 border-t border-white/[0.06]">
           <Button

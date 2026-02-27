@@ -46,6 +46,11 @@ model PlatformConfig {
   timezone        String?
   teamLeadName    String?
   teamLeadId      String?
+  slackBotToken   String?
+  slackChannelId  String?
+  slackThreadMode Boolean  @default(true)
+  slackThreadMatch String?
+  slackWorkflowTime String?
   isActive        Boolean  @default(true)
   repeatEntries   RepeatEntry[]
 }

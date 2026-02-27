@@ -31,6 +31,11 @@ export async function PUT(request: NextRequest) {
       timezone,
       teamLeadName,
       teamLeadId,
+      slackBotToken,
+      slackChannelId,
+      slackThreadMode,
+      slackThreadMatch,
+      slackWorkflowTime,
       isActive,
       repeatEntries,
     } = body;
@@ -54,6 +59,11 @@ export async function PUT(request: NextRequest) {
         timezone,
         teamLeadName,
         teamLeadId,
+        slackBotToken,
+        slackChannelId,
+        slackThreadMode,
+        slackThreadMatch,
+        slackWorkflowTime,
         isActive,
         repeatEntries: {
           create: (repeatEntries || []).map(

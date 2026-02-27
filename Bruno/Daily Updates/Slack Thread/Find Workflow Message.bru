@@ -1,0 +1,97 @@
+meta {
+  name: Find Workflow Message
+  type: http
+  seq: 2
+}
+
+get {
+  url: https://slack.com/api/conversations.history?channel={{SLACK_CHANNEL_ID}}&oldest={{OLDEST_TS}}&newest={{NEWEST_TS}}&limit={{LIMIT}}&inclusive=true
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{SLACK_BOT_TOKEN}}
+}
+
+script:pre-request {
+  // Workflow time (HH:MM) — set to your workflow's scheduled time
+  const workflowTime = bru.getEnvVar('SLACK_WORKFLOW_TIME') || '09:00';
+  const timezone = bru.getEnvVar('TIMEZONE') || 'Asia/Kolkata';
+  const today = new Date().toISOString().split('T')[0];
+
+  if (workflowTime) {
+    // 10-minute window centered on workflow time
+    const [hh, mm] = workflowTime.split(':').map(Number);
+    const [year, month, day] = today.split('-').map(Number);
+    const guessUtc = new Date(Date.UTC(year, month - 1, day, hh, mm, 0));
+
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    });
+    const parts = Object.fromEntries(
+      fmt.formatToParts(guessUtc).map(x => [x.type, x.value])
+    );
+    const wallInTz = new Date(
+      `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}Z`
+    );
+    const offsetMs = wallInTz.getTime() - guessUtc.getTime();
+    const centerEpoch = Math.floor((guessUtc.getTime() - offsetMs) / 1000);
+
+    bru.setVar('OLDEST_TS', centerEpoch - 5 * 60);
+    bru.setVar('NEWEST_TS', centerEpoch + 5 * 60);
+    bru.setVar('LIMIT', 20);
+  } else {
+    // Full day fallback
+    const oldest = Math.floor(new Date(today + 'T00:00:00Z').getTime() / 1000);
+    bru.setVar('OLDEST_TS', oldest);
+    bru.setVar('NEWEST_TS', oldest + 86400);
+    bru.setVar('LIMIT', 200);
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Find Workflow Message
+
+  GET https://slack.com/api/conversations.history (filtered to workflow time window)
+
+  Searches for the workflow-posted "Daily Status Update" message within a 10-minute window centered on the configured workflow time. The `ts` from the matching message is used as `thread_ts` when posting a reply.
+
+  Pre-request script computes the time window using `SLACK_WORKFLOW_TIME` (HH:MM) and `TIMEZONE` env vars. Falls back to full-day search if workflow time is not set.
+
+  ## Environment Variables
+
+  | Variable | Description | Example |
+  |----------|-------------|---------|
+  | SLACK_WORKFLOW_TIME | When the workflow posts (HH:MM) | 09:00 |
+  | TIMEZONE | IANA timezone | Asia/Kolkata |
+
+  ## What to Look For
+
+  In the response, find the message where `text` contains "Daily Status Update" (or your configured match text). Copy its `ts` value for the "Post Thread Reply" request.
+
+  ## Sample 200 Response
+
+  ```json
+  {
+    "ok": true,
+    "messages": [
+      {
+        "type": "message",
+        "subtype": "bot_message",
+        "text": "Daily Status Update",
+        "ts": "1740700800.000001",
+        "bot_id": "B0123ABCDEF"
+      }
+    ],
+    "has_more": false
+  }
+  ```
+}

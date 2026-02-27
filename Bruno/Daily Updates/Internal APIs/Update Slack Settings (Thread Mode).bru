@@ -1,0 +1,86 @@
+meta {
+  name: Update Slack Settings (Thread Mode)
+  type: http
+  seq: 7
+}
+
+put {
+  url: http://localhost:3000/api/settings
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-type: application/json
+}
+
+body:json {
+  {
+    "id": "PASTE_SLACK_CONFIG_ID_HERE",
+    "platform": "SLACK",
+    "userName": "{{SLACK_USER_NAME}}",
+    "userId": "{{SLACK_USER_ID}}",
+    "slackThreadMode": true,
+    "slackBotToken": "{{SLACK_BOT_TOKEN}}",
+    "slackChannelId": "{{SLACK_CHANNEL_ID}}",
+    "slackThreadMatch": "Daily Status Update",
+    "slackWorkflowTime": "09:00",
+    "isActive": true,
+    "repeatEntries": []
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  # Update Slack Settings — Thread Mode (Internal)
+
+  PUT /api/settings
+
+  Configures the Slack platform with thread reply mode enabled. Thread mode and webhook mode are **mutually exclusive** — when `slackThreadMode` is `true`, the publish flow will:
+  1. Search the channel for today's workflow message matching `slackThreadMatch` in a 10-minute window around `slackWorkflowTime`
+  2. Post the update as a thread reply under that message
+  3. If no message is found, mark as FAILED (no webhook fallback)
+
+  When `slackThreadMode` is `false`, the standard webhook URL is used instead.
+
+  ## Steps Before Running
+
+  1. Run "Get Settings" to find the Slack config `id`
+  2. Set `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` in the Dev environment
+  3. Replace `PASTE_SLACK_CONFIG_ID_HERE` with the actual config ID
+
+  ## Fields
+
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | slackThreadMode | boolean | Enable thread reply mode (exclusive with webhook) |
+  | slackBotToken | string | Slack App Bot Token (xoxb-...) |
+  | slackChannelId | string | Channel ID (C...) |
+  | slackThreadMatch | string | Text to match in workflow message (default: "Daily Status Update") |
+  | slackWorkflowTime | string | When the workflow posts (HH:MM, e.g. "09:00") |
+
+  ## Sample 200 Response
+
+  ```json
+  {
+    "success": true,
+    "config": {
+      "id": "abc-123",
+      "platform": "SLACK",
+      "userName": "John Doe",
+      "userId": "U0123ABC",
+      "slackThreadMode": true,
+      "slackBotToken": "xoxb-...",
+      "slackChannelId": "C0123ABCDEF",
+      "slackThreadMatch": "Daily Status Update",
+      "slackWorkflowTime": "09:00",
+      "isActive": true,
+      "repeatEntries": []
+    }
+  }
+  ```
+}

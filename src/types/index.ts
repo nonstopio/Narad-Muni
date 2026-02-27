@@ -45,6 +45,11 @@ export interface PlatformConfigData {
   timezone?: string | null;
   teamLeadName?: string | null;
   teamLeadId?: string | null;
+  slackBotToken?: string | null;
+  slackChannelId?: string | null;
+  slackThreadMode?: boolean;
+  slackThreadMatch?: string | null;
+  slackWorkflowTime?: string | null;
   isActive: boolean;
   repeatEntries: RepeatEntryData[];
 }

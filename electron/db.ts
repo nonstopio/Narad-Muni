@@ -144,13 +144,15 @@ export function initializeDatabase(dbPath: string, appRoot: string): void {
 function seedDatabase(db: Database.Database): void {
   console.log("Seeding default data...");
 
-  const upsertConfig = db.prepare(`
-    INSERT OR IGNORE INTO "PlatformConfig" ("id", "platform", "userName", "userId", "webhookUrl", "isActive")
-    VALUES (?, ?, '', '', '', 1)
-  `);
+  db.prepare(
+    `INSERT OR IGNORE INTO "PlatformConfig" ("id", "platform", "userName", "userId", "webhookUrl", "slackThreadMode", "isActive")
+     VALUES (?, ?, '', '', '', 1, 1)`
+  ).run("default-slack", "SLACK");
 
-  upsertConfig.run("default-slack", "SLACK");
-  upsertConfig.run("default-teams", "TEAMS");
+  db.prepare(
+    `INSERT OR IGNORE INTO "PlatformConfig" ("id", "platform", "userName", "userId", "webhookUrl", "isActive")
+     VALUES (?, ?, '', '', '', 1)`
+  ).run("default-teams", "TEAMS");
 
   db.prepare(
     `INSERT OR IGNORE INTO "PlatformConfig" ("id", "platform", "baseUrl", "projectKey", "email", "apiToken", "timezone", "isActive")

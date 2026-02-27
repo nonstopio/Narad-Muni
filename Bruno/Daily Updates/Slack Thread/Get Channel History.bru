@@ -1,0 +1,73 @@
+meta {
+  name: Get Channel History
+  type: http
+  seq: 1
+}
+
+get {
+  url: https://slack.com/api/conversations.history?channel={{SLACK_CHANNEL_ID}}&limit=10
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{SLACK_BOT_TOKEN}}
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # Slack conversations.history
+
+  GET https://slack.com/api/conversations.history
+
+  Fetches recent messages from a Slack channel. Used to find the daily workflow message whose `ts` becomes the thread parent for replies.
+
+  ## Required Bot Token Scopes
+
+  - `channels:history` (public channels)
+  - `groups:history` (private channels)
+
+  ## Query Parameters
+
+  | Param | Description |
+  |-------|-------------|
+  | channel | Channel ID (e.g. C0123ABCDEF) |
+  | oldest | Start of time range (Unix timestamp) |
+  | newest | End of time range (Unix timestamp) |
+  | limit | Max messages to return (default 100, max 1000) |
+  | inclusive | Include messages with oldest/newest ts (true/false) |
+
+  ## Sample 200 Response
+
+  ```json
+  {
+    "ok": true,
+    "messages": [
+      {
+        "type": "message",
+        "subtype": "bot_message",
+        "text": "Daily Status Update",
+        "ts": "1740700800.000001",
+        "bot_id": "B0123ABCDEF"
+      },
+      {
+        "type": "message",
+        "text": "Good morning team!",
+        "ts": "1740700900.000002",
+        "user": "U0123ABC"
+      }
+    ],
+    "has_more": false
+  }
+  ```
+
+  ## Common Errors
+
+  - `channel_not_found` — Invalid channel ID or bot not invited to channel
+  - `not_in_channel` — Bot needs to be invited via `/invite @BotName`
+  - `invalid_auth` — Bad or expired bot token
+}

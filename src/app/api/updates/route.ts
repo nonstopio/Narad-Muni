@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { linkifyTickets } from "@/lib/linkify-tickets";
+import { findWorkflowThread, postThreadReply } from "@/lib/slack-thread";
 
 // ---------------------------------------------------------------------------
 // Jira worklog helpers
@@ -251,6 +252,24 @@ function hasRealBlockers(text: string, platform: "slack" | "teams"): boolean {
   return true;
 }
 
+/** Build the final Slack message text with user mention header and team lead cc. */
+function buildSlackFinalText(
+  text: string,
+  userId?: string | null,
+  date?: string,
+  teamLeadId?: string | null
+): string {
+  let finalText = text;
+  if (userId && date) {
+    const displayDate = formatDateDisplay(date);
+    finalText = `<@${userId}>'s Updates for \`${displayDate}\` :\n\n${text}`;
+  }
+  if (teamLeadId && hasRealBlockers(text, "slack")) {
+    finalText += `\n\ncc <@${teamLeadId}>`;
+  }
+  return finalText;
+}
+
 async function sendSlackWebhook(
   webhookUrl: string,
   text: string,
@@ -258,15 +277,7 @@ async function sendSlackWebhook(
   date?: string,
   teamLeadId?: string | null
 ): Promise<void> {
-  let finalText = text;
-  if (userId && date) {
-    const displayDate = formatDateDisplay(date);
-    finalText = `<@${userId}>'s Updates for \`${displayDate}\` :\n\n${text}`;
-  }
-
-  if (teamLeadId && hasRealBlockers(text, "slack")) {
-    finalText += `\n\ncc <@${teamLeadId}>`;
-  }
+  const finalText = buildSlackFinalText(text, userId, date, teamLeadId);
 
   const maskedUrl = "…" + webhookUrl.slice(-8);
   console.log(`[Narada → Slack] Sending webhook — url=${maskedUrl}, payload_length=${finalText.length} chars`);
@@ -282,6 +293,43 @@ async function sendSlackWebhook(
     const body = await res.text();
     throw new Error(`Slack webhook failed (${res.status}): ${body}`);
   }
+}
+
+/** Publish Slack update via thread reply mode (Bot Token + channel). No webhook fallback. */
+async function publishSlackViaThread(
+  slackConfig: {
+    slackBotToken: string;
+    slackChannelId: string;
+    slackThreadMatch?: string | null;
+    slackWorkflowTime?: string | null;
+    timezone?: string | null;
+  },
+  text: string,
+  userId?: string | null,
+  date?: string,
+  teamLeadId?: string | null
+): Promise<void> {
+  const finalText = buildSlackFinalText(text, userId, date, teamLeadId);
+
+  const threadTs = await findWorkflowThread(
+    slackConfig.slackBotToken,
+    slackConfig.slackChannelId,
+    date || new Date().toISOString().split("T")[0],
+    slackConfig.slackThreadMatch,
+    slackConfig.slackWorkflowTime,
+    slackConfig.timezone
+  );
+
+  if (!threadTs) {
+    throw new Error("No workflow message found in the channel for the configured time window");
+  }
+
+  await postThreadReply(
+    slackConfig.slackBotToken,
+    slackConfig.slackChannelId,
+    threadTs,
+    finalText
+  );
 }
 
 async function sendTeamsWebhook(
@@ -497,10 +545,32 @@ export async function POST(request: NextRequest) {
           where: { platform: "SLACK", isActive: true },
         });
 
-        if (slackConfig?.webhookUrl) {
-          const linkedSlackOutput = jiraBaseUrl
-            ? linkifyTickets(slackOutput, jiraBaseUrl, "slack")
-            : slackOutput;
+        const linkedSlackOutput = jiraBaseUrl
+          ? linkifyTickets(slackOutput, jiraBaseUrl, "slack")
+          : slackOutput;
+
+        if (slackConfig?.slackThreadMode && slackConfig.slackBotToken && slackConfig.slackChannelId) {
+          // Thread reply mode (exclusive — no webhook fallback)
+          await publishSlackViaThread(
+            {
+              slackBotToken: slackConfig.slackBotToken,
+              slackChannelId: slackConfig.slackChannelId,
+              slackThreadMatch: slackConfig.slackThreadMatch,
+              slackWorkflowTime: slackConfig.slackWorkflowTime,
+              timezone: slackConfig.timezone,
+            },
+            linkedSlackOutput,
+            slackConfig.userId,
+            date,
+            slackConfig.teamLeadId
+          );
+          await prisma.update.update({
+            where: { id: update.id },
+            data: { slackStatus: "SENT" },
+          });
+          update.slackStatus = "SENT";
+        } else if (slackConfig?.webhookUrl) {
+          // Standard webhook mode
           await sendSlackWebhook(slackConfig.webhookUrl, linkedSlackOutput, slackConfig.userId, date, slackConfig.teamLeadId);
           await prisma.update.update({
             where: { id: update.id },
@@ -513,7 +583,7 @@ export async function POST(request: NextRequest) {
             data: { slackStatus: "FAILED" },
           });
           update.slackStatus = "FAILED";
-          console.warn("[Narada] Slack enabled but no active webhook URL configured");
+          console.warn("[Narada] Slack enabled but no active webhook URL or thread mode configured");
         }
       } catch (err) {
         console.error("[Narada] Slack publish error:", err);
@@ -697,11 +767,31 @@ export async function PUT(request: NextRequest) {
           where: { platform: "SLACK", isActive: true },
         });
 
-        if (slackConfig?.webhookUrl) {
-          const dateStr = existing.date.toISOString().split("T")[0];
-          const finalOutput = jiraBaseUrl
-            ? linkifyTickets(slackOutput ?? update.slackOutput, jiraBaseUrl, "slack")
-            : (slackOutput ?? update.slackOutput);
+        const dateStr = existing.date.toISOString().split("T")[0];
+        const finalOutput = jiraBaseUrl
+          ? linkifyTickets(slackOutput ?? update.slackOutput, jiraBaseUrl, "slack")
+          : (slackOutput ?? update.slackOutput);
+
+        if (slackConfig?.slackThreadMode && slackConfig.slackBotToken && slackConfig.slackChannelId) {
+          await publishSlackViaThread(
+            {
+              slackBotToken: slackConfig.slackBotToken,
+              slackChannelId: slackConfig.slackChannelId,
+              slackThreadMatch: slackConfig.slackThreadMatch,
+              slackWorkflowTime: slackConfig.slackWorkflowTime,
+              timezone: slackConfig.timezone,
+            },
+            finalOutput,
+            slackConfig.userId,
+            dateStr,
+            slackConfig.teamLeadId
+          );
+          await prisma.update.update({
+            where: { id: updateId },
+            data: { slackStatus: "SENT" },
+          });
+          update.slackStatus = "SENT";
+        } else if (slackConfig?.webhookUrl) {
           await sendSlackWebhook(slackConfig.webhookUrl, finalOutput, slackConfig.userId, dateStr, slackConfig.teamLeadId);
           await prisma.update.update({
             where: { id: updateId },
