@@ -27,15 +27,37 @@ function truncateIfNeeded() {
   }
 }
 
+function serialize(a: unknown): string {
+  if (typeof a === "string") return a;
+  if (a instanceof Error) {
+    const extras = Object.keys(a).length > 0 ? ` ${JSON.stringify(a, Object.getOwnPropertyNames(a))}` : "";
+    return `${a.name}: ${a.message}${a.stack ? `\n${a.stack}` : ""}${extras}`;
+  }
+  try {
+    const json = JSON.stringify(a);
+    // If stringify produced "{}" but the object has own properties, try harder
+    if (json === "{}" && a && typeof a === "object" && Object.getOwnPropertyNames(a).length > 0) {
+      return JSON.stringify(a, Object.getOwnPropertyNames(a));
+    }
+    return json;
+  } catch {
+    return String(a);
+  }
+}
+
+let _logging = false;
+
 function appendEntry(level: string, args: unknown[]) {
+  if (_logging) return; // prevent duplicate lines from re-entrant console calls
+  _logging = true;
   try {
     const timestamp = new Date().toISOString();
-    const message = args
-      .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
-      .join(" ");
+    const message = args.map(serialize).join(" ");
     fs.appendFileSync(LOG_PATH, `[${timestamp}] [${level}] ${message}\n`);
   } catch {
     // Never crash the app over logging
+  } finally {
+    _logging = false;
   }
 }
 
