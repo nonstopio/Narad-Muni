@@ -5,6 +5,19 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-02-27
+
+### ✨ Features
+
+- Add keyboard shortcuts modal for inline viewing instead of navigating to settings
+- Add Slack thread reply mode with default-on toggle and segmented control UI for switching between webhook and thread modes
+- Add Test Thread Connection button for validating Slack thread reply configuration
+- Add new database migrations and API endpoint (`/api/settings/test-slack-thread`) for thread mode support
+
+### 💄 UI/UX
+
+- Mark Slack Portal name fields as optional in placeholder text for clearer guidance
+
 ## [1.5.5] - 2026-02-26
 
 ### ✨ Features
