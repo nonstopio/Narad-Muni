@@ -1,6 +1,5 @@
 import { Notification, BrowserWindow } from "electron";
 import * as schedule from "node-schedule";
-import Database from "better-sqlite3";
 
 let currentJob: schedule.Job | null = null;
 
@@ -9,42 +8,6 @@ export interface NotificationSettings {
   notificationHour: number;
   notificationMinute: number;
   notificationDays: string;
-}
-
-interface NotificationConfigRow {
-  notificationsEnabled: number; // SQLite boolean: 0 | 1
-  notificationHour: number;
-  notificationMinute: number;
-  notificationDays: string;
-}
-
-function readNotificationConfig(dbPath: string): NotificationSettings | null {
-  let db: Database.Database | null = null;
-  try {
-    db = new Database(dbPath);
-    const row = db
-      .prepare(
-        `SELECT notificationsEnabled, notificationHour, notificationMinute, notificationDays
-         FROM "AppSettings" WHERE id = 'app-settings'`
-      )
-      .get() as NotificationConfigRow | undefined;
-    if (!row) {
-      console.warn("[Scheduler] No AppSettings row found in database");
-      return null;
-    }
-    // Convert SQLite integer boolean to JS boolean
-    return {
-      notificationsEnabled: !!row.notificationsEnabled,
-      notificationHour: row.notificationHour,
-      notificationMinute: row.notificationMinute,
-      notificationDays: row.notificationDays,
-    };
-  } catch (err) {
-    console.error("[Scheduler] Failed to read notification config:", err);
-    return null;
-  } finally {
-    db?.close();
-  }
 }
 
 function getTodayDate(): string {
@@ -99,12 +62,11 @@ function showNotification(
 }
 
 export function setupScheduler(
-  dbPath: string,
+  config: NotificationSettings | null,
   getMainWindow: () => BrowserWindow | null,
   port: number
 ): void {
-  console.log("[Scheduler] Initializing scheduler (reading config from DB)");
-  const config = readNotificationConfig(dbPath);
+  console.log("[Scheduler] Initializing scheduler");
   applySchedule(config, getMainWindow, port);
 }
 

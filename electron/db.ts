@@ -8,7 +8,25 @@ import Database from "better-sqlite3";
  * so we don't need the Prisma CLI in the packaged app.
  * Pending migrations are applied automatically — safe for schema updates.
  */
-export function initializeDatabase(dbPath: string, appRoot: string): void {
+export interface NotificationConfig {
+  notificationsEnabled: boolean;
+  notificationHour: number;
+  notificationMinute: number;
+  notificationDays: string;
+}
+
+interface NotificationConfigRow {
+  notificationsEnabled: number; // SQLite boolean: 0 | 1
+  notificationHour: number;
+  notificationMinute: number;
+  notificationDays: string;
+}
+
+interface InitResult {
+  notificationConfig: NotificationConfig | null;
+}
+
+export function initializeDatabase(dbPath: string, appRoot: string): InitResult {
   console.log(`[Narada DB] initializeDatabase called`);
   console.log(`[Narada DB]   dbPath: ${dbPath}`);
   console.log(`[Narada DB]   appRoot: ${appRoot}`);
@@ -133,6 +151,42 @@ export function initializeDatabase(dbPath: string, appRoot: string): void {
     } else {
       console.log("[Narada DB] Database is up to date");
     }
+
+    // Read notification config while better-sqlite3 connection is still open.
+    // This avoids the scheduler needing its own connection later.
+    let notificationConfig: NotificationConfig | null = null;
+    try {
+      const row = db
+        .prepare(
+          `SELECT notificationsEnabled, notificationHour, notificationMinute, notificationDays
+           FROM "AppSettings" WHERE id = 'app-settings'`
+        )
+        .get() as NotificationConfigRow | undefined;
+      if (row) {
+        notificationConfig = {
+          notificationsEnabled: !!row.notificationsEnabled,
+          notificationHour: row.notificationHour,
+          notificationMinute: row.notificationMinute,
+          notificationDays: row.notificationDays,
+        };
+        console.log("[Narada DB]   Notification config:", JSON.stringify(notificationConfig));
+      }
+    } catch (ncErr) {
+      console.warn("[Narada DB]   Failed to read notification config:", ncErr);
+    }
+
+    // Checkpoint WAL and switch to DELETE journal mode before closing.
+    // This removes WAL/SHM files so Prisma's Rust SQLite engine doesn't
+    // encounter incompatible WAL state from better-sqlite3.
+    try {
+      db.pragma("wal_checkpoint(TRUNCATE)");
+      db.pragma("journal_mode = DELETE");
+      console.log("[Narada DB]   WAL checkpoint + journal mode switch to DELETE done");
+    } catch (cpErr) {
+      console.warn("[Narada DB]   WAL cleanup warning:", cpErr);
+    }
+
+    return { notificationConfig };
   } catch (err) {
     console.error("[Narada DB] initializeDatabase FAILED:", err);
     throw err;

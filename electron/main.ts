@@ -1,4 +1,5 @@
 import { app, BrowserWindow, shell, ipcMain, dialog, Menu, powerSaveBlocker } from "electron";
+import * as fs from "fs";
 import * as path from "path";
 import { readConfig, getDbPath, saveWindowBounds } from "./config";
 import { initializeDatabase } from "./db";
@@ -38,7 +39,6 @@ const isDev = !app.isPackaged;
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 let appPort = 3947; // default dev port; overridden in production
-let appDbPath = "";
 
 // Enforce single instance
 const gotTheLock = app.requestSingleInstanceLock();
@@ -178,7 +178,6 @@ async function startApp(): Promise<void> {
 
   // Resolve database path and initialize if needed
   const dbPath = getDbPath();
-  appDbPath = dbPath;
   const appRoot = getAppRoot();
 
   console.log(`App root: ${appRoot}`);
@@ -189,7 +188,18 @@ async function startApp(): Promise<void> {
   process.env.NARADA_USER_DATA_DIR = app.getPath("userData");
 
   // Initialize DB on first launch
-  initializeDatabase(dbPath, appRoot);
+  const initResult = initializeDatabase(dbPath, appRoot);
+
+  // Remove any lingering WAL/SHM files after better-sqlite3 closes.
+  // This is a safety net for existing installations where WAL artifacts
+  // from a previous better-sqlite3 session cause IOERR_SHORT_READ in Prisma.
+  for (const suffix of ["-wal", "-shm"]) {
+    const p = dbPath + suffix;
+    if (fs.existsSync(p)) {
+      console.warn(`[Narada DB] Removing lingering file: ${p}`);
+      fs.unlinkSync(p);
+    }
+  }
 
   if (isDev) {
     // In dev, connect to the already-running Next.js dev server on port 3947
@@ -246,7 +256,7 @@ async function startApp(): Promise<void> {
   // Notification scheduler — fires native reminders on configured schedule
   const getMainWindow = () => mainWindow;
   try {
-    setupScheduler(appDbPath, getMainWindow, appPort);
+    setupScheduler(initResult.notificationConfig, getMainWindow, appPort);
   } catch (err) {
     console.error("[Main] Failed to setup notification scheduler:", err);
   }
