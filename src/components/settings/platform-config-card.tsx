@@ -26,6 +26,8 @@ const TIME_OPTIONS = generateTimeOptions();
 export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
   const [form, setForm] = useState(config);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const addToast = useToastStore((s) => s.addToast);
 
@@ -115,6 +117,41 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
       addToast("Alas! The settings would not take hold", "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTestThread = async () => {
+    setTestResult(null);
+    const token = form.slackBotToken?.trim();
+    const channel = form.slackChannelId?.trim();
+    const wfTime = form.slackWorkflowTime?.trim();
+    if (!token || !token.startsWith("xoxb-") || !channel || !channel.startsWith("C") || !wfTime) {
+      addToast("Bot Token (xoxb-...), Channel ID (C...), and Workflow Time are required", "error");
+      return;
+    }
+    setTesting(true);
+    try {
+      const res = await fetch("/api/settings/test-slack-thread", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          botToken: token,
+          channelId: channel,
+          workflowTime: wfTime,
+          matchText: form.slackThreadMatch || undefined,
+          timezone: form.timezone || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestResult({ type: "success", message: data.message });
+      } else {
+        setTestResult({ type: "error", message: data.error });
+      }
+    } catch {
+      setTestResult({ type: "error", message: "Alas! Could not reach the Slack realm" });
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -331,6 +368,18 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
                   <li>Get Channel ID from channel details</li>
                 </ol>
               </div>
+
+              <div className="mt-3">
+                <Button
+                  variant="secondary"
+                  size="default"
+                  onClick={handleTestThread}
+                  disabled={saving || testing}
+                  className="w-full hover:border-narada-violet/50 hover:text-narada-text hover:bg-narada-violet/[0.05]"
+                >
+                  {testing ? "Seeking the workflow thread..." : "Test Thread Connection"}
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -356,12 +405,47 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
             variant="primary"
             size="sm"
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || testing}
           >
             {saving ? "Inscribing..." : "Inscribe"}
           </Button>
         </div>
       </div>
+
+      {testResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setTestResult(null)} />
+          <div className="relative glass-card p-6 max-w-sm w-full shadow-2xl border border-white/[0.08]">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
+                testResult.type === "success"
+                  ? "bg-narada-emerald/10 text-narada-emerald"
+                  : "bg-narada-rose/10 text-narada-rose"
+              }`}>
+                {testResult.type === "success" ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                )}
+              </div>
+              <h3 className="text-sm font-semibold text-narada-text">
+                {testResult.type === "success" ? "Workflow Thread Found" : "Thread Not Found"}
+              </h3>
+            </div>
+            <p className="text-xs text-narada-text-secondary leading-relaxed mb-4">
+              {testResult.message}
+            </p>
+            <Button
+              variant={testResult.type === "success" ? "success-soft" : "danger-soft"}
+              size="sm"
+              onClick={() => setTestResult(null)}
+              className="w-full"
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
