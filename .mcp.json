@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "narada": {
+      "type": "stdio",
+      "command": "node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
+      "args": [".", "--mcp"]
+    }
+  }
+}
