@@ -3,7 +3,7 @@ const path = require("path");
 const os = require("os");
 const fs = require("fs");
 
-const appName = "narada-app";
+const appName = "Narad Muni";
 
 let userDataDir;
 if (process.platform === "darwin") {

@@ -7,6 +7,21 @@ import { findAvailablePort } from "./port";
 import { initAutoUpdater, checkForUpdatesManual } from "./updater";
 import { setupTray } from "./tray";
 import { setupScheduler, reloadSchedule, fireTestNotification, NotificationSettings } from "./scheduler";
+import { registerMcpConfig } from "./mcp-config";
+
+// --mcp mode: run as a headless MCP stdio server (no GUI, no dock icon).
+// AI clients spawn: /path/to/Narad Muni --mcp
+if (process.argv.includes("--mcp")) {
+  app.dock?.hide();
+  app.whenReady().then(() => {
+    process.env.NARADA_USER_DATA_DIR = app.getPath("userData");
+    require("../dist-mcp/server");
+  }).catch((err) => {
+    process.stderr.write(`[narada-mcp] Fatal: ${err}\n`);
+    process.exit(1);
+  });
+  // Skip everything below — no window, tray, scheduler, updater, single-instance lock
+} else {
 
 // Next.js Turbopack generates hashed Prisma client modules (e.g. @prisma/client-<hash>)
 // as symlinks in .next/node_modules/. Inside the asar archive these symlinks break because
@@ -201,6 +216,9 @@ async function startApp(): Promise<void> {
     }
   }
 
+  // Auto-register MCP server with Claude Code
+  registerMcpConfig();
+
   if (isDev) {
     // In dev, connect to the already-running Next.js dev server on port 3947
     appPort = 3947;
@@ -313,3 +331,5 @@ app.whenReady().then(startApp).catch((err) => {
   console.error("Failed to start app:", err);
   app.quit();
 });
+
+} // end of else (non-MCP mode)
