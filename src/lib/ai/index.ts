@@ -1,12 +1,13 @@
-import { prisma } from "@/lib/prisma";
 import type { AIParseProvider } from "./types";
 import type { AIProvider } from "@/types";
 
-export async function getAIProvider(): Promise<AIParseProvider> {
-  const settings = await prisma.appSettings.findUnique({
-    where: { id: "app-settings" },
-  });
+interface AppSettings {
+  aiProvider?: string;
+  geminiApiKey?: string | null;
+  claudeApiKey?: string | null;
+}
 
+export async function getAIProvider(settings?: AppSettings | null): Promise<AIParseProvider> {
   const provider = (settings?.aiProvider ?? "local-claude") as AIProvider;
 
   console.log(`[AI] Using provider: ${provider}`);

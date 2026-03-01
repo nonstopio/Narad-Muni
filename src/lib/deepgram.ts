@@ -1,18 +1,15 @@
 import { createClient } from "@deepgram/sdk";
-import { prisma } from "@/lib/prisma";
 
 export async function transcribeAudio(
-  buffer: Buffer
+  buffer: Buffer,
+  apiKey?: string
 ): Promise<{ transcript: string; confidence: number; duration: number }> {
-  const settings = await prisma.appSettings.findUnique({
-    where: { id: "app-settings" },
-  });
-  const apiKey = settings?.deepgramApiKey || process.env.DEEPGRAM_API_KEY;
-  if (!apiKey) {
+  const key = apiKey || process.env.DEEPGRAM_API_KEY;
+  if (!key) {
     throw new Error("Deepgram API key not configured. Add it in Settings.");
   }
 
-  const deepgram = createClient(apiKey);
+  const deepgram = createClient(key);
 
   const config = {
     model: "nova-3",

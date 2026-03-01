@@ -1,18 +1,16 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import * as crypto from "crypto";
-import Database from "better-sqlite3";
+import { initializeApp, cert, getApps, type ServiceAccount } from "firebase-admin/app";
+import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 /**
- * Resolve the path to Narad Muni's SQLite database.
- * Mirrors the logic from electron/dev-start.js and electron/config.ts.
+ * Resolve the path to the narada.config.json that stores the Firebase user ID.
  */
-export function resolveDbPath(): string {
+function resolveConfigPath(): string {
   let userDataDir = process.env.NARADA_USER_DATA_DIR;
 
   if (!userDataDir) {
-    // Fallback for standalone dev mode (npm run mcp:dev)
     const APP_NAME = "Narad Muni";
     if (process.platform === "darwin") {
       userDataDir = path.join(os.homedir(), "Library", "Application Support", APP_NAME);
@@ -29,68 +27,88 @@ export function resolveDbPath(): string {
     }
   }
 
-  // Check for custom DB path in narada.config.json
-  const configPath = path.join(userDataDir, "narada.config.json");
+  return path.join(userDataDir, "narada.config.json");
+}
+
+/**
+ * Read the Firebase user ID from narada.config.json.
+ * Written by the Electron app on login.
+ */
+export function readUserId(): string {
+  const configPath = resolveConfigPath();
   try {
     if (fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      if (config.database && config.database.path) {
-        return config.database.path;
+      if (config.firebaseUserId) {
+        return config.firebaseUserId;
       }
     }
   } catch {
-    // Fall back to default path
+    // Fall through
   }
-
-  return path.join(userDataDir, "narada.db");
+  throw new Error(
+    "No Firebase user ID found. Sign in to Narad Muni at least once."
+  );
 }
 
 /**
- * Open the SQLite database with WAL mode and a 5-second busy timeout.
- * Throws a clear error if the database file doesn't exist.
+ * Initialize Firebase Admin SDK and return Firestore instance.
+ * Reads service account from NARADA_FIREBASE_SA_PATH env var.
  */
-export function openDb(): Database.Database {
-  const dbPath = resolveDbPath();
-
-  if (!fs.existsSync(dbPath)) {
-    throw new Error(
-      `Database not found at ${dbPath}. Launch Narad Muni at least once to create it.`
-    );
+export function getDb(): Firestore {
+  if (getApps().length === 0) {
+    const saPath = process.env.NARADA_FIREBASE_SA_PATH;
+    if (saPath && fs.existsSync(saPath)) {
+      const sa = JSON.parse(fs.readFileSync(saPath, "utf-8")) as ServiceAccount;
+      initializeApp({ credential: cert(sa) });
+    } else if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+      const json = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, "base64").toString("utf-8");
+      const sa = JSON.parse(json) as ServiceAccount;
+      initializeApp({ credential: cert(sa) });
+    } else {
+      throw new Error(
+        "Firebase service account not found. Set NARADA_FIREBASE_SA_PATH or FIREBASE_SERVICE_ACCOUNT_BASE64."
+      );
+    }
   }
-
-  const db = new Database(dbPath);
-  db.pragma("journal_mode = WAL");
-  db.pragma("busy_timeout = 5000");
-  return db;
-}
-
-interface DraftRow {
-  id: string;
-  rawTranscript: string;
+  return getFirestore();
 }
 
 /**
- * Append an entry line to the day's draft. Creates the draft if it doesn't exist.
+ * Append an entry line to the day's draft in Firestore.
+ * Creates the draft doc if it doesn't exist.
  * Returns the full draft content after appending.
  */
-export function appendToDraft(db: Database.Database, dateStr: string, entryLine: string): string {
-  // Prisma stores DateTime as epoch milliseconds in SQLite
-  const date = new Date(dateStr + "T00:00:00.000Z").getTime();
+export async function appendToDraft(
+  db: Firestore,
+  userId: string,
+  dateStr: string,
+  entryLine: string
+): Promise<string> {
+  const draftRef = db
+    .collection("users")
+    .doc(userId)
+    .collection("drafts")
+    .doc(dateStr);
 
-  const existing = db
-    .prepare(`SELECT id, rawTranscript FROM "Draft" WHERE date = ?`)
-    .get(date) as DraftRow | undefined;
+  return db.runTransaction(async (tx) => {
+    const doc = await tx.get(draftRef);
 
-  if (existing) {
-    const newText = existing.rawTranscript + "\n" + entryLine;
-    db.prepare(`UPDATE "Draft" SET rawTranscript = ?, updatedAt = datetime('now') WHERE id = ?`)
-      .run(newText, existing.id);
-    return newText;
-  } else {
-    const id = crypto.randomUUID();
-    db.prepare(
-      `INSERT INTO "Draft" (id, date, rawTranscript, updatedAt) VALUES (?, ?, ?, datetime('now'))`
-    ).run(id, date, entryLine);
-    return entryLine;
-  }
+    if (doc.exists) {
+      const existing = doc.data()?.rawTranscript || "";
+      const newText = existing + "\n" + entryLine;
+      tx.update(draftRef, {
+        rawTranscript: newText,
+        updatedAt: new Date().toISOString(),
+      });
+      return newText;
+    } else {
+      tx.set(draftRef, {
+        date: dateStr,
+        rawTranscript: entryLine,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+      return entryLine;
+    }
+  });
 }

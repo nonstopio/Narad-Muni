@@ -1,40 +1,26 @@
-import { Suspense } from "react";
-import { prisma } from "@/lib/prisma";
+"use client";
+
+import { useEffect, useState } from "react";
+import { authedFetch } from "@/lib/api-client";
 import { UpdatePageClient } from "@/components/update/update-page-client";
+import { PageSpinner } from "@/components/ui/page-spinner";
 import type { PlatformConfigData } from "@/types";
 
-export const dynamic = "force-dynamic";
+export default function UpdatePage() {
+  const [configs, setConfigs] = useState<PlatformConfigData[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default async function UpdatePage() {
-  const configs = await prisma.platformConfig.findMany({
-    include: { repeatEntries: true },
-    orderBy: { platform: "asc" },
-  });
+  useEffect(() => {
+    authedFetch("/api/settings")
+      .then((r) => r.json())
+      .then((data) => setConfigs(data.configs || []))
+      .catch((err) => console.error("[Narada] Failed to load configs:", err))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const serialized: PlatformConfigData[] = configs.map((c) => ({
-    id: c.id,
-    platform: c.platform as PlatformConfigData["platform"],
-    userName: c.userName,
-    userId: c.userId,
-    webhookUrl: c.webhookUrl,
-    apiToken: c.apiToken,
-    baseUrl: c.baseUrl,
-    email: c.email,
-    projectKey: c.projectKey,
-    timezone: c.timezone,
-    isActive: c.isActive,
-    repeatEntries: c.repeatEntries.map((r) => ({
-      id: r.id,
-      ticketId: r.ticketId,
-      hours: r.hours,
-      startTime: r.startTime,
-      comment: r.comment,
-    })),
-  }));
+  if (loading) {
+    return <PageSpinner message="Preparing the sacred scrolls..." />;
+  }
 
-  return (
-    <Suspense>
-      <UpdatePageClient platformConfigs={serialized} />
-    </Suspense>
-  );
+  return <UpdatePageClient platformConfigs={configs} />;
 }

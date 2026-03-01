@@ -4,9 +4,7 @@ import * as path from "path";
 
 export interface NaradaConfig {
   version: number;
-  database: {
-    path?: string;
-  };
+  firebaseUserId?: string;
   window: {
     width: number;
     height: number;
@@ -18,7 +16,6 @@ export interface NaradaConfig {
 
 const DEFAULT_CONFIG: NaradaConfig = {
   version: 1,
-  database: {},
   window: {
     width: 1280,
     height: 800,
@@ -46,14 +43,6 @@ export function readConfig(): NaradaConfig {
 export function writeConfig(config: NaradaConfig): void {
   const configPath = getConfigPath();
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
-}
-
-export function getDbPath(): string {
-  const config = readConfig();
-  if (config.database.path) {
-    return config.database.path;
-  }
-  return path.join(app.getPath("userData"), "narada.db");
 }
 
 export function saveWindowBounds(bounds: {

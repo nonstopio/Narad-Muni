@@ -1,7 +1,14 @@
+import { NextRequest, NextResponse } from "next/server";
 import { getLogContents } from "@/lib/logger";
-import { NextResponse } from "next/server";
+import { verifyAuth, handleAuthError } from "@/lib/auth-middleware";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  try {
+    await verifyAuth(request);
+  } catch (e) {
+    return handleAuthError(e);
+  }
+
   const logs = getLogContents(500);
 
   if (!logs) {

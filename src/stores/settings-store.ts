@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { authedFetch } from "@/lib/api-client";
 import type { PlatformConfigData, AIProvider } from "@/types";
 
 interface AIProviderSettings {
@@ -41,7 +42,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   fetchConfigs: async () => {
     set({ loading: true });
     try {
-      const res = await fetch("/api/settings");
+      const res = await authedFetch("/api/settings");
       const data = await res.json();
       if (data.configs) {
         set({ configs: data.configs });
@@ -53,7 +54,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
 
   saveConfig: async (config) => {
     try {
-      const putRes = await fetch("/api/settings", {
+      const putRes = await authedFetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
@@ -65,7 +66,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       if (result.success === false) {
         return { success: false, error: result.error ?? "Failed to save settings" };
       }
-      const res = await fetch("/api/settings");
+      const res = await authedFetch("/api/settings");
       const data = await res.json();
       if (data.configs) {
         set({ configs: data.configs });
@@ -91,7 +92,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   fetchAIProviderSettings: async () => {
     set({ aiLoading: true });
     try {
-      const res = await fetch("/api/settings/ai-provider");
+      const res = await authedFetch("/api/settings/ai-provider");
       const data = await res.json();
       set({
         aiSettings: {
@@ -110,7 +111,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   },
 
   saveAIProviderSettings: async (data) => {
-    const res = await fetch("/api/settings/ai-provider", {
+    const res = await authedFetch("/api/settings/ai-provider", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),

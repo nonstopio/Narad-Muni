@@ -1,8 +1,7 @@
-import { app, BrowserWindow, shell, ipcMain, dialog, Menu, powerSaveBlocker } from "electron";
+import { app, BrowserWindow, shell, ipcMain, Menu, powerSaveBlocker } from "electron";
 import * as fs from "fs";
 import * as path from "path";
-import { readConfig, getDbPath, saveWindowBounds } from "./config";
-import { initializeDatabase } from "./db";
+import { readConfig, saveWindowBounds, writeConfig } from "./config";
 import { findAvailablePort } from "./port";
 import { initAutoUpdater, checkForUpdatesManual } from "./updater";
 import { setupTray } from "./tray";
@@ -15,6 +14,13 @@ if (process.argv.includes("--mcp")) {
   app.dock?.hide();
   app.whenReady().then(() => {
     process.env.NARADA_USER_DATA_DIR = app.getPath("userData");
+
+    // Point MCP server at the bundled Firebase service account
+    const saPath = path.join(process.resourcesPath, "firebase-sa.json");
+    if (fs.existsSync(saPath)) {
+      process.env.NARADA_FIREBASE_SA_PATH = saPath;
+    }
+
     require("../dist-mcp/server");
   }).catch((err) => {
     process.stderr.write(`[narada-mcp] Fatal: ${err}\n`);
@@ -22,24 +28,6 @@ if (process.argv.includes("--mcp")) {
   });
   // Skip everything below — no window, tray, scheduler, updater, single-instance lock
 } else {
-
-// Next.js Turbopack generates hashed Prisma client modules (e.g. @prisma/client-<hash>)
-// as symlinks in .next/node_modules/. Inside the asar archive these symlinks break because
-// electron-builder strips nested node_modules. Redirect hashed requires to @prisma/client
-// which electron-builder does package.
-const Module = require("module");
-const _resolveFilename = Module._resolveFilename;
-Module._resolveFilename = function (
-  request: string,
-  parent: unknown,
-  isMain: boolean,
-  options: unknown
-) {
-  if (request.startsWith("@prisma/client-")) {
-    return _resolveFilename.call(this, "@prisma/client", parent, isMain, options);
-  }
-  return _resolveFilename.call(this, request, parent, isMain, options);
-};
 
 const APP_NAME = "Narad Muni";
 app.setName(APP_NAME);
@@ -72,7 +60,6 @@ function getAppRoot(): string {
   if (isDev) {
     return path.resolve(__dirname, "..");
   }
-  // In packaged app, resources are in app.asar or unpacked alongside it
   return path.join(process.resourcesPath, "app");
 }
 
@@ -191,30 +178,19 @@ async function startApp(): Promise<void> {
     console.warn("fix-path not available, PATH may be incomplete");
   }
 
-  // Resolve database path and initialize if needed
-  const dbPath = getDbPath();
-  const appRoot = getAppRoot();
-
-  console.log(`App root: ${appRoot}`);
-  console.log(`Database path: ${dbPath}`);
-
-  // Set env vars before any Prisma usage
-  process.env.DATABASE_URL = `file:${dbPath}`;
   process.env.NARADA_USER_DATA_DIR = app.getPath("userData");
 
-  // Initialize DB on first launch
-  const initResult = initializeDatabase(dbPath, appRoot);
-
-  // Remove any lingering WAL/SHM files after better-sqlite3 closes.
-  // This is a safety net for existing installations where WAL artifacts
-  // from a previous better-sqlite3 session cause IOERR_SHORT_READ in Prisma.
-  for (const suffix of ["-wal", "-shm"]) {
-    const p = dbPath + suffix;
-    if (fs.existsSync(p)) {
-      console.warn(`[Narada DB] Removing lingering file: ${p}`);
-      fs.unlinkSync(p);
+  // Set Firebase service account env var for the Next.js API routes
+  if (!isDev) {
+    const saPath = path.join(process.resourcesPath, "firebase-sa.json");
+    if (fs.existsSync(saPath)) {
+      const saJson = fs.readFileSync(saPath, "utf-8");
+      process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 = Buffer.from(saJson).toString("base64");
     }
   }
+
+  const appRoot = getAppRoot();
+  console.log(`App root: ${appRoot}`);
 
   // Auto-register MCP server with Claude Code
   registerMcpConfig();
@@ -260,7 +236,6 @@ async function startApp(): Promise<void> {
   initAutoUpdater();
 
   // Prevent macOS App Nap from throttling timers when window is hidden.
-  // Without this, scheduled notifications may never fire in the background.
   const blockerId = powerSaveBlocker.start("prevent-app-suspension");
   console.log(`[Main] Power save blocker started (id: ${blockerId})`);
 
@@ -271,15 +246,15 @@ async function startApp(): Promise<void> {
     console.error("[Main] Failed to setup system tray:", err);
   }
 
-  // Notification scheduler — fires native reminders on configured schedule
+  // Notification scheduler — renderer sends config via IPC after auth
   const getMainWindow = () => mainWindow;
   try {
-    setupScheduler(initResult.notificationConfig, getMainWindow, appPort);
+    setupScheduler(null, getMainWindow, appPort);
   } catch (err) {
     console.error("[Main] Failed to setup notification scheduler:", err);
   }
 
-  // IPC: renderer passes config directly to avoid cross-process SQLite WAL issues
+  // IPC: renderer passes config directly
   ipcMain.handle("reload-notification-schedule", (_event, config: NotificationSettings) => {
     console.log("[Main] IPC: reload-notification-schedule received, config:", JSON.stringify(config));
     try {
@@ -297,6 +272,14 @@ async function startApp(): Promise<void> {
       console.error("[Main] Failed to fire test notification:", err);
     }
   });
+
+  // IPC: renderer writes Firebase user ID to config on login/logout
+  ipcMain.handle("set-firebase-user", (_event, uid: string | null) => {
+    console.log(`[Main] IPC: set-firebase-user uid=${uid}`);
+    const config = readConfig();
+    config.firebaseUserId = uid ?? undefined;
+    writeConfig(config);
+  });
 }
 
 // macOS lifecycle
@@ -312,18 +295,6 @@ app.on("activate", () => {
   if (mainWindow) {
     mainWindow.show();
   }
-});
-
-// IPC: native file picker for database path
-ipcMain.handle("pick-file-path", async () => {
-  if (!mainWindow) return null;
-  const result = await dialog.showSaveDialog(mainWindow, {
-    title: "Choose database location",
-    defaultPath: "narada.db",
-    filters: [{ name: "SQLite Database", extensions: ["db"] }],
-    properties: ["createDirectory", "showOverwriteConfirmation"],
-  });
-  return result.canceled ? null : result.filePath;
 });
 
 // Start the app

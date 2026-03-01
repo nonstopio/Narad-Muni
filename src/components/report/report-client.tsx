@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Bug, ExternalLink, FileText, Loader2, CheckCircle2, RotateCcw } from "lucide-react";
+import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 
 export function ReportClient() {
@@ -35,7 +36,7 @@ export function ReportClient() {
     setSuccess(false);
 
     try {
-      const res = await fetch("/api/report", {
+      const res = await authedFetch("/api/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -155,7 +156,16 @@ export function ReportClient() {
                 type="button"
                 variant="secondary"
                 size="lg"
-                onClick={() => window.open("/api/logs", "_blank")}
+                onClick={async () => {
+                  try {
+                    const res = await authedFetch("/api/logs");
+                    const text = await res.text();
+                    const blob = new Blob([text], { type: "text/plain" });
+                    window.open(URL.createObjectURL(blob), "_blank");
+                  } catch {
+                    window.open("/api/logs", "_blank");
+                  }
+                }}
               >
                 <FileText className="w-4 h-4" />
                 Open Sacred Scrolls

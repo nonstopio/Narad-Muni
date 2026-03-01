@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useUpdateStore } from "@/stores/update-store";
 import { useAppStore } from "@/stores/app-store";
 import { useToastStore } from "@/components/ui/toast";
+import { authedFetch } from "@/lib/api-client";
 import type { PublishStatus } from "@/types";
 
 export interface ShareResult {
@@ -61,7 +62,7 @@ export function useUpdateFlow() {
         const formData = new FormData();
         formData.append("audio", audioBlob, "recording.webm");
 
-        const transcribeRes = await fetch("/api/transcribe", {
+        const transcribeRes = await authedFetch("/api/transcribe", {
           method: "POST",
           body: formData,
         });
@@ -86,7 +87,7 @@ export function useUpdateFlow() {
         ? selectedDate.toLocaleDateString("sv-SE")
         : new Date().toLocaleDateString("sv-SE");
 
-      const parseRes = await fetch("/api/parse", {
+      const parseRes = await authedFetch("/api/parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ transcript, date: dateStr }),
@@ -146,7 +147,7 @@ export function useUpdateFlow() {
         ? selectedDate.toLocaleDateString("sv-SE")
         : new Date().toLocaleDateString("sv-SE");
 
-      const res = await fetch("/api/updates", {
+      const res = await authedFetch("/api/updates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -219,7 +220,7 @@ export function useUpdateFlow() {
     setIsProcessing(true);
 
     try {
-      const res = await fetch("/api/updates", {
+      const res = await authedFetch("/api/updates", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

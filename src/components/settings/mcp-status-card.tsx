@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Plug, Copy, Check, BookOpen, Sparkles } from "lucide-react";
+import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 
 interface McpStatus {
@@ -33,7 +34,7 @@ export function McpStatusCard() {
   const [copiedPrompt, setCopiedPrompt] = useState(false);
 
   useEffect(() => {
-    fetch("/api/settings/mcp-status")
+    authedFetch("/api/settings/mcp-status")
       .then((res) => res.json())
       .then((data: McpStatus) => setStatus(data))
       .catch((err) => {
@@ -48,7 +49,7 @@ export function McpStatusCard() {
     setTesting(true);
     setTestResult(null);
     try {
-      const res = await fetch("/api/settings/mcp-status", { method: "POST" });
+      const res = await authedFetch("/api/settings/mcp-status", { method: "POST" });
       const data: McpTestResult = await res.json();
 
       if (data.success) {

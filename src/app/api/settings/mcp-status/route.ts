@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { spawn } from "child_process";
+import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
 
 const CLAUDE_CONFIG_PATH = path.join(os.homedir(), ".claude.json");
 const MCP_SERVER_NAME = "narada";
@@ -18,8 +19,9 @@ interface ClaudeConfig {
 /**
  * GET — Returns MCP registration status from ~/.claude.json
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    await verifyAuth(request);
     const result = {
       registered: false,
       binaryPath: null as string | null,
@@ -40,6 +42,7 @@ export async function GET() {
 
     return NextResponse.json(result);
   } catch (err) {
+    if (isAuthError(err)) return handleAuthError(err);
     console.error("[API /settings/mcp-status GET] Failed:", err);
     return NextResponse.json(
       { error: "Failed to read MCP status" },
@@ -52,8 +55,9 @@ export async function GET() {
  * POST — Test MCP health by spawning the binary with --mcp and
  * sending an MCP initialize request over stdio.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    await verifyAuth(request);
     // Read the registered binary path
     if (!fs.existsSync(CLAUDE_CONFIG_PATH)) {
       return NextResponse.json({ success: false, error: "Claude config not found" });
@@ -74,6 +78,7 @@ export async function POST() {
     const result = await testMcpServer(entry.command, entry.args || ["--mcp"]);
     return NextResponse.json(result);
   } catch (err) {
+    if (isAuthError(err)) return handleAuthError(err);
     console.error("[API /settings/mcp-status POST] Failed:", err);
     return NextResponse.json(
       { success: false, error: String(err) },

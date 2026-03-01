@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useUpdateStore } from "@/stores/update-store";
 import { useToastStore } from "@/components/ui/toast";
+import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { AudioVisualizer } from "./audio-visualizer";
@@ -30,7 +31,7 @@ export function InputSection({ onProcess }: InputSectionProps) {
 
   const [hasDeepgramKey, setHasDeepgramKey] = useState<boolean | null>(null);
   useEffect(() => {
-    fetch("/api/settings/ai-provider")
+    authedFetch("/api/settings/ai-provider")
       .then((r) => r.json())
       .then((data) => setHasDeepgramKey(!!data.hasDeepgramKey))
       .catch(() => setHasDeepgramKey(false));

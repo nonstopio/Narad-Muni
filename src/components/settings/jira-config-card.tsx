@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import parse from "parse-duration";
+import { authedFetch } from "@/lib/api-client";
 import type { PlatformConfigData, RepeatEntryData } from "@/types";
 import { useToastStore } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -139,7 +140,7 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
     }
     setTesting(true);
     try {
-      const res = await fetch("/api/settings/test-jira", {
+      const res = await authedFetch("/api/settings/test-jira", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

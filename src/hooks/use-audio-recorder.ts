@@ -2,6 +2,7 @@
 
 import { useRef, useCallback, useEffect } from "react";
 import { useUpdateStore } from "@/stores/update-store";
+import { authedFetch } from "@/lib/api-client";
 
 export function useAudioRecorder() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -71,7 +72,7 @@ export function useAudioRecorder() {
           console.log("[Narada] Auto-transcribing audio:", blob.size, "bytes");
           const formData = new FormData();
           formData.append("audio", blob, "recording.webm");
-          const res = await fetch("/api/transcribe", {
+          const res = await authedFetch("/api/transcribe", {
             method: "POST",
             body: formData,
           });

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Bell } from "lucide-react";
 import { useToastStore } from "@/components/ui/toast";
+import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -26,7 +27,7 @@ export function NotificationCard() {
     }
     setIsElectron(true);
 
-    fetch("/api/settings/notifications")
+    authedFetch("/api/settings/notifications")
       .then((res) => res.json())
       .then((data) => {
         setEnabled(data.notificationsEnabled);
@@ -56,7 +57,7 @@ export function NotificationCard() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch("/api/settings/notifications", {
+      const res = await authedFetch("/api/settings/notifications", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

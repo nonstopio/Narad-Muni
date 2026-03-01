@@ -5,7 +5,6 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { PlatformConfigCard } from "./platform-config-card";
 import { JiraConfigCard } from "./jira-config-card";
 import { AIProviderCard } from "./ai-provider-card";
-import { DatabaseConfigCard } from "./database-config-card";
 import { NotificationCard } from "./notification-card";
 import { McpStatusCard } from "./mcp-status-card";
 import { KeyboardShortcutsCard } from "./keyboard-shortcuts-card";
@@ -16,7 +15,6 @@ import {
   Sparkles,
   Workflow,
   Bell,
-  Database,
   Keyboard,
 } from "lucide-react";
 import type { PlatformConfigData } from "@/types";
@@ -36,7 +34,6 @@ const navItems: NavItem[] = [
   { key: "ai", label: "Divine Oracle", icon: Sparkles },
   { key: "mcp", label: "Messenger Protocol", icon: Workflow },
   { key: "notifications", label: "Sacred Bell", icon: Bell, electronOnly: true },
-  { key: "database", label: "Sacred Archives", icon: Database, electronOnly: true },
   { key: "shortcuts", label: "Sacred Gestures", icon: Keyboard },
 ];
 
@@ -107,8 +104,6 @@ export function SettingsClient({ initialConfigs }: Props) {
         return <McpStatusCard />;
       case "notifications":
         return <NotificationCard />;
-      case "database":
-        return <DatabaseConfigCard />;
       case "shortcuts":
         return <KeyboardShortcutsCard />;
       default:

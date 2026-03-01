@@ -1,34 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { spawn } from "child_process";
-import { prisma } from "@/lib/prisma";
+import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
+import { settingsDoc } from "@/lib/firestore-helpers";
 import type { AIProvider } from "@/types";
 
 const VALID_PROVIDERS: AIProvider[] = ["gemini", "claude-api", "local-claude", "local-cursor"];
 const CLI_TIMEOUT_MS = 15_000;
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const { provider, geminiApiKey, claudeApiKey, useStoredKey } = body as {
-    provider: AIProvider;
-    geminiApiKey?: string;
-    claudeApiKey?: string;
-    useStoredKey?: boolean;
-  };
-
-  if (!provider || !VALID_PROVIDERS.includes(provider)) {
-    return NextResponse.json(
-      { success: false, error: `Invalid provider. Must be one of: ${VALID_PROVIDERS.join(", ")}` },
-      { status: 400 }
-    );
-  }
-
   try {
+    const user = await verifyAuth(request);
+    const body = await request.json();
+    const { provider, geminiApiKey, claudeApiKey, useStoredKey } = body as {
+      provider: AIProvider;
+      geminiApiKey?: string;
+      claudeApiKey?: string;
+      useStoredKey?: boolean;
+    };
+
+    if (!provider || !VALID_PROVIDERS.includes(provider)) {
+      return NextResponse.json(
+        { success: false, error: `Invalid provider. Must be one of: ${VALID_PROVIDERS.join(", ")}` },
+        { status: 400 }
+      );
+    }
+
     switch (provider) {
       case "gemini": {
         let apiKey = geminiApiKey;
         if (useStoredKey) {
-          const settings = await prisma.appSettings.findUnique({ where: { id: "app-settings" } });
-          apiKey = settings?.geminiApiKey ?? undefined;
+          const snap = await settingsDoc(user.uid).get();
+          apiKey = snap.data()?.geminiApiKey ?? undefined;
         }
         if (!apiKey) {
           return NextResponse.json({ success: false, error: "No Gemini API key provided" }, { status: 400 });
@@ -43,8 +45,8 @@ export async function POST(request: NextRequest) {
       case "claude-api": {
         let apiKey = claudeApiKey;
         if (useStoredKey) {
-          const settings = await prisma.appSettings.findUnique({ where: { id: "app-settings" } });
-          apiKey = settings?.claudeApiKey ?? undefined;
+          const snap = await settingsDoc(user.uid).get();
+          apiKey = snap.data()?.claudeApiKey ?? undefined;
         }
         if (!apiKey) {
           return NextResponse.json({ success: false, error: "No Anthropic API key provided" }, { status: 400 });
@@ -61,11 +63,8 @@ export async function POST(request: NextRequest) {
 
       case "local-claude": {
         await spawnTest("claude", [
-          "--print",
-          "--no-session-persistence",
-          "--model", "sonnet",
-          "--max-budget-usd", "0.01",
-          "Say hello in one word",
+          "--print", "--no-session-persistence", "--model", "sonnet",
+          "--max-budget-usd", "0.01", "Say hello in one word",
         ]);
         break;
       }
@@ -78,8 +77,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
+    if (isAuthError(err)) return handleAuthError(err);
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error(`[Test AI] ${provider} failed:`, message);
+    console.error(`[Test AI] failed:`, message);
     return NextResponse.json({ success: false, error: message });
   }
 }
@@ -91,16 +91,10 @@ function spawnTest(command: string, args: string[]): Promise<string> {
     let settled = false;
 
     const settle = (fn: () => void) => {
-      if (!settled) {
-        settled = true;
-        fn();
-      }
+      if (!settled) { settled = true; fn(); }
     };
 
-    const proc = spawn(command, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
+    const proc = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
     proc.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
     proc.stderr.on("data", (chunk: Buffer) => errChunks.push(chunk));
 
@@ -118,7 +112,6 @@ function spawnTest(command: string, args: string[]): Promise<string> {
       settle(() => {
         const out = Buffer.concat(chunks).toString("utf-8");
         const err = Buffer.concat(errChunks).toString("utf-8");
-
         if (code !== 0 && !out) {
           reject(new Error(`${command} CLI exited with code ${code}: ${err || "unknown error"}`));
           return;
