@@ -6,14 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Narad Muni is a voice-first productivity platform that converts a single voice recording into formatted daily updates for Slack, Microsoft Teams, and Jira work logs. Record once, publish everywhere. Named after the divine messenger [Narad Muni](https://en.wikipedia.org/wiki/Narada) who carries word across the three worlds — this tool does the same for your daily standups.
 
-The application is **fully implemented** and functional.
+The application is **fully implemented** and functional. Supports ~100 users with per-user cloud data via Firebase.
 
 ## Tech Stack
 
 - **Framework:** Next.js 16 with TypeScript (App Router, React 19)
 - **UI:** Tailwind CSS 4 + shadcn/ui + Framer Motion
 - **State:** Zustand 5
-- **Database:** SQLite + Prisma 6
+- **Database:** Firebase Firestore (cloud, per-user data)
+- **Auth:** Firebase Authentication (Google Sign-In)
+- **Analytics:** Firebase Analytics
 - **Speech-to-Text:** Deepgram Nova-3
 - **AI Processing:** Supports 3 providers — Local Claude CLI (default), Claude API (Anthropic SDK), Gemini (Google AI SDK)
 - **Icons:** Lucide React
@@ -24,35 +26,38 @@ The application is **fully implemented** and functional.
 npm run dev        # Start dev server
 npm run build      # Production build
 npm run lint       # ESLint
-npm run db:push    # Push Prisma schema to SQLite
-npm run db:seed    # Seed default platform configs
-npm run db:reset   # Reset DB + re-seed (prisma db push --force-reset && tsx prisma/seed.ts)
 npx tsc --noEmit   # Type-check without emitting
 ```
 
 ## Architecture
 
 ```
-Client (Next.js React) -> API Routes -> External Services
-                                        |- Deepgram (transcription)
-                                        |- Claude/Gemini (parsing/formatting)
-                                        |- Slack (webhook POST)
-                                        |- Teams (Adaptive Card webhook)
-                                        |- Jira REST v3 (worklogs)
-                       -> SQLite (Prisma) for persistence
+Client (Next.js React) -> Firebase Auth (Google Sign-In)
+                       -> API Routes (Bearer token auth) -> External Services
+                                                            |- Deepgram (transcription)
+                                                            |- Claude/Gemini (parsing/formatting)
+                                                            |- Slack (webhook POST)
+                                                            |- Teams (Adaptive Card webhook)
+                                                            |- Jira REST v3 (worklogs)
+                       -> Firebase Firestore (per-user data)
 ```
 
-**Data flow:** Calendar click -> voice/text input -> `/api/transcribe` (Deepgram) -> `/api/parse` (AI extracts tasks, times, blockers into structured JSON) -> tabbed preview (editable per platform) -> "Share All" triggers POST `/api/updates` which publishes to enabled platforms -> results stored in SQLite.
+**Data flow:** Calendar click -> voice/text input -> `/api/transcribe` (Deepgram) -> `/api/parse` (AI extracts tasks, times, blockers into structured JSON) -> tabbed preview (editable per platform) -> "Share All" triggers POST `/api/updates` which publishes to enabled platforms -> results stored in Firestore.
 
-## Data Models (Prisma)
+**Auth flow:** All pages wrapped in `<AuthShell>` (AuthProvider + AuthGuard). Unauthenticated users see login screen. All API routes verify Firebase ID tokens via `verifyAuth()`. Client uses `authedFetch()` to inject Bearer tokens.
 
-- **Update** — one per calendar day; stores raw transcript, formatted outputs per platform (`slackOutput`, `teamsOutput`), and publish status (PENDING/SENT/FAILED/SKIPPED) per platform
-- **WorkLogEntry** — Jira time entries linked to an Update (cascade delete); includes `isRepeat` flag and `jiraWorklogId` from API response
-- **PlatformConfig** — per-platform settings (webhook URLs, API tokens, Jira credentials)
-- **RepeatEntry** — recurring Jira work log entries auto-injected daily (configured in Settings)
-- **AppSettings** — AI provider selection + API keys + Deepgram key (singleton row, all keys DB-stored)
+## Firestore Data Models
+
+All user data is scoped under `users/{userId}/`:
+
+- **`updates/{updateId}`** — one per calendar day; stores raw transcript, formatted outputs per platform, publish statuses, and embedded `workLogEntries[]` array
+- **`configs/{platform}`** — SLACK, TEAMS, or JIRA config with embedded `repeatEntries[]` array
+- **`settings/app`** — AI provider selection + API keys + Deepgram key + notification settings (singleton doc)
+- **`drafts/{YYYY-MM-DD}`** — Draft text keyed by date string
 
 ## API Routes
+
+All routes require `Authorization: Bearer <firebaseIdToken>` header.
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
@@ -60,13 +65,18 @@ Client (Next.js React) -> API Routes -> External Services
 | POST | `/api/parse` | Transcript -> AI -> structured JSON (tasks, times, formats) |
 | GET | `/api/updates?month=YYYY-MM` | Fetch all updates for a month (with work log entries) |
 | POST | `/api/updates` | Create update + publish to Slack/Teams/Jira |
-| DELETE | `/api/updates?id=<id>` | Delete update (cascades to work log entries) |
+| PUT | `/api/updates` | Retry failed platform publishes |
+| DELETE | `/api/updates?id=<id>` | Delete update |
 | GET | `/api/settings` | Fetch platform configs with repeat entries |
 | PUT | `/api/settings` | Update a platform config |
-| GET | `/api/settings/ai-provider` | Fetch AI provider + masked key status (includes Deepgram) |
-| PUT | `/api/settings/ai-provider` | Update AI provider + API keys (includes Deepgram) |
+| GET | `/api/settings/ai-provider` | Fetch AI provider + masked key status |
+| PUT | `/api/settings/ai-provider` | Update AI provider + API keys |
+| GET/PUT | `/api/drafts` | Read/write draft text for a date |
+| POST | `/api/auth/seed` | Seed default configs for new user (idempotent) |
 
 ## Pages
+
+All pages are client components that fetch data via `authedFetch()` in `useEffect`.
 
 | Path | Purpose |
 |------|---------|
@@ -120,45 +130,52 @@ Dark glassmorphism theme (inspired by Linear/Raycast/Arc).
 
 ## Environment Variables
 
-No `.env` files are needed. All configuration is DB-backed:
+- **`FIREBASE_SERVICE_ACCOUNT_BASE64`** — Base64-encoded Firebase service account JSON. Set by Electron main process from bundled `resources/firebase-sa.json`. For local dev, set by `electron/dev-start.js`.
+- **API keys (Deepgram, Anthropic, Gemini):** All stored in Firestore `users/{uid}/settings/app`, configurable from the Settings page ("Divine Oracle" card).
 
-- **DATABASE_URL:** Hardcoded fallback `file:./dev.db` in `src/lib/prisma.ts`. Electron sets it programmatically to the user data directory path.
-- **API keys (Deepgram, Anthropic, Gemini):** All stored in the `AppSettings` table, configurable from the Settings page ("Divine Oracle" card). No env var fallbacks — DB is the single source of truth.
+## Firebase Setup
+
+- Firebase client config is hardcoded in `src/lib/firebase.ts` (safe for client bundles)
+- Firebase Admin SDK initializes from `FIREBASE_SERVICE_ACCOUNT_BASE64` env var in `src/lib/firebase-admin.ts`
+- Firestore security rules: each user can only read/write their own `users/{uid}/**` path
+- Default configs are seeded via `POST /api/auth/seed` on first login (idempotent)
 
 ## Electron Desktop App
 
 The app ships as a native macOS desktop app via Electron.
 
-- **Entry:** `electron/main.ts` — sets `DATABASE_URL`, initializes DB, launches BrowserWindow
-- **DB init:** `electron/db.ts` — runs bundled Prisma migration SQL files via better-sqlite3 (no Prisma CLI needed in packaged app). Applies pending migrations automatically on every startup.
-- **Config:** `electron/config.ts` — reads/writes `narada.config.json` in user data dir (window bounds, custom DB path)
-- **Dev mode:** `electron/dev-start.js` — sets `DATABASE_URL` to Electron DB path, runs `prisma db push` to sync schema, then starts Next.js dev server + Electron concurrently
+- **Entry:** `electron/main.ts` — sets Firebase env vars, launches BrowserWindow
+- **Config:** `electron/config.ts` — reads/writes `narada.config.json` in user data dir (window bounds, Firebase user ID)
+- **Dev mode:** `electron/dev-start.js` — loads Firebase service account, starts Next.js dev server + Electron concurrently
 - **Build:** `npm run electron:build` — production build + electron-builder packaging
+- **MCP mode:** `electron/main.ts --mcp` — headless MCP stdio server, reads user ID from config and service account from `NARADA_FIREBASE_SA_PATH`
 
 ```bash
-npm run electron:dev      # Compile TS + sync DB + start Next.js + Electron
+npm run electron:dev      # Compile TS + start Next.js + Electron
 npm run electron:compile  # Compile electron/ TypeScript only
 npm run electron:build    # Full production build + package
 ```
-
-**Schema migrations:** When adding columns to Prisma schema, also create a migration SQL file in `prisma/migrations/` so the Electron app can apply it to existing databases. `electron/db.ts` reads the `_prisma_migrations` table to skip already-applied migrations.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
+| `src/lib/firebase.ts` | Firebase client SDK init (Auth + Analytics) |
+| `src/lib/firebase-admin.ts` | Firebase Admin SDK init (Firestore + Auth verification) |
+| `src/lib/auth-middleware.ts` | `verifyAuth()` + `handleAuthError()` for API routes |
+| `src/lib/api-client.ts` | `authedFetch()` client wrapper injecting Bearer tokens |
+| `src/lib/seed-user.ts` | Seeds default configs for new users |
+| `src/components/auth/auth-provider.tsx` | React context for Firebase Auth state |
 | `src/lib/ai/prompt.ts` | AI system prompt + JSON schema for parsing |
 | `src/lib/ai/index.ts` | AI provider factory (selects active provider) |
-| `src/lib/deepgram.ts` | Deepgram transcription (reads API key from DB) |
-| `src/lib/prisma.ts` | Prisma client singleton + DATABASE_URL fallback |
+| `src/lib/deepgram.ts` | Deepgram transcription |
 | `src/hooks/use-update-flow.ts` | Orchestrates transcribe -> parse -> preview |
 | `src/hooks/use-audio-recorder.ts` | Microphone + MediaRecorder + AnalyserNode |
 | `src/app/api/updates/route.ts` | Core publish logic (Slack webhook, Teams Adaptive Card, Jira worklog) |
-| `prisma/schema.prisma` | Database schema (5 models) |
-| `prisma/seed.ts` | Seeds default platform configs + app settings |
+| `mcp/server.ts` | MCP server for Claude Code integration |
+| `mcp/db.ts` | MCP Firestore operations (draft append) |
 | `electron/main.ts` | Electron main process entry point |
-| `electron/db.ts` | DB initialization + auto-migration runner |
-| `electron/dev-start.js` | Dev mode orchestrator (DB sync + concurrently) |
+| `electron/dev-start.js` | Dev mode orchestrator |
 
 ## Reference Files
 

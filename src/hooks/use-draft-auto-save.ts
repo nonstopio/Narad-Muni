@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useUpdateStore } from "@/stores/update-store";
+import { authedFetch } from "@/lib/api-client";
 
 const DEBOUNCE_MS = 1500;
 
@@ -23,7 +24,7 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
 
     let cancelled = false;
 
-    fetch(`/api/drafts?date=${dateStr}`)
+    authedFetch(`/api/drafts?date=${dateStr}`)
       .then((res) => res.json())
       .then((data) => {
         if (cancelled) return;
@@ -71,7 +72,7 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
         if (current === lastSavedRef.current) return;
 
         lastSavedRef.current = current;
-        fetch("/api/drafts", {
+        authedFetch("/api/drafts", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ date: dateRef.current, rawTranscript: current }),
@@ -90,7 +91,7 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
 
         const text = latestTextRef.current;
         if (text !== lastSavedRef.current && dateRef.current) {
-          fetch("/api/drafts", {
+          authedFetch("/api/drafts", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ date: dateRef.current, rawTranscript: text }),
@@ -109,7 +110,7 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
       timerRef.current = null;
     }
     try {
-      await fetch(`/api/drafts?date=${dateStr}`, { method: "DELETE" });
+      await authedFetch(`/api/drafts?date=${dateStr}`, { method: "DELETE" });
     } catch (err) {
       console.error("[Narada] Failed to delete draft:", err);
     }

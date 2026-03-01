@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAIProvider } from "@/lib/ai";
-import { prisma } from "@/lib/prisma";
+import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
+import { configsCol, settingsDoc } from "@/lib/firestore-helpers";
 import type { ClaudeTimeEntry } from "@/types/claude";
 
 const MIN_TOTAL_SECS = 28800; // 8 hours
@@ -22,7 +23,6 @@ function enforceTimeRules(allEntries: ClaudeTimeEntry[]): ClaudeTimeEntry[] {
   const nonRepeatTotal = nonRepeatEntries.reduce((sum, e) => sum + e.timeSpentSecs, 0);
   const targetNonRepeat = Math.max(0, MIN_TOTAL_SECS - repeatTotal);
 
-  // Scale up non-repeat entries if total is under target
   let adjusted: ClaudeTimeEntry[];
   if (nonRepeatTotal > 0 && nonRepeatTotal < targetNonRepeat) {
     const scale = targetNonRepeat / nonRepeatTotal;
@@ -37,7 +37,6 @@ function enforceTimeRules(allEntries: ClaudeTimeEntry[]): ClaudeTimeEntry[] {
     }));
   }
 
-  // Ensure minimum per entry
   adjusted = adjusted.map((e) => ({
     ...e,
     timeSpentSecs: Math.max(MIN_ENTRY_SECS, e.timeSpentSecs),
@@ -50,26 +49,25 @@ function enforceTimeRules(allEntries: ClaudeTimeEntry[]): ClaudeTimeEntry[] {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await verifyAuth(request);
     const { transcript, date, repeatEntries } = await request.json();
 
     if (!transcript) {
-      return NextResponse.json(
-        { success: false, error: "No transcript provided" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "No transcript provided" }, { status: 400 });
     }
 
-    // Fetch repeat entries from DB if not provided
+    // Fetch repeat entries from Firestore if not provided
     let repeats = repeatEntries;
     if (!repeats) {
-      const jiraConfig = await prisma.platformConfig.findFirst({
-        where: { platform: "JIRA" },
-        include: { repeatEntries: true },
-      });
-      repeats = jiraConfig?.repeatEntries ?? [];
+      const jiraDoc = await configsCol(user.uid).doc("JIRA").get();
+      repeats = jiraDoc.data()?.repeatEntries ?? [];
     }
 
-    const provider = await getAIProvider();
+    // Read AI settings from Firestore to pass to provider
+    const settingsSnap = await settingsDoc(user.uid).get();
+    const settings = settingsSnap.data();
+
+    const provider = await getAIProvider(settings);
     const result = await provider.parseTranscript(transcript, date, repeats);
 
     // Merge repeat entries into time entries
@@ -83,24 +81,18 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    // Merge, enforce time rules, and sort by start time
     const merged = [...repeatTimeEntries, ...result.timeEntries];
     const allTimeEntries = enforceTimeRules(merged);
 
     return NextResponse.json({
       success: true,
-      data: {
-        ...result,
-        timeEntries: allTimeEntries,
-      },
+      data: { ...result, timeEntries: allTimeEntries },
     });
   } catch (error) {
+    if (isAuthError(error)) return handleAuthError(error);
     console.error("Parse error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Parsing failed",
-      },
+      { success: false, error: error instanceof Error ? error.message : "Parsing failed" },
       { status: 500 }
     );
   }

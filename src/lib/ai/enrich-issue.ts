@@ -1,5 +1,4 @@
 import { spawn } from "child_process";
-import { prisma } from "@/lib/prisma";
 import type { AIProvider } from "@/types";
 import { buildIssueSystemPrompt, buildIssueUserMessage } from "./issue-prompt";
 
@@ -8,14 +7,17 @@ export interface EnrichedIssue {
   body: string;
 }
 
+interface AppSettings {
+  aiProvider?: string;
+  claudeApiKey?: string | null;
+  geminiApiKey?: string | null;
+}
+
 export async function enrichIssueDescription(
   title: string,
-  description: string
+  description: string,
+  settings?: AppSettings | null
 ): Promise<EnrichedIssue> {
-  const settings = await prisma.appSettings.findUnique({
-    where: { id: "app-settings" },
-  });
-
   const provider = (settings?.aiProvider ?? "local-claude") as AIProvider;
   const systemPrompt = buildIssueSystemPrompt();
   const userMessage = buildIssueUserMessage(title, description);
@@ -61,11 +63,8 @@ export async function enrichIssueDescription(
 
       case "local-claude": {
         rawOutput = await spawnCli("claude", [
-          "--print",
-          "--no-session-persistence",
-          "--model", "sonnet",
-          "--tools", "",
-          "--append-system-prompt", systemPrompt,
+          "--print", "--no-session-persistence", "--model", "sonnet",
+          "--tools", "", "--append-system-prompt", systemPrompt,
           "--max-budget-usd", "0.50",
         ], userMessage);
         break;
@@ -89,47 +88,30 @@ export async function enrichIssueDescription(
 }
 
 function parseEnrichedOutput(raw: string, fallbackTitle: string): EnrichedIssue {
-  // Strip any preamble before "TITLE:"
   const titleIdx = raw.indexOf("TITLE:");
   const cleaned = titleIdx >= 0 ? raw.slice(titleIdx) : raw;
 
-  // Split on the "---" separator between title and body
   const separatorMatch = cleaned.match(/^TITLE:\s*(.+)\n---\n([\s\S]*)$/);
   if (separatorMatch) {
-    return {
-      title: separatorMatch[1].trim(),
-      body: separatorMatch[2].trim(),
-    };
+    return { title: separatorMatch[1].trim(), body: separatorMatch[2].trim() };
   }
 
-  // Fallback: try to extract just a TITLE: line
   const titleLineMatch = cleaned.match(/^TITLE:\s*(.+)\n([\s\S]*)$/);
   if (titleLineMatch) {
-    return {
-      title: titleLineMatch[1].trim(),
-      body: titleLineMatch[2].replace(/^---\s*/, "").trim(),
-    };
+    return { title: titleLineMatch[1].trim(), body: titleLineMatch[2].replace(/^---\s*/, "").trim() };
   }
 
-  // No parseable structure — use raw as body
   return { title: fallbackTitle, body: cleaned.trim() };
 }
 
-function spawnCli(
-  command: string,
-  args: string[],
-  stdinContent?: string
-): Promise<string> {
+function spawnCli(command: string, args: string[], stdinContent?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     const errChunks: Buffer[] = [];
     let settled = false;
 
     const settle = (fn: () => void) => {
-      if (!settled) {
-        settled = true;
-        fn();
-      }
+      if (!settled) { settled = true; fn(); }
     };
 
     const proc = spawn(command, args, {
@@ -147,20 +129,11 @@ function spawnCli(
       settle(() => {
         const out = Buffer.concat(chunks).toString("utf-8");
         const err = Buffer.concat(errChunks).toString("utf-8");
-
         if (code !== 0 && !out) {
           reject(new Error(`${command} exited with code ${code}: ${err || "unknown"}`));
           return;
         }
-
-        // For claude --print (no --output-format json), output is plain text
-        // For claude --print --output-format json, we need to unwrap the envelope
-        if (command === "claude") {
-          // --print without --output-format json returns plain text directly
-          resolve(out.trim());
-        } else {
-          resolve(out.trim());
-        }
+        resolve(out.trim());
       });
     });
 

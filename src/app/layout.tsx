@@ -7,6 +7,7 @@ import { TitleBar } from "@/components/layout/title-bar";
 import { ToastContainer } from "@/components/ui/toast";
 import { KeyboardShortcutsModal } from "@/components/settings/keyboard-shortcuts-card";
 import { KeyboardShortcutsProvider } from "@/components/layout/keyboard-shortcuts-provider";
+import { AuthShell } from "@/components/auth/auth-shell";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -51,17 +52,19 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
-        <GradientBlobs />
-        <div className="flex w-full h-screen relative z-[1]">
-          <TitleBar />
-          <Sidebar />
-          <main className="flex-1 flex flex-col overflow-hidden pt-12">
-            {children}
-          </main>
-        </div>
-        <ToastContainer />
-        <KeyboardShortcutsModal />
-        <KeyboardShortcutsProvider />
+        <AuthShell>
+          <GradientBlobs />
+          <div className="flex w-full h-screen relative z-[1]">
+            <TitleBar />
+            <Sidebar />
+            <main className="flex-1 flex flex-col overflow-hidden pt-12">
+              {children}
+            </main>
+          </div>
+          <ToastContainer />
+          <KeyboardShortcutsModal />
+          <KeyboardShortcutsProvider />
+        </AuthShell>
       </body>
     </html>
   );

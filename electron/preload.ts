@@ -4,7 +4,8 @@ import { contextBridge, ipcRenderer } from "electron";
 // contextIsolation: true, nodeIntegration: false — secure by default.
 contextBridge.exposeInMainWorld("narada", {
   isElectron: true,
-  pickFilePath: (): Promise<string | null> => ipcRenderer.invoke("pick-file-path"),
+  setFirebaseUser: (uid: string | null): Promise<void> =>
+    ipcRenderer.invoke("set-firebase-user", uid),
   reloadNotificationSchedule: (config: {
     notificationsEnabled: boolean;
     notificationHour: number;

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useToastStore } from "@/components/ui/toast";
+import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import type { AIProvider } from "@/types";
@@ -111,7 +112,7 @@ export function AIProviderCard() {
         }
       }
 
-      const res = await fetch("/api/settings/test-ai", {
+      const res = await authedFetch("/api/settings/test-ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

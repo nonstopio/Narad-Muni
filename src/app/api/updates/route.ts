@@ -1,21 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
+import { updatesCol, configsCol } from "@/lib/firestore-helpers";
 import { linkifyTickets } from "@/lib/linkify-tickets";
 import { findWorkflowThread, postThreadReply } from "@/lib/slack-thread";
+import { type DocumentReference, type Query, type QueryDocumentSnapshot } from "firebase-admin/firestore";
 
 // ---------------------------------------------------------------------------
 // Jira worklog helpers
 // ---------------------------------------------------------------------------
 
-/** Format a Date as Jira-compatible UTC datetime.
- *
- *  `started` is stored with its UTC components holding the wall-clock time in
- *  the user's timezone (we append "Z" at storage to force this).  E.g. 10:00
- *  IST is stored as 10:00 UTC.  This function subtracts the timezone offset
- *  to get true UTC — matching the reference script's IST→UTC conversion. */
 function toJiraUtc(started: Date, timezone: string): string {
-  // The UTC components ARE the wall-clock time in `timezone`.
-  // Use Intl to compute the timezone's offset at this approximate instant.
   const fmt = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
     year: "numeric",
@@ -32,12 +26,8 @@ function toJiraUtc(started: Date, timezone: string): string {
   const wallInTz = new Date(
     `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}Z`
   );
-  // offset = how far ahead the timezone is from UTC (ms)
   const offsetMs = wallInTz.getTime() - started.getTime();
-
-  // True UTC = stored wall-clock minus offset
   const utc = new Date(started.getTime() - offsetMs);
-
   const pad = (n: number) => String(n).padStart(2, "0");
   return (
     `${utc.getUTCFullYear()}-${pad(utc.getUTCMonth() + 1)}-${pad(utc.getUTCDate())}` +
@@ -45,18 +35,14 @@ function toJiraUtc(started: Date, timezone: string): string {
   );
 }
 
-/** Parse an ISO-ish datetime string and store the wall-clock components as UTC.
- *  Strips any timezone suffix so "2026-02-09T11:00:00+05:30" stores as 11:00 UTC,
- *  preserving the literal hours/date the user intended. */
 function parseAsWallClock(started: string): Date {
   const m = started.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
   if (m) {
     return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]));
   }
-  return new Date(started + "Z"); // fallback for unexpected formats
+  return new Date(started + "Z");
 }
 
-/** Convert seconds to Jira's timeSpent string. E.g. 5400 → "1h 30m" */
 function secsToTimeSpent(secs: number): string {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
@@ -66,7 +52,6 @@ function secsToTimeSpent(secs: number): string {
   return "0m";
 }
 
-/** Wrap plain text into Jira Atlassian Document Format (ADF). */
 function buildAdfComment(text: string) {
   return {
     type: "doc",
@@ -80,7 +65,6 @@ function buildAdfComment(text: string) {
   };
 }
 
-/** Check if an HTTP status code is a transient (retryable) error. */
 function isTransientError(status: number): boolean {
   return status === 429 || status >= 500;
 }
@@ -89,40 +73,46 @@ const JIRA_MAX_RETRIES = 3;
 const JIRA_RETRY_DELAY_MS = 5000;
 const JIRA_INTER_REQUEST_DELAY_MS = 2000;
 
-/** Publish work log entries to Jira, one request per entry. */
+interface WorkLogEntryDoc {
+  id: string;
+  issueKey: string;
+  timeSpentSecs: number;
+  started: string; // ISO string
+  comment: string | null;
+  isRepeat: boolean;
+  jiraWorklogId: string | null;
+}
+
 async function publishJiraWorklogs(
   config: { baseUrl: string; email: string; apiToken: string; timezone: string },
-  entries: { id: string; issueKey: string; timeSpentSecs: number; started: Date; comment: string | null }[],
-  updateId: string
+  entries: WorkLogEntryDoc[],
+  updateRef: DocumentReference
 ): Promise<void> {
-  const authToken = "Basic " + btoa(config.email + ":" + config.apiToken);
+  const authToken = "Basic " + Buffer.from(config.email + ":" + config.apiToken).toString("base64");
   const total = entries.length;
   let succeeded = 0;
   const failedKeys: string[] = [];
 
-  // --- Start summary ---
   console.log(`[Narada] Jira worklogs: publishing ${total} entries`);
-  console.table(
-    entries.map((e, i) => ({
-      "#": i + 1,
-      issueKey: e.issueKey,
-      timeSpent: secsToTimeSpent(e.timeSpentSecs),
-      started: e.started.toISOString(),
-    }))
-  );
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
     const idx = `[${i + 1}/${total}]`;
 
-    // Guard: skip entries with 0 seconds (Jira rejects "0m")
+    // Skip entries already posted (from retry flows)
+    if (entry.jiraWorklogId) {
+      succeeded++;
+      continue;
+    }
+
     if (entry.timeSpentSecs <= 0) {
-      console.warn(`[Narada] ${idx} Skipping ${entry.issueKey} — timeSpentSecs is ${entry.timeSpentSecs} (would be "0m")`);
+      console.warn(`[Narada] ${idx} Skipping ${entry.issueKey} — timeSpentSecs is ${entry.timeSpentSecs}`);
       failedKeys.push(`${entry.issueKey} (skipped: 0s)`);
       continue;
     }
 
-    const startedUtc = toJiraUtc(entry.started, config.timezone);
+    const started = new Date(entry.started);
+    const startedUtc = toJiraUtc(started, config.timezone);
     const timeSpent = secsToTimeSpent(entry.timeSpentSecs);
     const payload = {
       timeSpent,
@@ -149,43 +139,27 @@ async function publishJiraWorklogs(
 
         if (res.ok) {
           const body = await res.json();
-          await prisma.workLogEntry.update({
-            where: { id: entry.id },
-            data: { jiraWorklogId: body.id?.toString() ?? null },
-          });
+          entry.jiraWorklogId = body.id?.toString() ?? null;
           console.log(`[Narada] ${idx} ${entry.issueKey} — success (worklogId=${body.id})`);
           entrySucceeded = true;
           break;
         }
 
         const errBody = await res.text();
-
         if (isTransientError(res.status) && attempt < JIRA_MAX_RETRIES) {
-          console.warn(
-            `[Narada] ${idx} ${entry.issueKey} — transient error (${res.status}), attempt ${attempt}/${JIRA_MAX_RETRIES}, retrying in ${JIRA_RETRY_DELAY_MS / 1000}s. Body: ${errBody}`
-          );
+          console.warn(`[Narada] ${idx} ${entry.issueKey} — transient error (${res.status}), retrying...`);
           await new Promise((r) => setTimeout(r, JIRA_RETRY_DELAY_MS));
           continue;
         }
-
-        // Permanent error or last retry exhausted
-        console.error(
-          `[Narada] ${idx} ${entry.issueKey} — failed (${res.status}), attempt ${attempt}/${JIRA_MAX_RETRIES}. Body: ${errBody}`
-        );
+        console.error(`[Narada] ${idx} ${entry.issueKey} — failed (${res.status}): ${errBody}`);
         break;
       } catch (err) {
         if (attempt < JIRA_MAX_RETRIES) {
-          console.warn(
-            `[Narada] ${idx} ${entry.issueKey} — network error, attempt ${attempt}/${JIRA_MAX_RETRIES}, retrying in ${JIRA_RETRY_DELAY_MS / 1000}s:`,
-            err
-          );
+          console.warn(`[Narada] ${idx} ${entry.issueKey} — network error, retrying:`, err);
           await new Promise((r) => setTimeout(r, JIRA_RETRY_DELAY_MS));
           continue;
         }
-        console.error(
-          `[Narada] ${idx} ${entry.issueKey} — network error, attempt ${attempt}/${JIRA_MAX_RETRIES} (giving up):`,
-          err
-        );
+        console.error(`[Narada] ${idx} ${entry.issueKey} — network error (giving up):`, err);
         break;
       }
     }
@@ -196,22 +170,17 @@ async function publishJiraWorklogs(
       failedKeys.push(entry.issueKey);
     }
 
-    // 2s delay between requests to avoid rate limiting (skip after last)
     if (i < entries.length - 1) {
       await new Promise((r) => setTimeout(r, JIRA_INTER_REQUEST_DELAY_MS));
     }
   }
 
-  // --- Final summary ---
   const allSucceeded = failedKeys.length === 0;
   console.log(`[Narada] Jira worklogs: ${succeeded}/${total} succeeded`);
-  if (failedKeys.length > 0) {
-    console.error(`[Narada] Jira worklogs: failed entries — ${failedKeys.join(", ")}`);
-  }
-
-  await prisma.update.update({
-    where: { id: updateId },
-    data: { jiraStatus: allSucceeded ? "SENT" : "FAILED" },
+  // Single write at the end with all updated worklog IDs + final status
+  await updateRef.update({
+    workLogEntries: entries,
+    jiraStatus: allSucceeded ? "SENT" : "FAILED",
   });
 }
 
@@ -220,39 +189,24 @@ async function publishJiraWorklogs(
 function formatDateDisplay(dateStr: string): string {
   const d = new Date(dateStr);
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${day} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${day} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
-/** Detect whether the formatted output contains real blockers (not just "NA"). */
 function hasRealBlockers(text: string, platform: "slack" | "teams"): boolean {
   const marker = platform === "slack" ? "`BLOCKER`" : "**BLOCKER**";
   const idx = text.indexOf(marker);
   if (idx === -1) return false;
-
-  // Extract everything after the marker until the next section or end
   const afterMarker = text.slice(idx + marker.length);
   const nextSection = platform === "slack"
     ? afterMarker.search(/\n`(?:TODAY|TOMORROW)`/)
     : afterMarker.search(/\n\*\*(?:TODAY|TOMORROW)\*\*/);
-  const blockerContent = nextSection === -1
-    ? afterMarker
-    : afterMarker.slice(0, nextSection);
-
-  // Strip whitespace and bullet markers, check if anything meaningful remains
-  const cleaned = blockerContent
-    .replace(/[\n\r]/g, " ")
-    .replace(/[•\-–—]/g, "")
-    .trim()
-    .toLowerCase();
-
-  if (!cleaned || cleaned === "na" || cleaned === "none" || cleaned === "n/a") {
-    return false;
-  }
+  const blockerContent = nextSection === -1 ? afterMarker : afterMarker.slice(0, nextSection);
+  const cleaned = blockerContent.replace(/[\n\r]/g, " ").replace(/[•\-–—]/g, "").trim().toLowerCase();
+  if (!cleaned || cleaned === "na" || cleaned === "none" || cleaned === "n/a") return false;
   return true;
 }
 
-/** Build the final Slack message text with user mention header and team lead cc. */
 function buildSlackFinalText(
   text: string,
   userId?: string | null,
@@ -278,24 +232,17 @@ async function sendSlackWebhook(
   teamLeadId?: string | null
 ): Promise<void> {
   const finalText = buildSlackFinalText(text, userId, date, teamLeadId);
-
-  const maskedUrl = "…" + webhookUrl.slice(-8);
-  console.log(`[Narada → Slack] Sending webhook — url=${maskedUrl}, payload_length=${finalText.length} chars`);
-  console.log(`[Narada → Slack] Payload:\n${finalText}`);
-
   const res = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: finalText }),
   });
-
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Slack webhook failed (${res.status}): ${body}`);
   }
 }
 
-/** Publish Slack update via thread reply mode (Bot Token + channel). No webhook fallback. */
 async function publishSlackViaThread(
   slackConfig: {
     slackBotToken: string;
@@ -310,7 +257,6 @@ async function publishSlackViaThread(
   teamLeadId?: string | null
 ): Promise<void> {
   const finalText = buildSlackFinalText(text, userId, date, teamLeadId);
-
   const threadTs = await findWorkflowThread(
     slackConfig.slackBotToken,
     slackConfig.slackChannelId,
@@ -319,17 +265,10 @@ async function publishSlackViaThread(
     slackConfig.slackWorkflowTime,
     slackConfig.timezone
   );
-
   if (!threadTs) {
     throw new Error("No workflow message found in the channel for the configured time window");
   }
-
-  await postThreadReply(
-    slackConfig.slackBotToken,
-    slackConfig.slackChannelId,
-    threadTs,
-    finalText
-  );
+  await postThreadReply(slackConfig.slackBotToken, slackConfig.slackChannelId, threadTs, finalText);
 }
 
 async function sendTeamsWebhook(
@@ -341,16 +280,10 @@ async function sendTeamsWebhook(
   teamLeadName?: string | null,
   teamLeadId?: string | null
 ): Promise<void> {
-  // Split the teamsOutput into sections by **HEADER** markers
-  const sections = teamsOutput
-    .split(/(?=\*\*(?:TODAY|TOMORROW|BLOCKER)\*\*)/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
+  const sections = teamsOutput.split(/(?=\*\*(?:TODAY|TOMORROW|BLOCKER)\*\*)/).map((s) => s.trim()).filter(Boolean);
   const textBlocks: Array<{ type: "TextBlock"; text: string; wrap: boolean; size?: string; weight?: string; spacing?: string }> = [];
   const entities: Array<{ type: string; text: string; mentioned: { id: string; name: string } }> = [];
 
-  // Add mention header if userName and userId are available
   if (userName && userId && date) {
     const displayDate = formatDateDisplay(date);
     textBlocks.push({
@@ -377,566 +310,364 @@ async function sendTeamsWebhook(
   });
 
   if (teamLeadName && teamLeadId && hasRealBlockers(teamsOutput, "teams")) {
-    textBlocks.push({
-      type: "TextBlock",
-      text: `cc <at>${teamLeadName}</at>`,
-      wrap: true,
-      spacing: "Medium",
-    });
-    entities.push({
-      type: "mention",
-      text: `<at>${teamLeadName}</at>`,
-      mentioned: { id: teamLeadId, name: teamLeadName },
-    });
+    textBlocks.push({ type: "TextBlock", text: `cc <at>${teamLeadName}</at>`, wrap: true, spacing: "Medium" });
+    entities.push({ type: "mention", text: `<at>${teamLeadName}</at>`, mentioned: { id: teamLeadId, name: teamLeadName } });
   }
 
-  const cardContent: Record<string, unknown> = {
-    type: "AdaptiveCard",
-    version: "1.4",
-    body: textBlocks,
-  };
-
-  if (entities.length > 0) {
-    cardContent.msteams = { entities };
-  }
-
-  const maskedUrl = "…" + webhookUrl.slice(-8);
-  console.log(`[Narada → Teams] Sending webhook — url=${maskedUrl}, sections=${sections.length}, entities=${entities.length}`);
-  console.log(`[Narada → Teams] Adaptive Card payload:\n${JSON.stringify(cardContent, null, 2)}`);
+  const cardContent: Record<string, unknown> = { type: "AdaptiveCard", version: "1.4", body: textBlocks };
+  if (entities.length > 0) cardContent.msteams = { entities };
 
   const res = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(cardContent),
   });
-
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Teams webhook failed (${res.status}): ${body}`);
   }
 }
 
+// ---------------------------------------------------------------------------
+// Route handlers
+// ---------------------------------------------------------------------------
+
 export async function DELETE(request: NextRequest) {
   try {
+    const user = await verifyAuth(request);
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json(
-        { success: false, error: "Missing id parameter" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Missing id parameter" }, { status: 400 });
     }
 
-    await prisma.update.delete({ where: { id } });
-
+    await updatesCol(user.uid).doc(id).delete();
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (isAuthError(error)) return handleAuthError(error);
     console.error("Delete update error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to delete update",
-      },
+      { success: false, error: error instanceof Error ? error.message : "Failed to delete update" },
       { status: 500 }
     );
   }
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
+  try {
+    const user = await verifyAuth(request);
+    const { searchParams } = new URL(request.url);
 
-  // Single update by ID (used by retry mode)
-  const id = searchParams.get("id");
-  if (id) {
-    const update = await prisma.update.findUnique({
-      where: { id },
-      include: { workLogEntries: true },
-    });
-    if (!update) {
-      return NextResponse.json({ success: false, error: "Update not found" }, { status: 404 });
+    // Single update by ID
+    const id = searchParams.get("id");
+    if (id) {
+      const doc = await updatesCol(user.uid).doc(id).get();
+      if (!doc.exists) {
+        return NextResponse.json({ success: false, error: "Update not found" }, { status: 404 });
+      }
+      return NextResponse.json({ update: { id: doc.id, ...doc.data() } });
     }
-    return NextResponse.json({ update });
+
+    // List updates by month
+    const month = searchParams.get("month");
+    let query: Query = updatesCol(user.uid).orderBy("date", "desc");
+
+    if (month) {
+      const [year, m] = month.split("-").map(Number);
+      const startOfMonth = new Date(Date.UTC(year, m - 1, 1)).toISOString();
+      const endOfMonth = new Date(Date.UTC(year, m, 0, 23, 59, 59, 999)).toISOString();
+      query = updatesCol(user.uid)
+        .where("date", ">=", startOfMonth)
+        .where("date", "<=", endOfMonth)
+        .orderBy("date", "desc");
+    }
+
+    const snapshot = await query.get();
+    const updates = snapshot.docs.map((doc: QueryDocumentSnapshot) => ({ id: doc.id, ...doc.data() }));
+    return NextResponse.json({ updates });
+  } catch (error) {
+    if (isAuthError(error)) return handleAuthError(error);
+    console.error("GET updates error:", error);
+    return NextResponse.json({ updates: [] }, { status: 500 });
   }
-
-  // List updates by month
-  const month = searchParams.get("month");
-
-  let where = {};
-  if (month) {
-    const [year, m] = month.split("-").map(Number);
-    const startOfMonth = new Date(year, m - 1, 1);
-    const endOfMonth = new Date(year, m, 0, 23, 59, 59);
-    where = { date: { gte: startOfMonth, lte: endOfMonth } };
-  }
-
-  const updates = await prisma.update.findMany({
-    where,
-    include: { workLogEntries: true },
-    orderBy: { date: "desc" },
-  });
-
-  return NextResponse.json({ updates });
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await verifyAuth(request);
     const body = await request.json();
-    const {
-      date,
+    const { date, rawTranscript, slackOutput, teamsOutput, workLogEntries, slackEnabled, teamsEnabled, jiraEnabled } = body;
+
+    // Build work log entries with IDs
+    const entries: WorkLogEntryDoc[] = (workLogEntries || []).map(
+      (entry: { issueKey: string; timeSpentSecs: number; started: string; comment?: string; isRepeat: boolean }) => ({
+        id: crypto.randomUUID(),
+        issueKey: entry.issueKey,
+        timeSpentSecs: entry.timeSpentSecs,
+        started: parseAsWallClock(entry.started).toISOString(),
+        comment: entry.comment || "",
+        isRepeat: entry.isRepeat || false,
+        jiraWorklogId: null,
+      })
+    );
+
+    const updateData = {
+      createdAt: new Date().toISOString(),
+      date: new Date(date).toISOString(),
       rawTranscript,
-      slackOutput,
-      teamsOutput,
-      workLogEntries,
-      slackEnabled,
-      teamsEnabled,
-      jiraEnabled,
-    } = body;
+      slackOutput: slackOutput || "",
+      teamsOutput: teamsOutput || "",
+      slackStatus: slackEnabled ? "PENDING" : "SKIPPED",
+      teamsStatus: teamsEnabled ? "PENDING" : "SKIPPED",
+      jiraStatus: jiraEnabled ? "PENDING" : "SKIPPED",
+      workLogEntries: entries,
+    };
 
-    // Create the update record first
-    const update = await prisma.update.create({
-      data: {
-        date: new Date(date),
-        rawTranscript,
-        slackOutput: slackOutput || "",
-        teamsOutput: teamsOutput || "",
-        slackStatus: slackEnabled ? "PENDING" : "SKIPPED",
-        teamsStatus: teamsEnabled ? "PENDING" : "SKIPPED",
-        jiraStatus: jiraEnabled ? "PENDING" : "SKIPPED",
-        workLogEntries: {
-          create: (workLogEntries || []).map(
-            (entry: {
-              issueKey: string;
-              timeSpentSecs: number;
-              started: string;
-              comment?: string;
-              isRepeat: boolean;
-            }) => ({
-              issueKey: entry.issueKey,
-              timeSpentSecs: entry.timeSpentSecs,
-              started: parseAsWallClock(entry.started),
-              comment: entry.comment || "",
-              isRepeat: entry.isRepeat || false,
-            })
-          ),
-        },
-      },
-      include: { workLogEntries: true },
-    });
+    const docRef = await updatesCol(user.uid).add(updateData);
+    const update = { id: docRef.id, ...updateData };
 
-    // Fetch Jira baseUrl for linkifying ticket IDs in Slack/Teams messages
+    // Fetch Jira baseUrl for linkifying
     let jiraBaseUrl: string | null = null;
     try {
-      const jiraConfigForLinks = await prisma.platformConfig.findFirst({
-        where: { platform: "JIRA" },
-        select: { baseUrl: true },
-      });
-      jiraBaseUrl = jiraConfigForLinks?.baseUrl?.trim() || null;
-      console.log(`[Narada] Jira baseUrl for linkification: ${jiraBaseUrl ?? "(not configured)"}`);
-    } catch (err) {
-      console.warn("[Narada] Could not fetch Jira baseUrl for ticket linkification:", err);
-    }
+      const jiraDoc = await configsCol(user.uid).doc("JIRA").get();
+      jiraBaseUrl = jiraDoc.data()?.baseUrl?.trim() || null;
+    } catch { /* ignore */ }
 
-    // Publish to Slack if enabled
+    // Publish to Slack
     if (slackEnabled && slackOutput) {
       try {
-        const slackConfig = await prisma.platformConfig.findFirst({
-          where: { platform: "SLACK", isActive: true },
-        });
+        const slackDoc = await configsCol(user.uid).doc("SLACK").get();
+        const slackConfig = slackDoc.data();
 
-        const linkedSlackOutput = jiraBaseUrl
-          ? linkifyTickets(slackOutput, jiraBaseUrl, "slack")
-          : slackOutput;
+        if (slackConfig?.isActive) {
+          const linkedSlackOutput = jiraBaseUrl ? linkifyTickets(slackOutput, jiraBaseUrl, "slack") : slackOutput;
 
-        if (slackConfig?.slackThreadMode && slackConfig.slackBotToken && slackConfig.slackChannelId) {
-          // Thread reply mode (exclusive — no webhook fallback)
-          await publishSlackViaThread(
-            {
-              slackBotToken: slackConfig.slackBotToken,
-              slackChannelId: slackConfig.slackChannelId,
-              slackThreadMatch: slackConfig.slackThreadMatch,
-              slackWorkflowTime: slackConfig.slackWorkflowTime,
-              timezone: slackConfig.timezone,
-            },
-            linkedSlackOutput,
-            slackConfig.userId,
-            date,
-            slackConfig.teamLeadId
-          );
-          await prisma.update.update({
-            where: { id: update.id },
-            data: { slackStatus: "SENT" },
-          });
-          update.slackStatus = "SENT";
-        } else if (slackConfig?.webhookUrl) {
-          // Standard webhook mode
-          await sendSlackWebhook(slackConfig.webhookUrl, linkedSlackOutput, slackConfig.userId, date, slackConfig.teamLeadId);
-          await prisma.update.update({
-            where: { id: update.id },
-            data: { slackStatus: "SENT" },
-          });
-          update.slackStatus = "SENT";
-        } else {
-          await prisma.update.update({
-            where: { id: update.id },
-            data: { slackStatus: "FAILED" },
-          });
-          update.slackStatus = "FAILED";
-          console.warn("[Narada] Slack enabled but no active webhook URL or thread mode configured");
+          if (slackConfig.slackThreadMode && slackConfig.slackBotToken && slackConfig.slackChannelId) {
+            await publishSlackViaThread(slackConfig as Parameters<typeof publishSlackViaThread>[0], linkedSlackOutput, slackConfig.userId, date, slackConfig.teamLeadId);
+            await docRef.update({ slackStatus: "SENT" });
+            update.slackStatus = "SENT";
+          } else if (slackConfig.webhookUrl) {
+            await sendSlackWebhook(slackConfig.webhookUrl, linkedSlackOutput, slackConfig.userId, date, slackConfig.teamLeadId);
+            await docRef.update({ slackStatus: "SENT" });
+            update.slackStatus = "SENT";
+          } else {
+            await docRef.update({ slackStatus: "FAILED" });
+            update.slackStatus = "FAILED";
+          }
         }
       } catch (err) {
         console.error("[Narada] Slack publish error:", err);
-        await prisma.update.update({
-          where: { id: update.id },
-          data: { slackStatus: "FAILED" },
-        });
+        await docRef.update({ slackStatus: "FAILED" });
         update.slackStatus = "FAILED";
       }
     }
 
-    // Publish to Teams if enabled
+    // Publish to Teams
     if (teamsEnabled && teamsOutput) {
       try {
-        const teamsConfig = await prisma.platformConfig.findFirst({
-          where: { platform: "TEAMS", isActive: true },
-        });
+        const teamsDoc = await configsCol(user.uid).doc("TEAMS").get();
+        const teamsConfig = teamsDoc.data();
 
-        if (teamsConfig?.webhookUrl) {
-          const linkedTeamsOutput = jiraBaseUrl
-            ? linkifyTickets(teamsOutput, jiraBaseUrl, "teams")
-            : teamsOutput;
+        if (teamsConfig?.isActive && teamsConfig?.webhookUrl) {
+          const linkedTeamsOutput = jiraBaseUrl ? linkifyTickets(teamsOutput, jiraBaseUrl, "teams") : teamsOutput;
           await sendTeamsWebhook(teamsConfig.webhookUrl, linkedTeamsOutput, teamsConfig.userName, teamsConfig.userId, date, teamsConfig.teamLeadName, teamsConfig.teamLeadId);
-          await prisma.update.update({
-            where: { id: update.id },
-            data: { teamsStatus: "SENT" },
-          });
+          await docRef.update({ teamsStatus: "SENT" });
           update.teamsStatus = "SENT";
         } else {
-          await prisma.update.update({
-            where: { id: update.id },
-            data: { teamsStatus: "FAILED" },
-          });
+          await docRef.update({ teamsStatus: "FAILED" });
           update.teamsStatus = "FAILED";
-          console.warn("[Narada] Teams enabled but no active webhook URL configured");
         }
       } catch (err) {
         console.error("[Narada] Teams publish error:", err);
-        await prisma.update.update({
-          where: { id: update.id },
-          data: { teamsStatus: "FAILED" },
-        });
+        await docRef.update({ teamsStatus: "FAILED" });
         update.teamsStatus = "FAILED";
       }
     }
 
-    // Publish to Jira if enabled
-    if (jiraEnabled && update.workLogEntries?.length > 0) {
+    // Publish to Jira
+    if (jiraEnabled && entries.length > 0) {
       try {
-        const jiraConfig = await prisma.platformConfig.findFirst({
-          where: { platform: "JIRA", isActive: true },
-        });
+        const jiraDoc = await configsCol(user.uid).doc("JIRA").get();
+        const jiraConfig = jiraDoc.data();
 
-        if (jiraConfig?.baseUrl && jiraConfig?.email && jiraConfig?.apiToken) {
-          console.log(
-            `[Narada] Jira publishing started — ${update.workLogEntries.length} entries, baseUrl=${jiraConfig.baseUrl}`
-          );
+        if (jiraConfig?.isActive && jiraConfig?.baseUrl && jiraConfig?.email && jiraConfig?.apiToken) {
           await publishJiraWorklogs(
-            {
-              baseUrl: jiraConfig.baseUrl,
-              email: jiraConfig.email,
-              apiToken: jiraConfig.apiToken,
-              timezone: jiraConfig.timezone || "Asia/Kolkata",
-            },
-            update.workLogEntries,
-            update.id
+            { baseUrl: jiraConfig.baseUrl, email: jiraConfig.email, apiToken: jiraConfig.apiToken, timezone: jiraConfig.timezone || "Asia/Kolkata" },
+            entries,
+            docRef
           );
-          // Re-read the status that publishJiraWorklogs set
-          const refreshed = await prisma.update.findUnique({
-            where: { id: update.id },
-            select: { jiraStatus: true },
-          });
-          update.jiraStatus = refreshed?.jiraStatus ?? update.jiraStatus;
-          console.log(`[Narada] Jira publishing finished — jiraStatus=${update.jiraStatus}`);
+          const refreshed = await docRef.get();
+          const refreshedData = refreshed.data();
+          update.jiraStatus = refreshedData?.jiraStatus ?? update.jiraStatus;
+          update.workLogEntries = refreshedData?.workLogEntries ?? update.workLogEntries;
         } else {
-          await prisma.update.update({
-            where: { id: update.id },
-            data: { jiraStatus: "FAILED" },
-          });
+          await docRef.update({ jiraStatus: "FAILED" });
           update.jiraStatus = "FAILED";
-          console.warn("[Narada] Jira enabled but no active config (baseUrl/email/apiToken)");
         }
       } catch (err) {
         console.error("[Narada] Jira publish error:", err);
-        await prisma.update.update({
-          where: { id: update.id },
-          data: { jiraStatus: "FAILED" },
-        });
+        await docRef.update({ jiraStatus: "FAILED" });
         update.jiraStatus = "FAILED";
       }
     }
 
     return NextResponse.json({ success: true, update });
   } catch (error) {
+    if (isAuthError(error)) return handleAuthError(error);
     console.error("Create update error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to create update",
-      },
+      { success: false, error: error instanceof Error ? error.message : "Failed to create update" },
       { status: 500 }
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// PUT — Retry failed platforms on an existing update
+// PUT — Retry failed platforms
 // ---------------------------------------------------------------------------
 
 export async function PUT(request: NextRequest) {
   try {
+    const user = await verifyAuth(request);
     const body = await request.json();
-    const {
-      updateId,
-      slackOutput,
-      teamsOutput,
-      workLogEntries,
-      retrySlack,
-      retryTeams,
-      retryJira,
-    } = body;
+    const { updateId, slackOutput, teamsOutput, workLogEntries, retrySlack, retryTeams, retryJira } = body;
 
     if (!updateId) {
-      return NextResponse.json(
-        { success: false, error: "Missing updateId" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Missing updateId" }, { status: 400 });
     }
 
-    // Fetch the existing update
-    const existing = await prisma.update.findUnique({
-      where: { id: updateId },
-      include: { workLogEntries: true },
-    });
-
-    if (!existing) {
-      return NextResponse.json(
-        { success: false, error: "Update not found" },
-        { status: 404 }
-      );
+    const docRef = updatesCol(user.uid).doc(updateId);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      return NextResponse.json({ success: false, error: "Update not found" }, { status: 404 });
     }
 
-    // Update stored outputs if user edited them
-    const dataUpdate: Record<string, unknown> = {};
+    const updateData: Record<string, unknown> = {};
     if (retrySlack && slackOutput !== undefined) {
-      dataUpdate.slackOutput = slackOutput;
-      dataUpdate.slackStatus = "PENDING";
+      updateData.slackOutput = slackOutput;
+      updateData.slackStatus = "PENDING";
     }
     if (retryTeams && teamsOutput !== undefined) {
-      dataUpdate.teamsOutput = teamsOutput;
-      dataUpdate.teamsStatus = "PENDING";
+      updateData.teamsOutput = teamsOutput;
+      updateData.teamsStatus = "PENDING";
     }
     if (retryJira) {
-      dataUpdate.jiraStatus = "PENDING";
+      updateData.jiraStatus = "PENDING";
     }
 
-    const update = await prisma.update.update({
-      where: { id: updateId },
-      data: dataUpdate,
-      include: { workLogEntries: true },
-    });
+    if (Object.keys(updateData).length > 0) {
+      await docRef.update(updateData);
+    }
 
-    // Fetch Jira baseUrl for linkifying ticket IDs
+    const existing = doc.data()!;
+    const dateStr = new Date(existing.date).toISOString().split("T")[0];
+
+    // Fetch Jira baseUrl
     let jiraBaseUrl: string | null = null;
     try {
-      const jiraConfigForLinks = await prisma.platformConfig.findFirst({
-        where: { platform: "JIRA" },
-        select: { baseUrl: true },
-      });
-      jiraBaseUrl = jiraConfigForLinks?.baseUrl?.trim() || null;
-      console.log(`[Narada] Jira baseUrl for linkification: ${jiraBaseUrl ?? "(not configured)"}`);
-    } catch (err) {
-      console.warn("[Narada] Could not fetch Jira baseUrl for ticket linkification:", err);
-    }
+      const jiraDoc = await configsCol(user.uid).doc("JIRA").get();
+      jiraBaseUrl = jiraDoc.data()?.baseUrl?.trim() || null;
+    } catch { /* ignore */ }
 
     // Retry Slack
     if (retrySlack) {
       try {
-        const slackConfig = await prisma.platformConfig.findFirst({
-          where: { platform: "SLACK", isActive: true },
-        });
+        const slackDoc = await configsCol(user.uid).doc("SLACK").get();
+        const slackConfig = slackDoc.data();
 
-        const dateStr = existing.date.toISOString().split("T")[0];
         const finalOutput = jiraBaseUrl
-          ? linkifyTickets(slackOutput ?? update.slackOutput, jiraBaseUrl, "slack")
-          : (slackOutput ?? update.slackOutput);
+          ? linkifyTickets(slackOutput ?? existing.slackOutput, jiraBaseUrl, "slack")
+          : (slackOutput ?? existing.slackOutput);
 
         if (slackConfig?.slackThreadMode && slackConfig.slackBotToken && slackConfig.slackChannelId) {
-          await publishSlackViaThread(
-            {
-              slackBotToken: slackConfig.slackBotToken,
-              slackChannelId: slackConfig.slackChannelId,
-              slackThreadMatch: slackConfig.slackThreadMatch,
-              slackWorkflowTime: slackConfig.slackWorkflowTime,
-              timezone: slackConfig.timezone,
-            },
-            finalOutput,
-            slackConfig.userId,
-            dateStr,
-            slackConfig.teamLeadId
-          );
-          await prisma.update.update({
-            where: { id: updateId },
-            data: { slackStatus: "SENT" },
-          });
-          update.slackStatus = "SENT";
+          await publishSlackViaThread(slackConfig as Parameters<typeof publishSlackViaThread>[0], finalOutput, slackConfig.userId, dateStr, slackConfig.teamLeadId);
+          await docRef.update({ slackStatus: "SENT" });
         } else if (slackConfig?.webhookUrl) {
           await sendSlackWebhook(slackConfig.webhookUrl, finalOutput, slackConfig.userId, dateStr, slackConfig.teamLeadId);
-          await prisma.update.update({
-            where: { id: updateId },
-            data: { slackStatus: "SENT" },
-          });
-          update.slackStatus = "SENT";
+          await docRef.update({ slackStatus: "SENT" });
         } else {
-          await prisma.update.update({
-            where: { id: updateId },
-            data: { slackStatus: "FAILED" },
-          });
-          update.slackStatus = "FAILED";
+          await docRef.update({ slackStatus: "FAILED" });
         }
       } catch (err) {
         console.error("[Narada] Slack retry error:", err);
-        await prisma.update.update({
-          where: { id: updateId },
-          data: { slackStatus: "FAILED" },
-        });
-        update.slackStatus = "FAILED";
+        await docRef.update({ slackStatus: "FAILED" });
       }
     }
 
     // Retry Teams
     if (retryTeams) {
       try {
-        const teamsConfig = await prisma.platformConfig.findFirst({
-          where: { platform: "TEAMS", isActive: true },
-        });
+        const teamsDoc = await configsCol(user.uid).doc("TEAMS").get();
+        const teamsConfig = teamsDoc.data();
 
         if (teamsConfig?.webhookUrl) {
-          const dateStr = existing.date.toISOString().split("T")[0];
           const finalOutput = jiraBaseUrl
-            ? linkifyTickets(teamsOutput ?? update.teamsOutput, jiraBaseUrl, "teams")
-            : (teamsOutput ?? update.teamsOutput);
+            ? linkifyTickets(teamsOutput ?? existing.teamsOutput, jiraBaseUrl, "teams")
+            : (teamsOutput ?? existing.teamsOutput);
           await sendTeamsWebhook(teamsConfig.webhookUrl, finalOutput, teamsConfig.userName, teamsConfig.userId, dateStr, teamsConfig.teamLeadName, teamsConfig.teamLeadId);
-          await prisma.update.update({
-            where: { id: updateId },
-            data: { teamsStatus: "SENT" },
-          });
-          update.teamsStatus = "SENT";
+          await docRef.update({ teamsStatus: "SENT" });
         } else {
-          await prisma.update.update({
-            where: { id: updateId },
-            data: { teamsStatus: "FAILED" },
-          });
-          update.teamsStatus = "FAILED";
+          await docRef.update({ teamsStatus: "FAILED" });
         }
       } catch (err) {
         console.error("[Narada] Teams retry error:", err);
-        await prisma.update.update({
-          where: { id: updateId },
-          data: { teamsStatus: "FAILED" },
-        });
-        update.teamsStatus = "FAILED";
+        await docRef.update({ teamsStatus: "FAILED" });
       }
     }
 
-    // Retry Jira — delete unposted entries, create new ones from request body, publish
+    // Retry Jira
     if (retryJira && workLogEntries?.length > 0) {
       try {
-        // Delete entries that were never posted (no jiraWorklogId)
-        await prisma.workLogEntry.deleteMany({
-          where: {
-            updateId,
-            OR: [{ jiraWorklogId: null }, { jiraWorklogId: "" }],
-          },
-        });
+        const newEntries: WorkLogEntryDoc[] = (workLogEntries as {
+          issueKey: string; timeSpentSecs: number; started: string; comment?: string; isRepeat: boolean; jiraWorklogId?: string | null;
+        }[])
+          .filter((e) => !e.jiraWorklogId)
+          .map((entry) => ({
+            id: crypto.randomUUID(),
+            issueKey: entry.issueKey,
+            timeSpentSecs: entry.timeSpentSecs,
+            started: parseAsWallClock(entry.started).toISOString(),
+            comment: entry.comment || "",
+            isRepeat: entry.isRepeat || false,
+            jiraWorklogId: null,
+          }));
 
-        // Create new entries from request body (only unposted ones)
-        const newEntries = (workLogEntries as {
-          issueKey: string;
-          timeSpentSecs: number;
-          started: string;
-          comment?: string;
-          isRepeat: boolean;
-          jiraWorklogId?: string | null;
-        }[]).filter((e) => !e.jiraWorklogId);
+        // Keep already-posted entries, replace unposted
+        const currentEntries: WorkLogEntryDoc[] = existing.workLogEntries || [];
+        const postedEntries = currentEntries.filter((e: WorkLogEntryDoc) => e.jiraWorklogId);
+        const allEntries = [...postedEntries, ...newEntries];
+        await docRef.update({ workLogEntries: allEntries });
 
-        const created = await Promise.all(
-          newEntries.map((entry) =>
-            prisma.workLogEntry.create({
-              data: {
-                updateId,
-                issueKey: entry.issueKey,
-                timeSpentSecs: entry.timeSpentSecs,
-                started: parseAsWallClock(entry.started),
-                comment: entry.comment || "",
-                isRepeat: entry.isRepeat || false,
-              },
-            })
-          )
-        );
-
-        const jiraConfig = await prisma.platformConfig.findFirst({
-          where: { platform: "JIRA", isActive: true },
-        });
+        const jiraDoc = await configsCol(user.uid).doc("JIRA").get();
+        const jiraConfig = jiraDoc.data();
 
         if (jiraConfig?.baseUrl && jiraConfig?.email && jiraConfig?.apiToken) {
+          // Pass full array — publishJiraWorklogs skips already-posted entries
           await publishJiraWorklogs(
-            {
-              baseUrl: jiraConfig.baseUrl,
-              email: jiraConfig.email,
-              apiToken: jiraConfig.apiToken,
-              timezone: jiraConfig.timezone || "Asia/Kolkata",
-            },
-            created,
-            updateId
+            { baseUrl: jiraConfig.baseUrl, email: jiraConfig.email, apiToken: jiraConfig.apiToken, timezone: jiraConfig.timezone || "Asia/Kolkata" },
+            allEntries,
+            docRef
           );
         } else {
-          await prisma.update.update({
-            where: { id: updateId },
-            data: { jiraStatus: "FAILED" },
-          });
+          await docRef.update({ jiraStatus: "FAILED" });
         }
       } catch (err) {
         console.error("[Narada] Jira retry error:", err);
-        await prisma.update.update({
-          where: { id: updateId },
-          data: { jiraStatus: "FAILED" },
-        });
+        await docRef.update({ jiraStatus: "FAILED" });
       }
     } else if (retryJira) {
-      // retryJira requested but no work log entries — nothing to post, mark as success
-      console.log("[Narada] Jira retry requested but no work log entries — marking as SENT");
-      await prisma.update.update({
-        where: { id: updateId },
-        data: { jiraStatus: "SENT" },
-      });
+      await docRef.update({ jiraStatus: "SENT" });
     }
 
     // Return refreshed update
-    const final = await prisma.update.findUnique({
-      where: { id: updateId },
-      include: { workLogEntries: true },
-    });
-
-    return NextResponse.json({ success: true, update: final });
+    const final = await docRef.get();
+    return NextResponse.json({ success: true, update: { id: final.id, ...final.data() } });
   } catch (error) {
+    if (isAuthError(error)) return handleAuthError(error);
     console.error("Retry update error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to retry update",
-      },
+      { success: false, error: error instanceof Error ? error.message : "Failed to retry update" },
       { status: 500 }
     );
   }

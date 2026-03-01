@@ -1,16 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
+import { configsCol } from "@/lib/firestore-helpers";
+import { type QueryDocumentSnapshot } from "firebase-admin/firestore";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    console.log("[Narada API Settings] GET /api/settings — fetching configs...");
-    const configs = await prisma.platformConfig.findMany({
-      include: { repeatEntries: true },
-      orderBy: { platform: "asc" },
-    });
-    console.log(`[Narada API Settings] Found ${configs.length} configs:`, configs.map((c) => c.platform).join(", "));
+    const user = await verifyAuth(request);
+    const snapshot = await configsCol(user.uid).get();
+
+    const configs = snapshot.docs.map((doc: QueryDocumentSnapshot) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // Sort by platform name for consistent ordering
+    configs.sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
+      ((a.platform as string) || "").localeCompare((b.platform as string) || "")
+    );
+
     return NextResponse.json({ configs });
   } catch (error) {
+    if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada API Settings] GET failed:", error);
     return NextResponse.json({ configs: [], error: error instanceof Error ? error.message : "Failed to fetch settings" }, { status: 500 });
   }
@@ -18,81 +28,39 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
+    const user = await verifyAuth(request);
     const body = await request.json();
     const {
       id,
-      userName,
-      userId,
-      webhookUrl,
-      apiToken,
-      baseUrl,
-      email,
-      projectKey,
-      timezone,
-      teamLeadName,
-      teamLeadId,
-      slackBotToken,
-      slackChannelId,
-      slackThreadMode,
-      slackThreadMatch,
-      slackWorkflowTime,
-      isActive,
-      repeatEntries,
+      userName, userId, webhookUrl, apiToken, baseUrl, email, projectKey,
+      timezone, teamLeadName, teamLeadId, slackBotToken, slackChannelId,
+      slackThreadMode, slackThreadMatch, slackWorkflowTime, isActive, repeatEntries,
     } = body;
 
-    // Delete existing repeat entries for this config
-    await prisma.repeatEntry.deleteMany({
-      where: { configId: id },
-    });
+    const configData = {
+      platform: id, // id is the platform name (SLACK, TEAMS, JIRA)
+      userName, userId, webhookUrl, apiToken, baseUrl, email, projectKey,
+      timezone, teamLeadName, teamLeadId, slackBotToken, slackChannelId,
+      slackThreadMode, slackThreadMatch, slackWorkflowTime, isActive,
+      repeatEntries: (repeatEntries || []).map(
+        (entry: { ticketId: string; hours: number; startTime: string; comment: string }) => ({
+          id: crypto.randomUUID(),
+          ticketId: entry.ticketId,
+          hours: entry.hours,
+          startTime: entry.startTime,
+          comment: entry.comment,
+        })
+      ),
+    };
 
-    // Update config and create new repeat entries
-    const updated = await prisma.platformConfig.update({
-      where: { id },
-      data: {
-        userName,
-        userId,
-        webhookUrl,
-        apiToken,
-        baseUrl,
-        email,
-        projectKey,
-        timezone,
-        teamLeadName,
-        teamLeadId,
-        slackBotToken,
-        slackChannelId,
-        slackThreadMode,
-        slackThreadMatch,
-        slackWorkflowTime,
-        isActive,
-        repeatEntries: {
-          create: (repeatEntries || []).map(
-            (entry: {
-              ticketId: string;
-              hours: number;
-              startTime: string;
-              comment: string;
-            }) => ({
-              ticketId: entry.ticketId,
-              hours: entry.hours,
-              startTime: entry.startTime,
-              comment: entry.comment,
-            })
-          ),
-        },
-      },
-      include: { repeatEntries: true },
-    });
+    await configsCol(user.uid).doc(id).set(configData, { merge: true });
 
-    return NextResponse.json({ success: true, config: updated });
+    return NextResponse.json({ success: true, config: { id, ...configData } });
   } catch (error) {
+    if (isAuthError(error)) return handleAuthError(error);
     console.error("Settings update error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to update settings",
-      },
+      { success: false, error: error instanceof Error ? error.message : "Failed to update settings" },
       { status: 500 }
     );
   }

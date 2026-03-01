@@ -11,16 +11,12 @@ files:
   - dist-mcp/**/*
   - .next/standalone/**/*
   - package.json
-  - from: "node_modules/.prisma"
-    to: "node_modules/.prisma"
-    filter:
-      - "**/*"
 
 extraResources:
-  - from: prisma/migrations
-    to: app/prisma/migrations
-    filter:
-      - "**/*.sql"
+  - from: resources/firebase-sa.json
+    to: firebase-sa.json
+  - from: resources/icon.png
+    to: icon.png
 
 mac:
   artifactName: "Narad-Muni-${version}-${arch}.${ext}"
@@ -70,9 +66,5 @@ publish:
   repo: Narad-Muni
 
 asar: true
-
-asarUnpack:
-  - node_modules/.prisma/**/*
-  - node_modules/@prisma/engines/**/*
 
 npmRebuild: true

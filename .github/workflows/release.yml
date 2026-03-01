@@ -28,7 +28,6 @@ jobs:
 
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      DATABASE_URL: file:./dev.db
 
     steps:
       - name: Checkout
@@ -43,11 +42,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate Prisma client
-        run: npx prisma generate
+      - name: Provision Firebase service account
+        shell: bash
+        run: echo "$FIREBASE_SA_JSON" | base64 -d > resources/firebase-sa.json
+        env:
+          FIREBASE_SA_JSON: ${{ secrets.FIREBASE_SA_JSON }}
 
-      - name: Initialize database schema
-        run: npx prisma db push --skip-generate
+      - name: Set Firebase env for build
+        shell: bash
+        run: echo "FIREBASE_SERVICE_ACCOUNT_BASE64=${FIREBASE_SA_JSON}" >> $GITHUB_ENV
+        env:
+          FIREBASE_SA_JSON: ${{ secrets.FIREBASE_SA_JSON }}
 
       - name: Build Next.js
         run: npm run build

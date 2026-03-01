@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, ClipboardList, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { authedFetch } from "@/lib/api-client";
 import type { UpdateData } from "@/types";
 
 function StatusBadge({
@@ -89,7 +90,7 @@ export function HistoryDetailModal({ update, onClose, onDelete, onRetry }: Props
 
     setDeleting(true);
     try {
-      const res = await fetch(`/api/updates?id=${update.id}`, {
+      const res = await authedFetch(`/api/updates?id=${update.id}`, {
         method: "DELETE",
       });
       if (res.ok) {

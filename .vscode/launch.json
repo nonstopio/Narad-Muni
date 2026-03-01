@@ -31,24 +31,6 @@
       "command": "npm run build"
     },
     {
-      "name": "Prisma: db push",
-      "type": "node-terminal",
-      "request": "launch",
-      "command": "npm run db:push"
-    },
-    {
-      "name": "Prisma: db seed",
-      "type": "node-terminal",
-      "request": "launch",
-      "command": "npm run db:seed"
-    },
-    {
-      "name": "Prisma: db reset",
-      "type": "node-terminal",
-      "request": "launch",
-      "command": "npm run db:reset"
-    },
-    {
       "name": "Electron: Main Process",
       "type": "node",
       "request": "launch",

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { computeCombinedStatus } from "@/types";
 import type { PlatformConfigData, PublishStatus } from "@/types";
+import { authedFetch } from "@/lib/api-client";
 import type { ShareResult } from "@/hooks/use-update-flow";
 
 interface UpdatePageClientProps {
@@ -64,7 +65,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
       // Retry mode — clear stale normal-mode state first, then fetch existing update
       resetForNewUpdate();
       setRetryLoading(true);
-      fetch(`/api/updates?id=${retryParam}`)
+      authedFetch(`/api/updates?id=${retryParam}`)
         .then((res) => res.json())
         .then((data) => {
           if (cancelled) return;

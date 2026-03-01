@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { openDb, appendToDraft } from "./db";
+import { getDb, readUserId, appendToDraft } from "./db";
 
 const server = new McpServer({
   name: "narada",
@@ -17,27 +17,31 @@ server.tool(
     date: z.string().optional().describe("Date in YYYY-MM-DD format, defaults to today"),
   },
   async ({ message, ticket, date }) => {
-    const dateStr = date || new Date().toISOString().slice(0, 10);
-
-    // Format: "- PROJ-123: Implemented user auth flow" or "- Implemented user auth flow"
-    const entryLine = ticket ? `- ${ticket}: ${message}` : `- ${message}`;
-
-    let draftContent: string;
-    const db = openDb();
     try {
-      draftContent = appendToDraft(db, dateStr, entryLine);
-    } finally {
-      db.close();
-    }
+      const dateStr = date || new Date().toISOString().slice(0, 10);
 
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: `Logged to ${dateStr} draft:\n${entryLine}\n\nFull draft:\n${draftContent}`,
-        },
-      ],
-    };
+      // Format: "- PROJ-123: Implemented user auth flow" or "- Implemented user auth flow"
+      const entryLine = ticket ? `- ${ticket}: ${message}` : `- ${message}`;
+
+      const userId = readUserId();
+      const db = getDb();
+      const draftContent = await appendToDraft(db, userId, dateStr, entryLine);
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Logged to ${dateStr} draft:\n${entryLine}\n\nFull draft:\n${draftContent}`,
+          },
+        ],
+      };
+    } catch (err) {
+      const message_ = err instanceof Error ? err.message : String(err);
+      return {
+        content: [{ type: "text" as const, text: `Error: ${message_}` }],
+        isError: true,
+      };
+    }
   }
 );
 
