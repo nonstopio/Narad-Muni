@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Bug, ExternalLink, Loader2, CheckCircle2, RotateCcw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bug, ExternalLink, FileText, Loader2, CheckCircle2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function ReportClient() {
@@ -11,6 +11,20 @@ export function ReportClient() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("narada-error-context");
+      if (stored) {
+        const ctx = JSON.parse(stored);
+        if (ctx.title) setTitle(ctx.title);
+        if (ctx.description) setDescription(ctx.description);
+        sessionStorage.removeItem("narada-error-context");
+      }
+    } catch {
+      // sessionStorage may be unavailable
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,6 +151,15 @@ export function ReportClient() {
             )}
 
             <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                onClick={() => window.open("/api/logs", "_blank")}
+              >
+                <FileText className="w-4 h-4" />
+                Open Sacred Scrolls
+              </Button>
               <Button
                 type="button"
                 variant="secondary"

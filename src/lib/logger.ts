@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-const MAX_ENTRIES = 1000;
+const MAX_SIZE_BYTES = 1 * 1024 * 1024; // 1MB
 
 function getLogPath(): string {
   const userDataDir = process.env.NARADA_USER_DATA_DIR;
@@ -13,14 +13,13 @@ function getLogPath(): string {
 
 const LOG_PATH = getLogPath();
 
-function truncateIfNeeded() {
+function rotateIfNeeded() {
   try {
     if (!fs.existsSync(LOG_PATH)) return;
-    const content = fs.readFileSync(LOG_PATH, "utf-8");
-    const lines = content.split("\n").filter(Boolean);
-    if (lines.length > MAX_ENTRIES) {
-      const trimmed = lines.slice(-MAX_ENTRIES).join("\n") + "\n";
-      fs.writeFileSync(LOG_PATH, trimmed);
+    const stats = fs.statSync(LOG_PATH);
+    if (stats.size > MAX_SIZE_BYTES) {
+      const oldPath = LOG_PATH.replace(/\.log$/, ".old.log");
+      fs.renameSync(LOG_PATH, oldPath);
     }
   } catch {
     // Never crash the app over logging
@@ -53,7 +52,10 @@ function appendEntry(level: string, args: unknown[]) {
   try {
     const timestamp = new Date().toISOString();
     const message = args.map(serialize).join(" ");
-    fs.appendFileSync(LOG_PATH, `[${timestamp}] [${level}] ${message}\n`);
+    const line = `[${timestamp}] [${level}] ${message}\n`;
+    fs.appendFile(LOG_PATH, line, () => {
+      // fire-and-forget — never crash over logging
+    });
   } catch {
     // Never crash the app over logging
   } finally {
@@ -65,6 +67,7 @@ function appendEntry(level: string, args: unknown[]) {
 const originalLog = console.log;
 const originalWarn = console.warn;
 const originalError = console.error;
+const originalDebug = console.debug;
 
 console.log = (...args: unknown[]) => {
   originalLog(...args);
@@ -81,8 +84,13 @@ console.error = (...args: unknown[]) => {
   appendEntry("ERROR", args);
 };
 
-// Truncate on first load
-truncateIfNeeded();
+console.debug = (...args: unknown[]) => {
+  originalDebug(...args);
+  appendEntry("DEBUG", args);
+};
+
+// Rotate on first load
+rotateIfNeeded();
 
 export function getLogContents(maxEntries = 100): string {
   try {
