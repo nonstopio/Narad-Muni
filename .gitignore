@@ -49,4 +49,7 @@ prisma/dev.db-journal
 # electron
 /dist-electron/
 /dist/
+
+# mcp
+/dist-mcp/
 resources/icon.iconset/

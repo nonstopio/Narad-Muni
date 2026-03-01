@@ -101,6 +101,60 @@ A sacred feature — configure recurring Jira work log entries (e.g. daily stand
 
 ---
 
+## 🤖 MCP Server — Log Work from Your AI Assistant
+
+Narad Muni ships an [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that lets AI coding assistants log completed work directly into your daily draft — without leaving the editor.
+
+**How it works:** Your AI assistant calls `log_work` → entry is saved to the day's draft in SQLite → you open Narad Muni later to preview and publish to Slack, Teams, and Jira as usual.
+
+### Installed App (Recommended)
+
+The desktop app **auto-registers** with Claude Code on every launch. No manual setup needed — just install the app, open it once, and the MCP server is ready.
+
+The app writes its config to `~/.claude.json`, pointing Claude Code at the Electron binary with `--mcp`. You can verify the registration in **Settings > Divine Messenger Protocol**.
+
+Then you can say things like:
+- *"Log that I finished the auth refactor on PROJ-123"*
+- *"Log work: Fixed flaky tests in CI pipeline"*
+
+### Developer Setup (Source Checkout)
+
+If you're working from the source repo, the MCP server is auto-discovered via `.mcp.json`. Just build it once:
+
+```bash
+npm run mcp:compile
+```
+
+### Manual Configuration (Cursor, Windsurf, etc.)
+
+Add the server to your MCP client config. Example for `~/.cursor/mcp.json` or equivalent:
+
+```json
+{
+  "mcpServers": {
+    "narada": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/absolute/path/to/Narad-Muni/dist-mcp/server.js"]
+    }
+  }
+}
+```
+
+### `log_work` Tool
+
+| Parameter | Type | Required | Description |
+|:----------|:-----|:---------|:------------|
+| `message` | string | Yes | What you worked on — *"Implemented user auth flow"* |
+| `ticket` | string | No | Jira ticket key — *"PROJ-123"* |
+| `date` | string | No | `YYYY-MM-DD` format, defaults to today |
+
+Entries are formatted as `- TICKET: message` (or `- message` if no ticket) and appended to the day's draft. Multiple calls accumulate in the same draft.
+
+> **Note:** Narad Muni must have been launched at least once to create the database. The MCP server writes directly to SQLite — the app doesn't need to be running.
+
+---
+
 ## 📜 Scripts
 
 ```bash
@@ -112,6 +166,10 @@ npm run lint             # ESLint
 # Electron
 npm run electron:dev     # Dev mode (Next.js + Electron concurrently)
 npm run electron:build   # Production build + package
+
+# MCP Server
+npm run mcp:compile      # Build the MCP server
+npm run mcp:dev          # Build + run (for testing with MCP Inspector)
 
 # Database
 npm run db:push          # Push Prisma schema to SQLite
@@ -156,6 +214,9 @@ electron/
   config.ts               # User config (window bounds, DB path)
   dev-start.js            # Dev mode orchestrator
   preload.ts              # Context bridge
+mcp/
+  server.ts               # MCP server entry point (stdio transport)
+  db.ts                   # Direct SQLite access for drafts
 docs/
   index.html              # GitHub Pages landing page
 ```

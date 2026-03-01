@@ -8,6 +8,7 @@ directories:
 
 files:
   - dist-electron/**/*
+  - dist-mcp/**/*
   - .next/standalone/**/*
   - package.json
   - from: "node_modules/.prisma"
