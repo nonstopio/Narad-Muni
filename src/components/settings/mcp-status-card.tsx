@@ -136,70 +136,37 @@ export function McpStatusCard() {
         I can receive scrolls from AI sages in your code editor.
       </p>
 
-      {/* Registration status */}
-      <div className="flex items-center gap-2 mb-3">
-        <div
-          className={`w-2 h-2 rounded-full ${
-            status?.registered ? "bg-narada-emerald shadow-[0_0_6px_rgba(16,185,129,0.6)]" : "bg-white/20"
-          }`}
-        />
-        <span className="text-sm text-narada-text">
-          {status?.registered ? "Registered" : "Not registered"}
-        </span>
+      {/* Status + actions */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div
+            className={`w-2 h-2 rounded-full ${
+              status?.registered ? "bg-narada-emerald shadow-[0_0_6px_rgba(16,185,129,0.6)]" : "bg-white/20"
+            }`}
+          />
+          <span className="text-sm text-narada-text">
+            {status?.registered ? "Registered" : "Not registered"}
+          </span>
+        </div>
+        {status?.registered && (
+          <button
+            onClick={handleTest}
+            disabled={testing}
+            className="text-xs text-narada-text-secondary hover:text-narada-primary transition-colors disabled:opacity-50"
+          >
+            {testing ? "Testing..." : "Test connection"}
+          </button>
+        )}
       </div>
 
-      {/* Binary path */}
-      {status?.binaryPath && (
-        <div className="mb-2">
-          <label className="block text-xs font-semibold text-narada-text-secondary mb-1 uppercase tracking-wider">
-            Binary Path
-          </label>
-          <div className="flex items-center gap-2">
-            <code
-              className="text-xs font-mono text-narada-text-muted bg-white/[0.03] px-2 py-1 rounded-lg border border-white/[0.06] truncate max-w-full"
-              title={status.binaryPath}
-            >
-              {truncatePath(status.binaryPath)}
-            </code>
-            {!status.binaryExists && (
-              <span className="text-xs text-narada-amber">Binary missing</span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Config path */}
-      {status?.configPath && (
-        <div className="mb-4">
-          <label className="block text-xs font-semibold text-narada-text-secondary mb-1 uppercase tracking-wider">
-            Config File
-          </label>
-          <code
-            className="text-xs font-mono text-narada-text-muted bg-white/[0.03] px-2 py-1 rounded-lg border border-white/[0.06] block truncate"
-            title={status.configPath}
-          >
-            {truncatePath(status.configPath)}
-          </code>
-        </div>
-      )}
-
-      {/* Action buttons */}
-      <div className="pt-4 border-t border-white/[0.06] flex flex-col gap-2">
-        <Button
-          variant="secondary"
-          size="default"
-          onClick={handleTest}
-          disabled={testing || !status?.registered}
-          className="w-full hover:border-narada-primary/50 hover:text-narada-text hover:bg-narada-primary/[0.05]"
-        >
-          {testing ? "Testing the Sacred Link..." : "Test the Sacred Link"}
-        </Button>
+      {/* Setup link */}
+      <div className="mt-4 pt-4 border-t border-white/[0.06]">
         <button
           onClick={() => setShowInstructions(true)}
-          className="w-full flex items-center justify-center gap-2 text-xs text-narada-text-secondary hover:text-narada-text transition-colors py-2"
+          className="w-full flex items-center justify-center gap-2 text-sm text-narada-text-secondary hover:text-narada-text transition-colors py-1.5"
         >
           <BookOpen className="w-3.5 h-3.5" />
-          Sacred Scrolls of Setup
+          Setup Instructions
         </button>
       </div>
 
