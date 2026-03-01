@@ -61,6 +61,9 @@ jobs:
       - name: Compile Electron TypeScript
         run: npm run electron:compile
 
+      - name: Compile MCP server
+        run: npm run mcp:compile
+
       - name: Disable macOS code signing
         if: matrix.platform == 'mac'
         run: echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> $GITHUB_ENV
