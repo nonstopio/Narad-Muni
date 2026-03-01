@@ -5,6 +5,22 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-03-01
+
+### ✨ Features
+
+- Add global error boundaries, Open Logs button, and error context passthrough for improved crash diagnostics in the Electron app
+- Add left sidebar navigation to the settings page for easier section switching
+- Make MCP setup modal agent-agnostic with a quick-setup prompt so any AI coding agent can configure itself
+
+### 🐛 Bug Fixes
+
+- Align MCP server and dev-start DB path with Electron userData directory to prevent schema mismatch between dev and packaged environments
+
+### 💄 UI/UX
+
+- Simplify MCP status card to show only relevant connection info and reduce visual noise
+
 ## [1.6.2] - 2026-02-27
 
 ### 🐛 Bug Fixes

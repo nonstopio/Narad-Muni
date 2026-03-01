@@ -1,6 +1,6 @@
 {
   "name": "narada-app",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "productName": "Narad Muni",
   "description": "Voice-first productivity platform — record once, publish to Slack, Teams, and Jira",
   "author": {
@@ -22,15 +22,19 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
+    "mcp:compile": "tsc -p mcp/tsconfig.json",
+    "mcp:dev": "npm run mcp:compile && node dist-mcp/server.js",
     "electron:compile": "tsc -p electron/tsconfig.json",
     "electron:dev": "npm run electron:compile && node electron/dev-start.js",
-    "electron:build": "npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public && npm run electron:compile && electron-builder",
-    "postinstall": "electron-builder install-app-deps"
+    "electron:build": "npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public && npm run electron:compile && npm run mcp:compile && electron-builder",
+    "postinstall": "electron-builder install-app-deps && node scripts/sign-native-modules.js",
+    "electron:resign": "node scripts/sign-native-modules.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
     "@deepgram/sdk": "^4.11.3",
     "@google/generative-ai": "^0.24.1",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@prisma/client": "^6.19.2",
     "better-sqlite3": "^11.0.0",
     "class-variance-authority": "^0.7.1",
