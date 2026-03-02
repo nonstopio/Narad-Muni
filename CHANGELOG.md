@@ -5,6 +5,19 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.3] - 2026-03-02
+
+### 🐛 Bug Fixes
+
+- Fix CI release workflow by adding missing `fix-turbopack-hashes.js` post-build step that was causing packaged builds to fail
+
+### 🔧 Configuration
+
+- Add diagnostic logging for Firebase service account loading in Electron main process (credential path, project ID, parse failures)
+- Add diagnostic logging for Firebase Admin SDK initialization to surface configuration issues on startup
+- Add error logging for `verifyIdToken` failures in auth middleware for easier authentication debugging
+- Add `console.error` to drafts and AI provider settings API route handlers for better server-side error visibility
+
 ## [1.8.2] - 2026-03-02
 
 ### 🐛 Bug Fixes
