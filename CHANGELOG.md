@@ -5,6 +5,13 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-03-02
+
+### 🐛 Bug Fixes
+
+- Fix firebase-admin Turbopack hashed module crash in Electron by resolving the module path lookup that broke inside the asar archive when Turbopack generated hashed filenames
+- Add blob-based log file download so users can export application logs from the browser
+
 ## [1.8.0] - 2026-03-02
 
 ### ✨ Features
