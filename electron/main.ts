@@ -4,7 +4,6 @@ import * as path from "path";
 import { readConfig, saveWindowBounds, writeConfig } from "./config";
 import { findAvailablePort } from "./port";
 import { initAutoUpdater, checkForUpdatesManual } from "./updater";
-import { setupTray } from "./tray";
 import { setupScheduler, reloadSchedule, fireTestNotification, NotificationSettings } from "./scheduler";
 import { registerMcpConfig } from "./mcp-config";
 
@@ -141,10 +140,7 @@ async function createWindow(port: number): Promise<void> {
         {
           label: `Quit ${APP_NAME}`,
           accelerator: "CmdOrCtrl+Q",
-          click: () => {
-            // Hide to tray instead of quitting so notifications keep firing
-            mainWindow?.hide();
-          },
+          role: "quit",
         },
       ],
     },
@@ -174,7 +170,7 @@ async function createWindow(port: number): Promise<void> {
     return { action: "deny" };
   });
 
-  // Save window bounds on close — hide to tray instead of quitting (all platforms)
+  // Save window bounds on close — standard macOS: closing window hides, Cmd+Q quits
   mainWindow.on("close", (e) => {
     if (!isQuitting) {
       e.preventDefault();
@@ -191,7 +187,7 @@ async function createWindow(port: number): Promise<void> {
     }
   });
 
-  // Save window bounds when hiding to tray
+  // Save window bounds when window is hidden
   mainWindow.on("hide", () => {
     if (mainWindow) {
       const bounds = mainWindow.getBounds();
@@ -286,13 +282,6 @@ async function startApp(): Promise<void> {
   const blockerId = powerSaveBlocker.start("prevent-app-suspension");
   console.log(`[Main] Power save blocker started (id: ${blockerId})`);
 
-  // System tray — keeps app alive when window is hidden
-  try {
-    setupTray(() => mainWindow);
-  } catch (err) {
-    console.error("[Main] Failed to setup system tray:", err);
-  }
-
   // Notification scheduler — renderer sends config via IPC after auth
   const getMainWindow = () => mainWindow;
   try {
@@ -335,7 +324,7 @@ app.on("before-quit", () => {
 });
 
 app.on("window-all-closed", () => {
-  // Don't quit — app stays alive in system tray for notifications
+  // Standard macOS: app stays alive when window is closed (reopen via dock icon)
 });
 
 app.on("activate", () => {
