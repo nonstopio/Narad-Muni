@@ -5,6 +5,12 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.4] - 2026-03-02
+
+### 🔧 Configuration
+
+- Add diagnostic logging to the MCP code path (`electron/main.ts` and `mcp/db.ts`) for Firebase credential loading — logs `resourcesPath`, service account file existence, and credential source used in `getDb()`
+
 ## [1.8.3] - 2026-03-02
 
 ### 🐛 Bug Fixes
