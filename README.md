@@ -232,6 +232,20 @@ npm version patch    # or minor / major
 git push origin main --follow-tags
 ```
 
+### CI/CD Secret
+
+The release workflow requires a **`FIREBASE_SA_JSON`** repository secret — the base64-encoded Firebase service account JSON. The pipeline uses it to:
+
+1. Write `resources/firebase-sa.json` (bundled into the Electron app)
+2. Set `FIREBASE_SERVICE_ACCOUNT_BASE64` for the Next.js build
+
+```bash
+# Generate the value from your service account file:
+base64 < firebase-service-account.json | pbcopy   # macOS
+```
+
+Add the output as a GitHub Actions secret named `FIREBASE_SA_JSON` under **Settings > Secrets and variables > Actions**.
+
 The [landing page](https://nonstopio.github.io/Narad-Muni/) automatically picks up the latest release.
 
 ---
