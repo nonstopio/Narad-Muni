@@ -13,12 +13,16 @@ function getAdminApp(): App {
   }
 
   const base64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+  console.log(`[Narada] Firebase Admin init — FIREBASE_SERVICE_ACCOUNT_BASE64 present: ${!!base64}, length: ${base64?.length ?? 0}`);
   if (base64) {
     try {
       const json = Buffer.from(base64, "base64").toString("utf-8");
       const serviceAccount = JSON.parse(json);
-      return initializeApp({ credential: cert(serviceAccount) });
+      const app = initializeApp({ credential: cert(serviceAccount) });
+      console.log(`[Narada] Firebase Admin initialized with service account (project: ${serviceAccount.project_id})`);
+      return app;
     } catch (err) {
+      console.error("[Narada] Failed to parse FIREBASE_SERVICE_ACCOUNT_BASE64:", err);
       throw new Error(
         `Failed to parse FIREBASE_SERVICE_ACCOUNT_BASE64: ${err instanceof Error ? err.message : err}`
       );
@@ -31,6 +35,7 @@ function getAdminApp(): App {
 }
 
 const adminApp = getAdminApp();
+console.log(`[Narada] Firebase Admin app ready (project: ${adminApp.options.projectId ?? "unknown"})`);
 
 export const adminDb = getFirestore(adminApp);
 // Allow undefined values in document data (they are stripped out instead of throwing)

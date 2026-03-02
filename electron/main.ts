@@ -220,9 +220,14 @@ async function startApp(): Promise<void> {
   // Set Firebase service account env var for the Next.js API routes
   if (!isDev) {
     const saPath = path.join(process.resourcesPath, "firebase-sa.json");
-    if (fs.existsSync(saPath)) {
+    const saExists = fs.existsSync(saPath);
+    console.log(`[Main] Firebase SA path: ${saPath}, exists: ${saExists}`);
+    if (saExists) {
       const saJson = fs.readFileSync(saPath, "utf-8");
       process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 = Buffer.from(saJson).toString("base64");
+      console.log(`[Main] FIREBASE_SERVICE_ACCOUNT_BASE64 set (${saJson.length} bytes)`);
+    } else {
+      console.error("[Main] firebase-sa.json NOT FOUND — all API routes will fail auth");
     }
   }
 

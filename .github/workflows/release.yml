@@ -57,6 +57,9 @@ jobs:
       - name: Build Next.js
         run: npm run build
 
+      - name: Fix Turbopack hashed module names
+        run: node scripts/fix-turbopack-hashes.js
+
       - name: Copy static assets into standalone
         shell: bash
         run: |

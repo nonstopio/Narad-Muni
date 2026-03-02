@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ draft: doc.exists ? { id: doc.id, ...doc.data() } : null });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
+    console.error("[Narada API Drafts] GET failed:", error);
     return NextResponse.json({ error: "Failed to fetch draft" }, { status: 500 });
   }
 }
@@ -44,6 +45,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ draft: { id: dateStr, ...draftData } });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
+    console.error("[Narada API Drafts] PUT failed:", error);
     return NextResponse.json({ error: "Failed to save draft" }, { status: 500 });
   }
 }
@@ -60,6 +62,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
+    console.error("[Narada API Drafts] DELETE failed:", error);
     return NextResponse.json({ error: "Failed to delete draft" }, { status: 500 });
   }
 }

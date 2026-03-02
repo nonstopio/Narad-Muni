@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
+    console.error("[Narada API AI Provider] GET failed:", error);
     return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 });
   }
 }
@@ -76,6 +77,7 @@ export async function PUT(request: NextRequest) {
     });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
+    console.error("[Narada API AI Provider] PUT failed:", error);
     return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });
   }
 }

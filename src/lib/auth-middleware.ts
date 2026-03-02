@@ -26,7 +26,8 @@ export async function verifyAuth(request: NextRequest): Promise<AuthUser> {
       email: decoded.email,
       name: decoded.name,
     };
-  } catch {
+  } catch (err) {
+    console.error("[Narada] verifyIdToken failed:", err instanceof Error ? err.message : err);
     throw new AuthError("Invalid or expired token", 401);
   }
 }
