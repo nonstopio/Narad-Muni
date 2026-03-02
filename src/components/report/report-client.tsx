@@ -161,7 +161,12 @@ export function ReportClient() {
                     const res = await authedFetch("/api/logs");
                     const text = await res.text();
                     const blob = new Blob([text], { type: "text/plain" });
-                    window.open(URL.createObjectURL(blob), "_blank");
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `narada-logs-${new Date().toISOString().slice(0, 10)}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
                   } catch {
                     window.open("/api/logs", "_blank");
                   }

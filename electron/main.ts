@@ -8,6 +8,19 @@ import { setupTray } from "./tray";
 import { setupScheduler, reloadSchedule, fireTestNotification, NotificationSettings } from "./scheduler";
 import { registerMcpConfig } from "./mcp-config";
 
+// Turbopack generates hashed symlinks like "firebase-admin-a14c8a5423a75469/app"
+// inside .next/node_modules/. These break inside the asar archive because
+// electron-builder strips nested node_modules. Redirect to the real package.
+const Module = require("module");
+const _resolveFilename = Module._resolveFilename;
+Module._resolveFilename = function (request: string, parent: unknown, isMain: boolean, options: unknown) {
+  if (request.startsWith("firebase-admin-")) {
+    const suffix = request.replace(/^firebase-admin-[^/]+/, "firebase-admin");
+    return _resolveFilename.call(this, suffix, parent, isMain, options);
+  }
+  return _resolveFilename.call(this, request, parent, isMain, options);
+};
+
 // --mcp mode: run as a headless MCP stdio server (no GUI, no dock icon).
 // AI clients spawn: /path/to/Narad Muni --mcp
 if (process.argv.includes("--mcp")) {
