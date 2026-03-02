@@ -3,13 +3,13 @@ import { getAuth } from "firebase/auth";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyApbeiVzABgppnEMwAfp-jcpgMfiDGEFOQ",
-  authDomain: "narad-muni.firebaseapp.com",
-  projectId: "narad-muni",
-  storageBucket: "narad-muni.firebasestorage.app",
-  messagingSenderId: "476987950498",
-  appId: "1:476987950498:web:14cad1d2fd3e5c26d62e57",
-  measurementId: "G-Y0GC6M8C91",
+  apiKey: "AIzaSyBS0kmYQfvMBj68riUwi8AkIMCIDtpQbIk",
+  authDomain: "narad-muni-14.firebaseapp.com",
+  projectId: "narad-muni-14",
+  storageBucket: "narad-muni-14.firebasestorage.app",
+  messagingSenderId: "24086585074",
+  appId: "1:24086585074:web:73d1e2cbec7daaf2727a6b",
+  measurementId: "G-YPN0P89E8Z",
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();

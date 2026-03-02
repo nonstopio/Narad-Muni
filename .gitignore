@@ -46,8 +46,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# firebase service account (secrets)
+# firebase
 resources/firebase-sa.json
+.firebase/
 
 # electron
 /dist-electron/

@@ -126,8 +126,13 @@ async function createWindow(port: number): Promise<void> {
     mainWindow?.show();
   });
 
-  // Open external links in browser
+  // Open external links in browser, but allow Firebase auth popups
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // Allow Firebase auth handler and Google sign-in to open as child windows
+    // so signInWithPopup can communicate back to the opener.
+    if (url.includes("/__/auth/handler") || url.includes("accounts.google.com")) {
+      return { action: "allow" };
+    }
     shell.openExternal(url);
     return { action: "deny" };
   });
