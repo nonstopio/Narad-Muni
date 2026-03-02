@@ -20,9 +20,15 @@
 # production
 /build
 
+# IDE
+.idea/
+
 # misc
 .DS_Store
 *.pem
+
+# logs
+narada-activity.log
 
 # debug
 npm-debug.log*
@@ -51,3 +57,6 @@ resources/firebase-sa.json
 /dist-mcp/
 .mcp.json
 resources/icon.iconset/
+
+# playwright
+.playwright-mcp/
