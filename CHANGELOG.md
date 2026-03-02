@@ -5,6 +5,28 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-03-02
+
+### ✨ Features
+
+- Migrate entire data layer from SQLite/Prisma to Firebase (Firestore for per-user cloud data, Firebase Auth with Google Sign-In, Firebase Analytics)
+- Add Firebase authentication with popup sign-in flow, `AuthShell` wrapper (AuthProvider + AuthGuard), and `authedFetch()` client for Bearer token injection
+- Add user avatar menu in the sidebar with account info and sign-out
+- Add `COOP` header configuration and Firestore security rules for per-user data scoping
+- Add `/api/auth/seed` endpoint for idempotent default config seeding on first login
+
+### 🧹 Chores
+
+- Remove IDE configs (`.idea/`), activity logs, and `.mcp.json` from version control via updated `.gitignore`
+
+### 🗃️ Database
+
+- Replace Prisma ORM and SQLite with Firebase Admin SDK and Firestore across all API routes
+- Remove all Prisma migrations, schema, seed script, and `prisma.ts` client
+- Add `firebase-admin.ts` for server-side Firestore access with service account initialization
+- Add `firestore-helpers.ts` for common Firestore query utilities
+- Rewrite MCP server database layer to use Firestore instead of SQLite
+
 ## [1.7.2] - 2026-03-01
 
 ### 🔧 Configuration
