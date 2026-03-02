@@ -23,7 +23,7 @@
     "mcp:dev": "npm run mcp:compile && node dist-mcp/server.js",
     "electron:compile": "tsc -p electron/tsconfig.json",
     "electron:dev": "npm run electron:compile && node electron/dev-start.js",
-    "electron:build": "npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public && npm run electron:compile && npm run mcp:compile && electron-builder",
+    "electron:build": "npm run build && node scripts/fix-turbopack-hashes.js && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public && npm run electron:compile && npm run mcp:compile && electron-builder",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {

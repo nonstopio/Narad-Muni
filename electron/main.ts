@@ -10,7 +10,10 @@ import { registerMcpConfig } from "./mcp-config";
 
 // Turbopack generates hashed symlinks like "firebase-admin-a14c8a5423a75469/app"
 // inside .next/node_modules/. These break inside the asar archive because
-// electron-builder strips nested node_modules. Redirect to the real package.
+// electron-builder strips nested node_modules. The primary fix is the post-build
+// script (scripts/fix-turbopack-hashes.js). These runtime patches are safety nets.
+
+// CJS safety net: intercept require() calls with hashed names
 const Module = require("module");
 const _resolveFilename = Module._resolveFilename;
 Module._resolveFilename = function (request: string, parent: unknown, isMain: boolean, options: unknown) {
@@ -20,6 +23,22 @@ Module._resolveFilename = function (request: string, parent: unknown, isMain: bo
   }
   return _resolveFilename.call(this, request, parent, isMain, options);
 };
+
+// ESM safety net: intercept dynamic import() calls with hashed names
+try {
+  const { register } = require("node:module");
+  register(
+    "data:text/javascript," +
+      encodeURIComponent(
+        'export async function resolve(s, c, n) { ' +
+        'if (s.startsWith("firebase-admin-")) { ' +
+        's = s.replace(/^firebase-admin-[^/]+/, "firebase-admin"); ' +
+        '} return n(s, c); }'
+      )
+  );
+} catch {
+  // module.register() not available — post-build script handles it
+}
 
 // --mcp mode: run as a headless MCP stdio server (no GUI, no dock icon).
 // AI clients spawn: /path/to/Narad Muni --mcp
