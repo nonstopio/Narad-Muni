@@ -5,6 +5,12 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.2] - 2026-03-02
+
+### 🐛 Bug Fixes
+
+- Add post-build script to patch Turbopack hashed firebase-admin imports directly in the build output, fixing ESM import() calls that the v1.8.1 CJS Module._resolveFilename patch could not intercept
+
 ## [1.8.1] - 2026-03-02
 
 ### 🐛 Bug Fixes
