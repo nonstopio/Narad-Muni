@@ -91,6 +91,7 @@ export function UpdatesPageClient({
     <div className="flex-1 flex flex-col overflow-hidden p-6">
       <div className="flex-shrink-0"><StatsBar stats={stats} /></div>
       <Calendar updateStatusMap={updateStatusMap} onDayClick={handleDayClick} />
+      <p className="mt-auto pt-4 pb-2 text-center text-xs text-white/20">v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
 
       {selectedUpdate && (
         <HistoryDetailModal
