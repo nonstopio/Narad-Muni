@@ -5,6 +5,7 @@ import { useUpdateStore } from "@/stores/update-store";
 import { useAppStore } from "@/stores/app-store";
 import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
+import { trackEvent } from "@/lib/analytics";
 import type { PublishStatus } from "@/types";
 
 export interface ShareResult {
@@ -57,6 +58,7 @@ export function useUpdateFlow() {
 
       // Transcribe audio if we have a blob but no text
       if (audioBlob && !transcript) {
+        trackEvent("transcription_start");
         setProcessingStage("transcribing");
         console.log("[Narada] Transcribing audio blob:", audioBlob.size, "bytes, type:", audioBlob.type);
         const formData = new FormData();
@@ -82,6 +84,7 @@ export function useUpdateFlow() {
       }
 
       // Parse with AI
+      trackEvent("ai_processing_start");
       setProcessingStage("analyzing");
       const dateStr = selectedDate
         ? selectedDate.toLocaleDateString("sv-SE")
@@ -98,6 +101,7 @@ export function useUpdateFlow() {
         throw new Error(parseData.error || "Parsing failed");
       }
 
+      trackEvent("ai_processing_complete");
       setProcessingStage("formatting");
       const { data } = parseData;
       setSlackOutput(data.slackFormat);
@@ -139,6 +143,11 @@ export function useUpdateFlow() {
       setIsProcessing,
     } = store;
 
+    trackEvent("publish_start", {
+      slack: slackEnabled,
+      teams: teamsEnabled,
+      jira: jiraEnabled,
+    });
     setStep("sharing");
     setIsProcessing(true);
 
@@ -167,6 +176,11 @@ export function useUpdateFlow() {
         throw new Error(data.error);
       }
 
+      trackEvent("publish_complete", {
+        slack: data.update.slackStatus,
+        teams: data.update.teamsStatus,
+        jira: data.update.jiraStatus,
+      });
       setStep("editing");
       setIsProcessing(false);
       return {
@@ -216,6 +230,7 @@ export function useUpdateFlow() {
       return { success: false };
     }
 
+    trackEvent("publish_retry");
     setStep("sharing");
     setIsProcessing(true);
 

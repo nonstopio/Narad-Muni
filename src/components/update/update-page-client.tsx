@@ -15,6 +15,7 @@ import { ArrowLeft } from "lucide-react";
 import { computeCombinedStatus } from "@/types";
 import type { PlatformConfigData, PublishStatus } from "@/types";
 import { authedFetch } from "@/lib/api-client";
+import { trackEvent } from "@/lib/analytics";
 import type { ShareResult } from "@/hooks/use-update-flow";
 
 interface UpdatePageClientProps {
@@ -51,6 +52,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
 
   // Initialize on mount — either normal or retry mode
   useEffect(() => {
+    trackEvent("page_view_update");
     // Parse date from query param
     if (dateParam) {
       const parsed = new Date(dateParam + "T00:00:00");

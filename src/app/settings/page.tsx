@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { authedFetch } from "@/lib/api-client";
 import { SettingsClient } from "@/components/settings/settings-client";
 import { PageSpinner } from "@/components/ui/page-spinner";
+import { trackEvent } from "@/lib/analytics";
 import type { PlatformConfigData } from "@/types";
 
 export default function SettingsPage() {
@@ -11,6 +12,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    trackEvent("page_view_settings");
     authedFetch("/api/settings")
       .then((r) => r.json())
       .then((data) => setConfigs(data.configs || []))

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { authedFetch } from "@/lib/api-client";
+import { trackEvent } from "@/lib/analytics";
 import { UpdatesPageClient } from "@/components/updates/updates-page-client";
 import { PageSpinner } from "@/components/ui/page-spinner";
 import type { UpdateData } from "@/types";
@@ -13,6 +14,7 @@ export default function UpdatesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    trackEvent("page_view_home");
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 

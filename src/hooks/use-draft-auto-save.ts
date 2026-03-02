@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useUpdateStore } from "@/stores/update-store";
 import { authedFetch } from "@/lib/api-client";
+import { trackEvent } from "@/lib/analytics";
 
 const DEBOUNCE_MS = 1500;
 
@@ -72,6 +73,7 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
         if (current === lastSavedRef.current) return;
 
         lastSavedRef.current = current;
+        trackEvent("draft_save");
         authedFetch("/api/drafts", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

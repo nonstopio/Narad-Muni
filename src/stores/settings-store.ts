@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { authedFetch } from "@/lib/api-client";
+import { trackEvent } from "@/lib/analytics";
 import type { PlatformConfigData, AIProvider } from "@/types";
 
 interface AIProviderSettings {
@@ -71,6 +72,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       if (data.configs) {
         set({ configs: data.configs });
       }
+      trackEvent("settings_save", { platform: config.platform });
       return { success: true };
     } catch {
       return { success: false, error: "Network error — could not save settings" };
@@ -111,6 +113,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   },
 
   saveAIProviderSettings: async (data) => {
+    trackEvent("ai_provider_change", { provider: data.aiProvider });
     const res = await authedFetch("/api/settings/ai-provider", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Clock, Settings, Bug, LogOut } from "lucide-react";
+import { Calendar, Clock, Settings, Bug, LogOut, BarChart3 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { authedFetch } from "@/lib/api-client";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 const navItems = [
@@ -48,11 +50,32 @@ function UserAvatar({ user, size = 40 }: { user: { displayName: string | null; e
 export function Sidebar() {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const cached = sessionStorage.getItem("narada_is_admin");
+    if (cached !== null) {
+      setIsAdmin(cached === "1");
+      return;
+    }
+    authedFetch("/api/admin/check")
+      .then((r) => r.json())
+      .then((d) => {
+        const admin = !!d.isAdmin;
+        setIsAdmin(admin);
+        sessionStorage.setItem("narada_is_admin", admin ? "1" : "0");
+      })
+      .catch(() => {});
+  }, []);
+
+  const allNavItems = isAdmin
+    ? [...navItems, { href: "/admin/analytics", label: "Observatory", icon: BarChart3 }]
+    : navItems;
 
   return (
     <aside className="w-16 min-w-16 bg-narada-surface border-r border-white/[0.06] pt-16 pb-6 flex flex-col items-center">
       <nav className="flex-1 flex flex-col items-center gap-2 titlebar-no-drag">
-        {navItems.map((item) => {
+        {allNavItems.map((item) => {
           const isActive =
             item.href === "/"
               ? pathname === "/" || pathname.startsWith("/update")

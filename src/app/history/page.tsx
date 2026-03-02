@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { authedFetch } from "@/lib/api-client";
 import { HistoryList } from "@/components/history/history-list";
 import { PageSpinner } from "@/components/ui/page-spinner";
+import { trackEvent } from "@/lib/analytics";
 import type { UpdateData } from "@/types";
 
 export default function HistoryPage() {
@@ -11,6 +12,7 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    trackEvent("page_view_history");
     authedFetch("/api/updates")
       .then((r) => r.json())
       .then((data) => setUpdates(data.updates || []))

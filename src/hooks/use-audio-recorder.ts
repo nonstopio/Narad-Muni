@@ -3,6 +3,7 @@
 import { useRef, useCallback, useEffect } from "react";
 import { useUpdateStore } from "@/stores/update-store";
 import { authedFetch } from "@/lib/api-client";
+import { trackEvent } from "@/lib/analytics";
 
 export function useAudioRecorder() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -95,6 +96,7 @@ export function useAudioRecorder() {
 
       mediaRecorder.start(1000);
       console.log("[Narada] Recording started");
+      trackEvent("recording_start");
       setIsRecording(true);
       setRecordingSeconds(0);
       setProcessingError(null);
@@ -117,6 +119,7 @@ export function useAudioRecorder() {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    trackEvent("recording_stop", { duration_seconds: useUpdateStore.getState().recordingSeconds });
     setIsRecording(false);
   }, [setIsRecording]);
 

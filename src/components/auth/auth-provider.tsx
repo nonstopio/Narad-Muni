@@ -16,6 +16,7 @@ import {
   type User,
 } from "firebase/auth";
 import { auth, initAnalytics } from "@/lib/firebase";
+import { trackEvent } from "@/lib/analytics";
 
 interface AuthContextValue {
   user: User | null;
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Notify Electron of auth state + seed defaults for new users
       if (firebaseUser) {
+        trackEvent("session_start_narada");
         window.narada?.setFirebaseUser(firebaseUser.uid);
         // Seed default configs once per session (fire-and-forget, idempotent on server)
         const seedKey = `narada_seeded_${firebaseUser.uid}`;
@@ -71,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOutFn = useCallback(async () => {
+    trackEvent("sign_out");
     window.narada?.setFirebaseUser(null);
     await firebaseSignOut(auth);
   }, []);
