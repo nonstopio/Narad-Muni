@@ -49,8 +49,13 @@ if (process.argv.includes("--mcp")) {
 
     // Point MCP server at the bundled Firebase service account
     const saPath = path.join(process.resourcesPath, "firebase-sa.json");
-    if (fs.existsSync(saPath)) {
+    const saExists = fs.existsSync(saPath);
+    process.stderr.write(`[narada-mcp] resourcesPath: ${process.resourcesPath}\n`);
+    process.stderr.write(`[narada-mcp] Firebase SA path: ${saPath}, exists: ${saExists}\n`);
+    if (saExists) {
       process.env.NARADA_FIREBASE_SA_PATH = saPath;
+    } else {
+      process.stderr.write(`[narada-mcp] firebase-sa.json NOT FOUND — MCP DB operations will fail\n`);
     }
 
     require("../dist-mcp/server");

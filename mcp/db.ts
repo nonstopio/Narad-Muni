@@ -59,13 +59,19 @@ export function getDb(): Firestore {
   if (getApps().length === 0) {
     const saPath = process.env.NARADA_FIREBASE_SA_PATH;
     if (saPath && fs.existsSync(saPath)) {
+      process.stderr.write(`[narada-mcp] getDb: using NARADA_FIREBASE_SA_PATH: ${saPath}\n`);
       const sa = JSON.parse(fs.readFileSync(saPath, "utf-8")) as ServiceAccount;
       initializeApp({ credential: cert(sa) });
     } else if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+      process.stderr.write(`[narada-mcp] getDb: using FIREBASE_SERVICE_ACCOUNT_BASE64 (${process.env.FIREBASE_SERVICE_ACCOUNT_BASE64.length} chars)\n`);
       const json = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, "base64").toString("utf-8");
       const sa = JSON.parse(json) as ServiceAccount;
       initializeApp({ credential: cert(sa) });
     } else {
+      const reason = saPath
+        ? `NARADA_FIREBASE_SA_PATH set to "${saPath}" but file does not exist`
+        : "Neither NARADA_FIREBASE_SA_PATH nor FIREBASE_SERVICE_ACCOUNT_BASE64 is set";
+      process.stderr.write(`[narada-mcp] getDb: ${reason}\n`);
       throw new Error(
         "Firebase service account not found. Set NARADA_FIREBASE_SA_PATH or FIREBASE_SERVICE_ACCOUNT_BASE64."
       );
