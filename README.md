@@ -12,130 +12,243 @@
 
 <br />
 
-*Like the divine messenger [Narad Muni](https://en.wikipedia.org/wiki/Narada) who travels across Devalok, Prithvilok, and Patallok carrying sacred word to the right souls at the right time — this tool takes a single voice recording and delivers formatted daily updates to **Slack**, **Microsoft Teams**, and **Jira** work logs.*
+*Like the divine messenger [Narad Muni](https://en.wikipedia.org/wiki/Narada) who travels across Devalok, Prithvilok, and Patallok carrying sacred word — this tool takes a single voice recording and delivers formatted daily updates to **Slack**, **Microsoft Teams**, and **Jira** work logs.*
 
-**Record once, publish everywhere.** 🚀
+**Record once, publish everywhere.**
 
 [Download the App](https://nonstopio.github.io/Narad-Muni/) · [View Releases](https://github.com/nonstopio/Narad-Muni/releases) · [Report Issue](https://github.com/nonstopio/Narad-Muni/issues)
 
-> 🎉 **Founded by [Ajay Kumar](https://github.com/ProjectAJ14)** 🎉
+> Founded by [Ajay Kumar](https://github.com/ProjectAJ14)
 
 </div>
 
 ---
 
-## ✨ The Sage's Sacred Flow
+## How It Works
 
 ```
-   🎙️ Speak            🔮 AI Oracle           📜 Preview            🌐 Publish
+   Speak            AI Oracle           Preview            Publish
   ─────────── ──▶ ─────────────── ──▶ ─────────────── ──▶ ───────────────
   Record your       Deepgram + AI        Edit per-platform      Slack, Teams,
   daily standup     extract tasks,       formatted output       Jira — all at
   naturally         times, blockers      with toggles           once
 ```
 
-1. 🎙️ **Invoke** — Record audio (with live waveform) or type your daily update
-2. 🔮 **Oracle** — AI extracts tasks, blockers, time entries and formats output for each realm
-3. 👁️ **Preview** — Tabbed view (Slack / Teams / Jira) with editable content and per-platform toggles
-4. 🌐 **Deliver** — One click sends your scrolls to all enabled worlds simultaneously
+1. **Invoke** — Record audio or type your daily update
+2. **Oracle** — AI extracts tasks, blockers, time entries and formats output for each platform
+3. **Preview** — Tabbed view (Slack / Teams / Jira) with editable content and per-platform toggles
+4. **Deliver** — One click sends your updates to all enabled platforms simultaneously
 
 ---
 
-## 🛠️ Tech Stack
+## Setup Guide
 
-| Layer | Technology |
-|:------|:-----------|
-| **Framework** | Next.js 16 + React 19 (App Router) |
-| **Desktop** | Electron 33 (macOS native, hiddenInset titlebar) |
-| **Language** | TypeScript |
-| **UI** | Tailwind CSS 4 + shadcn/ui + Framer Motion |
-| **State** | Zustand 5 |
-| **Database** | SQLite + Prisma 6 |
-| **Speech-to-Text** | Deepgram Nova-3 |
-| **AI Processing** | Claude API / Gemini / Local Claude CLI |
-| **Icons** | Lucide React |
+Download and install Narad Muni from the [landing page](https://nonstopio.github.io/Narad-Muni/), then follow the steps below to configure each service.
+
+All configuration happens inside the app on the **Settings** page. No `.env` files or config files to edit manually.
+
+### Step 1 — Sign In
+
+1. Open Narad Muni
+2. Click **Sign in with Google**
+3. Default configurations are created automatically on first login
 
 ---
 
-## 🚀 Getting Started
+### Step 2 — Configure Deepgram (Voice Transcription)
 
-### Prerequisites
+Deepgram converts your voice recordings to text. **Required if you want to use voice input.**
 
-- Node.js 18+
-- npm / pnpm / yarn
-- (Optional) [Claude Code CLI](https://claude.ai/code) — if using the `local-claude` AI provider
+1. Go to [console.deepgram.com](https://console.deepgram.com/) and create an account
+2. Navigate to **API Keys** and create a new key
+3. Copy the API key
+4. In Narad Muni, go to **Settings → Divine Oracle**
+5. Paste the key into the **Deepgram API Key** field
+6. Click **Inscribe** to save
 
-### Setup
-
-```bash
-# Install dependencies
-npm install
-
-# Push the database schema and seed default configs
-npm run db:reset
-
-# Start the dev server
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-### 🔑 API Keys
-
-No `.env` files needed. All API keys are configured from the **Settings** page inside the app and stored in the database.
-
-| Service | What You Need | Where to Get It |
-|:--------|:-------------|:----------------|
-| **Deepgram** | API Key | [console.deepgram.com](https://console.deepgram.com/) |
-| **Claude API** | API Key | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
-| **Gemini** | API Key | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
-| **Slack** | Incoming Webhook URL | [api.slack.com/apps](https://api.slack.com/apps) — Incoming Webhooks |
-| **Teams** | Incoming Webhook URL | Channel > Connectors > Incoming Webhook |
-| **Jira** | Base URL + Email + API Token | [id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens) |
+> Without this key, voice recording won't work. You can still type updates manually.
 
 ---
 
-## 🔁 Repeat Entries
+### Step 3 — Configure AI Provider
 
-A sacred feature — configure recurring Jira work log entries (e.g. daily standup, EOD sync) in Settings. These are auto-injected into every day's work log and the AI scales times to meet the 8-hour minimum. Never re-enter the same entries manually again.
+The AI provider parses your transcript into structured tasks, time entries, and formatted outputs. Choose one of the four options:
+
+#### Option A: Local Claude (Default — No API Key Needed)
+
+- Uses the [Claude Code CLI](https://claude.ai/code) installed on your machine
+- **No API key required** — just make sure Claude CLI is installed
+- This is the default, no changes needed
+
+#### Option B: Local Cursor (No API Key Needed)
+
+- Uses [Cursor](https://cursor.sh/) editor's built-in Claude integration
+- **No API key required** — just make sure Cursor is installed
+- Select **Local Cursor** in Settings → Divine Oracle
+
+#### Option C: Claude API
+
+1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
+2. Create a new API key (starts with `sk-ant-...`)
+3. In Narad Muni, go to **Settings → Divine Oracle**
+4. Select **Claude API** as the provider
+5. Paste the key into the **Anthropic API Key** field
+6. Click **Test Connection with Oracle** to verify
+7. Click **Inscribe** to save
+
+#### Option D: Google Gemini
+
+1. Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+2. Create a new API key (starts with `AIza...`)
+3. In Narad Muni, go to **Settings → Divine Oracle**
+4. Select **Gemini** as the provider
+5. Paste the key into the **Gemini API Key** field
+6. Click **Test Connection with Oracle** to verify
+7. Click **Inscribe** to save
 
 ---
 
-## 🤖 MCP Server — Log Work from Your AI Assistant
+### Step 4 — Configure Slack
+
+Go to **Settings → Slack Portal** in the app. Slack supports two delivery modes:
+
+#### Mode A: Incoming Webhook (Simple)
+
+Posts your update as a standalone message in a channel.
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) and create a new app (or select existing)
+2. Click **Incoming Webhooks** in the sidebar and toggle it on
+3. Click **Add New Webhook to Workspace** and select a channel
+4. Copy the webhook URL (format: `https://hooks.slack.com/services/...`)
+5. In the app, make sure **Thread Reply Mode** is turned off
+6. Paste the webhook URL into the **Webhook URL** field
+7. (Optional) Enter your **Display Name** and **Slack User ID** (for @mentions)
+8. (Optional) Enter **Team Lead Name** and **Team Lead ID** for blocker notifications
+9. Click **Inscribe** to save
+
+> **How to find your Slack User ID:** Click your profile picture in Slack → **Profile** → click the three dots (⋯) → **Copy member ID**
+
+#### Mode B: Thread Reply (Advanced)
+
+Replies to a daily workflow/bot message as a thread — keeps the channel clean.
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) and create a new app
+2. Go to **OAuth & Permissions** and add these scopes:
+   - `channels:history` — to find the workflow message
+   - `chat:write` — to post replies
+3. Click **Install to Workspace** and authorize
+4. Copy the **Bot User OAuth Token** (starts with `xoxb-...`)
+5. Invite the bot to your channel: type `/invite @YourBotName` in the channel
+6. Get the **Channel ID**: right-click the channel name → **View channel details** → copy the ID at the bottom (starts with `C`)
+7. In the app, turn on **Thread Reply Mode**
+8. Paste the **Bot Token**, **Channel ID**, and select the **Workflow Time** (when your workflow message posts)
+9. (Optional) Set **Thread Match Text** if your workflow message text differs from "Daily Status Update"
+10. Click **Inscribe** to save
+
+> The app searches a 10-minute window around the workflow time to find the right thread.
+
+---
+
+### Step 5 — Configure Microsoft Teams
+
+Go to **Settings → Teams Portal** in the app.
+
+1. In Microsoft Teams, navigate to the channel where you want updates posted
+2. Click the **three dots (⋯)** next to the channel name → **Connectors** (or **Manage channel** → **Connectors**)
+3. Search for **Incoming Webhook** and click **Configure**
+4. Give the webhook a name (e.g., "Narad Muni") and optionally upload an image
+5. Click **Create** and copy the webhook URL (format: `https://outlook.webhook.office.com/...`)
+6. In the app, paste the webhook URL into the **Webhook URL** field
+7. Enter your **Display Name** and **User ID** (for @mentions in the Adaptive Card)
+8. (Optional) Enter **Team Lead Name** and **Team Lead ID** for blocker notifications
+9. Click **Inscribe** to save
+
+---
+
+### Step 6 — Configure Jira
+
+Go to **Settings → Jira Chronicle Portal** in the app.
+
+#### 6a. Basic Jira Setup
+
+1. Go to [id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
+2. Click **Create API token**, give it a label (e.g., "Narad Muni"), and copy the token
+3. In the app, fill in:
+   - **Base URL** — Your Jira instance URL (e.g., `https://mycompany.atlassian.net`)
+   - **Email** — The email associated with your Jira account
+   - **API Token** — The token you just created
+   - **Project Key** — Your project key (e.g., `PROJ`). Find it in Jira under **Project Settings → Details**
+   - **Timezone** — Select your timezone (used for work log timestamps)
+4. Click **Test Jira Connection** to verify your credentials
+5. Click **Inscribe** to save
+
+#### 6b. Recurring Rituals (Optional)
+
+Set up daily recurring work log entries that are auto-injected into every day's time log. Great for daily standups, EOD syncs, or other regular meetings.
+
+1. In the Jira Chronicle Portal, scroll to **Recurring Rituals**
+2. Click **Add Entry** and fill in:
+   - **Ticket ID** — Jira issue key (e.g., `PROJ-846`)
+   - **Hours** — Duration in 30-minute increments (minimum 30 minutes)
+   - **Start Time** — When this entry starts (e.g., `10:00`)
+   - **Comment** — Description (e.g., "Team standup and sprint planning")
+3. Add as many recurring entries as needed
+4. Click **Inscribe** to save
+
+> The AI automatically merges recurring entries with your transcript-derived entries and scales times to meet the 8-hour minimum work day.
+
+---
+
+### Step 7 — Configure Notifications (Optional)
+
+Set up daily reminders so you never miss logging your standup.
+
+1. Go to **Settings** → scroll to notification settings
+2. Enable notifications
+3. Set your preferred reminder time (e.g., 10:00 AM)
+4. Select which days to receive reminders (defaults to weekdays)
+
+---
+
+## Daily Usage
+
+1. Open Narad Muni and click a date on the calendar
+2. **Record** your standup (or type it manually)
+3. Wait for the AI to process your transcript
+4. **Preview** the formatted outputs for each platform (Slack, Teams, Jira)
+5. Edit any output if needed, toggle platforms on/off
+6. Click **Share All** to publish everywhere at once
+7. Check the results — green checkmarks confirm delivery
+
+---
+
+## MCP Server — Log Work from Your AI Assistant
 
 Narad Muni ships an [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that lets AI coding assistants log completed work directly into your daily draft — without leaving the editor.
 
-**How it works:** Your AI assistant calls `log_work` → entry is saved to the day's draft in SQLite → you open Narad Muni later to preview and publish to Slack, Teams, and Jira as usual.
+**How it works:** Your AI assistant calls `log_work` → entry is saved to the day's draft → you open Narad Muni later to preview and publish as usual.
 
-### Installed App (Recommended)
+### Auto-Registration (Recommended)
 
 The desktop app **auto-registers** with Claude Code on every launch. No manual setup needed — just install the app, open it once, and the MCP server is ready.
 
-The app writes its config to `~/.claude.json`, pointing Claude Code at the Electron binary with `--mcp`. You can verify the registration in **Settings > Divine Messenger Protocol**.
+You can verify the registration in **Settings → Divine Messenger Protocol**.
 
 Then you can say things like:
 - *"Log that I finished the auth refactor on PROJ-123"*
 - *"Log work: Fixed flaky tests in CI pipeline"*
 
-### Developer Setup (Source Checkout)
+### Manual Setup (Cursor, Windsurf, etc.)
 
-If you're working from the source repo, the MCP server is auto-discovered via `.mcp.json`. Just build it once:
-
-```bash
-npm run mcp:compile
-```
-
-### Manual Configuration (Cursor, Windsurf, etc.)
-
-Add the server to your MCP client config. Example for `~/.cursor/mcp.json` or equivalent:
+Add the server to your MCP client config (e.g., `~/.cursor/mcp.json`):
 
 ```json
 {
   "mcpServers": {
     "narada": {
       "type": "stdio",
-      "command": "node",
-      "args": ["/absolute/path/to/Narad-Muni/dist-mcp/server.js"]
+      "command": "/Applications/Narad Muni.app/Contents/MacOS/Narad Muni",
+      "args": ["--mcp"]
     }
   }
 }
@@ -149,111 +262,52 @@ Add the server to your MCP client config. Example for `~/.cursor/mcp.json` or eq
 | `ticket` | string | No | Jira ticket key — *"PROJ-123"* |
 | `date` | string | No | `YYYY-MM-DD` format, defaults to today |
 
-Entries are formatted as `- TICKET: message` (or `- message` if no ticket) and appended to the day's draft. Multiple calls accumulate in the same draft.
-
-> **Note:** Narad Muni must have been launched at least once to create the database. The MCP server writes directly to SQLite — the app doesn't need to be running.
-
 ---
 
-## 📜 Scripts
+## Developer Setup
+
+For contributors working from the source repo.
+
+### Prerequisites
+
+- Node.js 18+
+- npm
+
+### Quick Start
 
 ```bash
-# Web
-npm run dev              # Start Next.js dev server
+npm install
+npm run electron:dev     # Start Electron + Next.js in dev mode
+```
+
+### Scripts
+
+```bash
+npm run dev              # Next.js dev server only
 npm run build            # Production build
 npm run lint             # ESLint
-
-# Electron
-npm run electron:dev     # Dev mode (Next.js + Electron concurrently)
+npm run electron:dev     # Dev mode (Next.js + Electron)
 npm run electron:build   # Production build + package
-
-# MCP Server
 npm run mcp:compile      # Build the MCP server
-npm run mcp:dev          # Build + run (for testing with MCP Inspector)
-
-# Database
-npm run db:push          # Push Prisma schema to SQLite
-npm run db:seed          # Seed default platform configs
-npm run db:reset         # Reset DB + re-seed
-```
-
----
-
-## 📂 Project Structure
-
-```
-src/
-  app/                    # Next.js App Router pages + API routes
-    api/
-      parse/              # AI parsing endpoint
-      transcribe/         # Deepgram transcription
-      updates/            # CRUD + publish (Slack/Teams/Jira)
-      settings/           # Platform config + AI provider
-    page.tsx              # Home — calendar dashboard
-    history/              # Past updates list
-    settings/             # Platform & AI configuration
-    update/               # Update creation flow
-  components/
-    layout/               # Sidebar, gradient blobs
-    ui/                   # shadcn/ui base components
-    updates/              # Calendar, stats bar
-    update/               # Recording, processing, preview, outputs
-    settings/             # Platform config cards, AI provider
-    history/              # History list, detail modal
-  hooks/                  # useAudioRecorder, useUpdateFlow, useCalendar
-  stores/                 # Zustand (app, update, settings)
-  lib/                    # Prisma client, Deepgram, AI providers
-  types/                  # TypeScript interfaces
-prisma/
-  schema.prisma           # Database schema (5 models)
-  migrations/             # SQL migration files (used by Electron)
-  seed.ts                 # Default config seeder
-electron/
-  main.ts                 # Electron main process
-  db.ts                   # DB init + auto-migration runner
-  config.ts               # User config (window bounds, DB path)
-  dev-start.js            # Dev mode orchestrator
-  preload.ts              # Context bridge
-mcp/
-  server.ts               # MCP server entry point (stdio transport)
-  db.ts                   # Direct SQLite access for drafts
-docs/
-  index.html              # GitHub Pages landing page
-```
-
----
-
-## 🏷️ Releasing
-
-Pushing a version tag triggers the CI/CD pipeline which builds cross-platform installers and creates a GitHub Release.
-
-```bash
-npm version patch    # or minor / major
-git push origin main --follow-tags
 ```
 
 ### CI/CD Secret
 
-The release workflow requires a **`FIREBASE_SA_JSON`** repository secret — the base64-encoded Firebase service account JSON. The pipeline uses it to:
-
-1. Write `resources/firebase-sa.json` (bundled into the Electron app)
-2. Set `FIREBASE_SERVICE_ACCOUNT_BASE64` for the Next.js build
+The release workflow requires a **`FIREBASE_SA_JSON`** repository secret — the base64-encoded Firebase service account JSON.
 
 ```bash
-# Generate the value from your service account file:
+# Generate the value:
 base64 < firebase-service-account.json | pbcopy   # macOS
 ```
 
-Add the output as a GitHub Actions secret named `FIREBASE_SA_JSON` under **Settings > Secrets and variables > Actions**.
-
-The [landing page](https://nonstopio.github.io/Narad-Muni/) automatically picks up the latest release.
+Add it as a GitHub Actions secret under **Settings → Secrets and variables → Actions**.
 
 ---
 
 <div align="center">
 
-Built with devotion at [nonstop.io](https://nonstopio.com) ✨
+Built with devotion at [nonstop.io](https://nonstopio.com)
 
-*Narayan Narayan!* 🙏
+*Narayan Narayan!*
 
 </div>
