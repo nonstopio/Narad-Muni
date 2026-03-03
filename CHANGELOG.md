@@ -5,6 +5,27 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1] - 2026-03-04
+
+### 🐛 Bug Fixes
+
+- Fix silent catch blocks across MCP server, AI providers, settings cards, and stores to surface errors instead of swallowing them
+
+### 🔧 Configuration
+
+- Add production logging audit across 24 files for better debugging visibility
+- Normalize log prefixes to consistent `[Narada]` format across the codebase
+- Log user identity (uid) in all 13 API route handlers for request tracing
+
+### 🖥️ Electron
+
+- Add crash handlers for `uncaughtException` and `unhandledRejection` in the main process
+- Log app version at startup for easier issue triage
+
+### 🔌 Integrations
+
+- Add Firebase Performance Monitoring setup in client SDK initialization, auth provider, and new `performance.ts` module
+
 ## [1.9.0] - 2026-03-03
 
 ### ✨ Features
