@@ -151,17 +151,40 @@ Replies to a daily workflow/bot message as a thread — keeps the channel clean.
 
 ### Step 5 — Configure Microsoft Teams
 
-Go to **Settings → Teams Portal** in the app.
+Go to **Settings → Teams Portal** in the app. Teams webhooks are created using **Workflows** (the old Connectors method is deprecated). This works for both **channels** and **group chats**.
 
-1. In Microsoft Teams, navigate to the channel where you want updates posted
-2. Click the **three dots (⋯)** next to the channel name → **Connectors** (or **Manage channel** → **Connectors**)
-3. Search for **Incoming Webhook** and click **Configure**
-4. Give the webhook a name (e.g., "Narad Muni") and optionally upload an image
-5. Click **Create** and copy the webhook URL (format: `https://outlook.webhook.office.com/...`)
-6. In the app, paste the webhook URL into the **Webhook URL** field
-7. Enter your **Display Name** and **User ID** (for @mentions in the Adaptive Card)
-8. (Optional) Enter **Team Lead Name** and **Team Lead ID** for blocker notifications
-9. Click **Inscribe** to save
+#### Quick Setup (From a Channel or Group Chat)
+
+1. In Microsoft Teams, click the **three dots (⋯)** next to the channel or group chat name
+2. Select **Workflows**
+3. Choose a webhook template based on where you want to post:
+   - **Channel:** "Send webhook alerts to a channel"
+   - **Group Chat:** "Send webhook alerts to a chat"
+4. Give the workflow a name (e.g., "Narad Muni")
+5. Authenticate with your Microsoft account when prompted
+6. Confirm the destination (channel or chat) and click **Add workflow**
+7. Copy the **webhook URL** from the confirmation dialog
+
+#### Manual Setup (From Scratch)
+
+If the templates aren't available, create one manually:
+
+1. Click **View more apps** (⋯) on the left sidebar in Teams → open **Workflows**
+2. Go to the **Create** tab and click **Create from blank**
+3. Search for the trigger **"When a Teams webhook request is received"** and select it
+4. Set authentication to **Anyone** (simplest option)
+5. Click **New step** → select **"Post card in chat or channel"**
+6. In the **Post in** dropdown, choose **Channel** or **Group Chat**, then select the destination
+7. Click **Save**, then go back to the trigger step and copy the **HTTP POST URL**
+
+#### Configure in the App
+
+1. Paste the webhook URL into the **Webhook URL** field in Settings → Teams Portal
+2. Enter your **Display Name** and **User ID** (for @mentions in the Adaptive Card)
+3. (Optional) Enter **Team Lead Name** and **Team Lead ID** for blocker notifications
+4. Click **Inscribe** to save
+
+> **Note:** The group chat webhook template may not be available in all organization types. Contact your IT admin if you don't see it. [Microsoft's webhook guide](https://support.microsoft.com/en-us/office/create-incoming-webhooks-with-workflows-for-microsoft-teams-8ae491c7-0394-4861-ba59-055e33f75498) has more details.
 
 ---
 
