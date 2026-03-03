@@ -5,6 +5,24 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-03-03
+
+### ✨ Features
+
+- Add analytics tracking and admin Observatory dashboard for usage insights
+- Show app version on the Home screen sourced from package.json
+
+### 🐛 Bug Fixes
+
+- Make Cmd+Q actually quit the app instead of hiding to tray, and remove system tray integration
+
+### 📝 Documentation
+
+- Rewrite README as a step-by-step configuration guide
+- Update Teams setup instructions to use Workflows instead of deprecated Connectors
+- Add CI/CD secret setup instructions for FIREBASE_SA_JSON
+- Add MCP, Slack threads, and Cloud Sync feature cards to the landing page
+
 ## [1.8.4] - 2026-03-02
 
 ### 🔧 Configuration
