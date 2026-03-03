@@ -7,6 +7,9 @@ import { initAutoUpdater, checkForUpdatesManual } from "./updater";
 import { setupScheduler, reloadSchedule, fireTestNotification, NotificationSettings } from "./scheduler";
 import { registerMcpConfig } from "./mcp-config";
 
+process.on("uncaughtException", (err) => console.error("[Narada] Uncaught exception:", err));
+process.on("unhandledRejection", (reason) => console.error("[Narada] Unhandled rejection:", reason));
+
 // Turbopack generates hashed symlinks like "firebase-admin-a14c8a5423a75469/app"
 // inside .next/node_modules/. These break inside the asar archive because
 // electron-builder strips nested node_modules. The primary fix is the post-build
@@ -44,6 +47,7 @@ try {
 if (process.argv.includes("--mcp")) {
   app.dock?.hide();
   app.whenReady().then(() => {
+    process.stderr.write(`[narada-mcp] v${require("../package.json").version} starting in MCP mode\n`);
     process.env.NARADA_USER_DATA_DIR = app.getPath("userData");
 
     // Point MCP server at the bundled Firebase service account
@@ -82,6 +86,7 @@ let appPort = 3947; // default dev port; overridden in production
 // Enforce single instance
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
+  console.log("[Narada] Another instance is already running, quitting");
   app.quit();
 } else {
   app.on("second-instance", () => {
@@ -179,22 +184,30 @@ async function createWindow(port: number): Promise<void> {
     }
 
     if (mainWindow) {
-      const bounds = mainWindow.getBounds();
-      saveWindowBounds({
-        ...bounds,
-        isMaximized: mainWindow.isMaximized(),
-      });
+      try {
+        const bounds = mainWindow.getBounds();
+        saveWindowBounds({
+          ...bounds,
+          isMaximized: mainWindow.isMaximized(),
+        });
+      } catch (err) {
+        console.error("[Narada] Failed to save window bounds on close:", err);
+      }
     }
   });
 
   // Save window bounds when window is hidden
   mainWindow.on("hide", () => {
     if (mainWindow) {
-      const bounds = mainWindow.getBounds();
-      saveWindowBounds({
-        ...bounds,
-        isMaximized: mainWindow.isMaximized(),
-      });
+      try {
+        const bounds = mainWindow.getBounds();
+        saveWindowBounds({
+          ...bounds,
+          isMaximized: mainWindow.isMaximized(),
+        });
+      } catch (err) {
+        console.error("[Narada] Failed to save window bounds on hide:", err);
+      }
     }
   });
 
@@ -216,6 +229,7 @@ async function startApp(): Promise<void> {
     console.warn("fix-path not available, PATH may be incomplete");
   }
 
+  console.log(`[Narada] v${require("../package.json").version} starting in GUI mode`);
   process.env.NARADA_USER_DATA_DIR = app.getPath("userData");
 
   // Set Firebase service account env var for the Next.js API routes
@@ -266,6 +280,7 @@ async function startApp(): Promise<void> {
 
     const http = require("http");
     const server = http.createServer(handle);
+    server.on("error", (err: Error) => console.error("[Narada] HTTP server error:", err));
     await new Promise<void>((resolve) => {
       server.listen(port, "localhost", () => {
         console.log(`Next.js server running on http://localhost:${port}`);
@@ -335,7 +350,7 @@ app.on("activate", () => {
 
 // Start the app
 app.whenReady().then(startApp).catch((err) => {
-  console.error("Failed to start app:", err);
+  console.error("[Narada] Failed to start app:", err);
   app.quit();
 });
 

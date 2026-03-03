@@ -19,6 +19,7 @@ export function LoginScreen() {
       if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
         return;
       }
+      console.error("[Narada] Sign-in failed:", err);
       const message = err instanceof Error ? err.message : "Sign-in failed";
       setError(message);
     } finally {

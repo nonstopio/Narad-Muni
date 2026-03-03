@@ -105,6 +105,7 @@ function parseEnrichedOutput(raw: string, fallbackTitle: string): EnrichedIssue 
 }
 
 function spawnCli(command: string, args: string[], stdinContent?: string): Promise<string> {
+  console.log(`[Narada] spawnCli: ${command} ${args.join(" ")}`);
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     const errChunks: Buffer[] = [];
@@ -122,6 +123,7 @@ function spawnCli(command: string, args: string[], stdinContent?: string): Promi
     proc.stderr!.on("data", (chunk: Buffer) => errChunks.push(chunk));
 
     proc.on("error", (err: NodeJS.ErrnoException) => {
+      console.error(`[Narada] spawnCli ${command}: process error:`, err.message);
       settle(() => reject(new Error(`${command} CLI error: ${err.message}`)));
     });
 
@@ -130,6 +132,7 @@ function spawnCli(command: string, args: string[], stdinContent?: string): Promi
         const out = Buffer.concat(chunks).toString("utf-8");
         const err = Buffer.concat(errChunks).toString("utf-8");
         if (code !== 0 && !out) {
+          console.error(`[Narada] spawnCli ${command}: exited with code ${code}`, err.slice(0, 500));
           reject(new Error(`${command} exited with code ${code}: ${err || "unknown"}`));
           return;
         }
@@ -143,6 +146,7 @@ function spawnCli(command: string, args: string[], stdinContent?: string): Promi
     }
 
     const timer = setTimeout(() => {
+      console.error(`[Narada] spawnCli ${command}: timed out after 2 minutes`);
       proc.kill("SIGTERM");
       settle(() => reject(new Error(`${command} CLI timed out after 2 minutes`)));
     }, 120_000);

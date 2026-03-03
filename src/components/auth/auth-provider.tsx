@@ -15,7 +15,7 @@ import {
   GoogleAuthProvider,
   type User,
 } from "firebase/auth";
-import { auth, initAnalytics } from "@/lib/firebase";
+import { auth, initAnalytics, initPerformance } from "@/lib/firebase";
 import { trackEvent } from "@/lib/analytics";
 
 interface AuthContextValue {
@@ -35,8 +35,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Initialize analytics
+    // Initialize analytics & performance monitoring
     initAnalytics().catch(() => {});
+    initPerformance().catch(() => {});
 
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);

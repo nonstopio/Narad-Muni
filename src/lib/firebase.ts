@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getAnalytics, isSupported } from "firebase/analytics";
+import { getPerformance } from "firebase/performance";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBS0kmYQfvMBj68riUwi8AkIMCIDtpQbIk",
@@ -20,6 +21,14 @@ export const auth = getAuth(app);
 export const initAnalytics = async () => {
   if (typeof window !== "undefined" && (await isSupported())) {
     return getAnalytics(app);
+  }
+  return null;
+};
+
+// Performance Monitoring — only in browser, not SSR
+export const initPerformance = async () => {
+  if (typeof window !== "undefined") {
+    return getPerformance(app);
   }
   return null;
 };

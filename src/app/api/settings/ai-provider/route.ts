@@ -15,6 +15,7 @@ function maskKey(key: string | null | undefined): string {
 export async function GET(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    console.log(`[Narada] GET /api/settings/ai-provider uid=${user.uid}`);
     const doc = await settingsDoc(user.uid).get();
     const settings = doc.data();
 
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    console.log(`[Narada] PUT /api/settings/ai-provider uid=${user.uid}`);
     const body = await request.json();
     const { aiProvider, geminiApiKey, claudeApiKey, deepgramApiKey, removeKeys } = body;
 

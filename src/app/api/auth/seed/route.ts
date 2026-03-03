@@ -5,6 +5,7 @@ import { seedUserIfNeeded } from "@/lib/seed-user";
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    console.log(`[Narada] POST /api/auth/seed uid=${user.uid}`);
     await seedUserIfNeeded(user.uid);
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -114,7 +114,8 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
       } else {
         addToast(result.error ?? "Alas! The settings would not take hold", "error");
       }
-    } catch {
+    } catch (err) {
+      console.error("[Narada] PlatformConfigCard handleSave:", err);
       addToast("Alas! The settings would not take hold", "error");
     } finally {
       setSaving(false);
@@ -149,7 +150,8 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
       } else {
         setTestResult({ type: "error", message: data.error });
       }
-    } catch {
+    } catch (err) {
+      console.error("[Narada] PlatformConfigCard handleTestThread:", err);
       setTestResult({ type: "error", message: "Alas! Could not reach the Slack realm" });
     } finally {
       setTesting(false);

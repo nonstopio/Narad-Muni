@@ -22,21 +22,28 @@ export class ClaudeAPIProvider implements AIParseProvider {
     const userMessage = buildUserMessage(transcript);
     console.log(`[Narada → Claude API] Sending request — model=claude-sonnet-4-5-20250514, max_tokens=4096, system_prompt=${systemPrompt.length} chars, user_message=${userMessage.length} chars`);
 
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250514",
-      max_tokens: 4096,
-      system: systemPrompt,
-      tools: [
-        {
-          name: "parse_result",
-          description: "Output the parsed daily standup result as structured JSON",
-          input_schema: PARSE_RESULT_JSON_SCHEMA as Anthropic.Tool["input_schema"],
-        },
-      ],
-      tool_choice: { type: "tool", name: "parse_result" },
-      messages: [{ role: "user", content: userMessage }],
-    });
+    let response;
+    try {
+      response = await client.messages.create({
+        model: "claude-sonnet-4-5-20250514",
+        max_tokens: 4096,
+        system: systemPrompt,
+        tools: [
+          {
+            name: "parse_result",
+            description: "Output the parsed daily standup result as structured JSON",
+            input_schema: PARSE_RESULT_JSON_SCHEMA as Anthropic.Tool["input_schema"],
+          },
+        ],
+        tool_choice: { type: "tool", name: "parse_result" },
+        messages: [{ role: "user", content: userMessage }],
+      });
+    } catch (err) {
+      console.error("[Narada → Claude API] API call failed:", err);
+      throw err;
+    }
 
+    console.log(`[Narada → Claude API] Response: stop_reason=${response.stop_reason} usage=${JSON.stringify(response.usage)}`);
     const toolBlock = response.content.find((b) => b.type === "tool_use");
     if (!toolBlock || toolBlock.type !== "tool_use") {
       throw new Error("Claude API did not return a tool_use block");

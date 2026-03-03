@@ -6,6 +6,7 @@ import { useAppStore } from "@/stores/app-store";
 import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
 import { trackEvent } from "@/lib/analytics";
+import { traceAsync, startTrace, stopTrace } from "@/lib/performance";
 import type { PublishStatus } from "@/types";
 
 export interface ShareResult {
@@ -53,7 +54,9 @@ export function useUpdateFlow() {
     setPreviewReady(false);
     setProcessingError(null);
 
+    let flowTrace: Awaited<ReturnType<typeof startTrace>> = null;
     try {
+      flowTrace = await startTrace("narada_full_update_flow");
       let transcript = rawTranscript;
 
       // Transcribe audio if we have a blob but no text
@@ -61,14 +64,17 @@ export function useUpdateFlow() {
         trackEvent("transcription_start");
         setProcessingStage("transcribing");
         console.log("[Narada] Transcribing audio blob:", audioBlob.size, "bytes, type:", audioBlob.type);
-        const formData = new FormData();
-        formData.append("audio", audioBlob, "recording.webm");
 
-        const transcribeRes = await authedFetch("/api/transcribe", {
-          method: "POST",
-          body: formData,
+        const transcribeData = await traceAsync("narada_transcribe", async () => {
+          const formData = new FormData();
+          formData.append("audio", audioBlob, "recording.webm");
+
+          const transcribeRes = await authedFetch("/api/transcribe", {
+            method: "POST",
+            body: formData,
+          });
+          return transcribeRes.json();
         });
-        const transcribeData = await transcribeRes.json();
         console.log("[Narada] Transcription response:", transcribeData);
 
         if (!transcribeData.success) {
@@ -90,12 +96,14 @@ export function useUpdateFlow() {
         ? selectedDate.toLocaleDateString("sv-SE")
         : new Date().toLocaleDateString("sv-SE");
 
-      const parseRes = await authedFetch("/api/parse", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript, date: dateStr }),
+      const parseData = await traceAsync("narada_ai_parse", async () => {
+        const parseRes = await authedFetch("/api/parse", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript, date: dateStr }),
+        });
+        return parseRes.json();
       });
-      const parseData = await parseRes.json();
 
       if (!parseData.success) {
         throw new Error(parseData.error || "Parsing failed");
@@ -121,12 +129,14 @@ export function useUpdateFlow() {
       setProcessingStage(null);
       setIsProcessing(false);
       setPreviewReady(true);
+      stopTrace(flowTrace);
     } catch (error) {
       console.error("[Narada] Processing error:", error);
       const message = error instanceof Error ? error.message : "Something went wrong";
       setProcessingError(message);
       setProcessingStage(null);
       setIsProcessing(false);
+      stopTrace(flowTrace);
     }
   }, [store, selectedDate]);
 
@@ -156,22 +166,23 @@ export function useUpdateFlow() {
         ? selectedDate.toLocaleDateString("sv-SE")
         : new Date().toLocaleDateString("sv-SE");
 
-      const res = await authedFetch("/api/updates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date: dateStr,
-          rawTranscript,
-          slackOutput,
-          teamsOutput,
-          workLogEntries,
-          slackEnabled,
-          teamsEnabled,
-          jiraEnabled,
-        }),
+      const data = await traceAsync("narada_publish", async () => {
+        const res = await authedFetch("/api/updates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: dateStr,
+            rawTranscript,
+            slackOutput,
+            teamsOutput,
+            workLogEntries,
+            slackEnabled,
+            teamsEnabled,
+            jiraEnabled,
+          }),
+        });
+        return res.json();
       });
-
-      const data = await res.json();
       if (!data.success) {
         throw new Error(data.error);
       }
@@ -192,7 +203,7 @@ export function useUpdateFlow() {
         },
       };
     } catch (error) {
-      console.error("Share error:", error);
+      console.error("[Narada] Share error:", error);
       const message = error instanceof Error ? error.message : "Alas! The message could not reach the worlds. Please try again.";
       useToastStore.getState().addToast(message, "error");
       setStep("editing");
@@ -265,7 +276,7 @@ export function useUpdateFlow() {
         },
       };
     } catch (error) {
-      console.error("Retry error:", error);
+      console.error("[Narada] Retry error:", error);
       const message = error instanceof Error ? error.message : "Alas! The retry could not reach the worlds. Please try again.";
       useToastStore.getState().addToast(message, "error");
       setStep("editing");

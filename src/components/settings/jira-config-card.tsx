@@ -156,7 +156,8 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
       } else {
         setTestResult({ type: "error", message: data.error });
       }
-    } catch {
+    } catch (err) {
+      console.error("[Narada] JiraConfigCard handleTest:", err);
       setTestResult({ type: "error", message: "Alas! Could not reach the Jira realm" });
     } finally {
       setTesting(false);
@@ -177,7 +178,8 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
       } else {
         addToast(result.error ?? "Alas! The settings would not take hold", "error");
       }
-    } catch {
+    } catch (err) {
+      console.error("[Narada] JiraConfigCard handleSave:", err);
       addToast("Alas! The settings would not take hold", "error");
     } finally {
       setSaving(false);

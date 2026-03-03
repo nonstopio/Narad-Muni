@@ -335,6 +335,7 @@ async function sendTeamsWebhook(
 export async function DELETE(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    console.log(`[Narada] DELETE /api/updates uid=${user.uid}`);
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
@@ -346,7 +347,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
-    console.error("Delete update error:", error);
+    console.error("[Narada] DELETE /api/updates error:", error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Failed to delete update" },
       { status: 500 }
@@ -357,6 +358,7 @@ export async function DELETE(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    console.log(`[Narada] GET /api/updates uid=${user.uid}`);
     const { searchParams } = new URL(request.url);
 
     // Single update by ID
@@ -396,6 +398,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    console.log(`[Narada] POST /api/updates uid=${user.uid}`);
     const body = await request.json();
     const { date, rawTranscript, slackOutput, teamsOutput, workLogEntries, slackEnabled, teamsEnabled, jiraEnabled } = body;
 
@@ -432,7 +435,7 @@ export async function POST(request: NextRequest) {
     try {
       const jiraDoc = await configsCol(user.uid).doc("JIRA").get();
       jiraBaseUrl = jiraDoc.data()?.baseUrl?.trim() || null;
-    } catch { /* ignore */ }
+    } catch (err) { console.error("[Narada] POST /api/updates: failed to fetch Jira baseUrl:", err); }
 
     // Publish to Slack
     if (slackEnabled && slackOutput) {
@@ -452,6 +455,7 @@ export async function POST(request: NextRequest) {
             await docRef.update({ slackStatus: "SENT" });
             update.slackStatus = "SENT";
           } else {
+            console.error("[Narada] Slack publish FAILED: no webhook URL or thread config");
             await docRef.update({ slackStatus: "FAILED" });
             update.slackStatus = "FAILED";
           }
@@ -475,6 +479,7 @@ export async function POST(request: NextRequest) {
           await docRef.update({ teamsStatus: "SENT" });
           update.teamsStatus = "SENT";
         } else {
+          console.error("[Narada] Teams publish FAILED: inactive or no webhook URL");
           await docRef.update({ teamsStatus: "FAILED" });
           update.teamsStatus = "FAILED";
         }
@@ -502,6 +507,7 @@ export async function POST(request: NextRequest) {
           update.jiraStatus = refreshedData?.jiraStatus ?? update.jiraStatus;
           update.workLogEntries = refreshedData?.workLogEntries ?? update.workLogEntries;
         } else {
+          console.error("[Narada] Jira publish FAILED: inactive or incomplete config");
           await docRef.update({ jiraStatus: "FAILED" });
           update.jiraStatus = "FAILED";
         }
@@ -515,7 +521,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, update });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
-    console.error("Create update error:", error);
+    console.error("[Narada] POST /api/updates error:", error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Failed to create update" },
       { status: 500 }
@@ -530,6 +536,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    console.log(`[Narada] PUT /api/updates uid=${user.uid}`);
     const body = await request.json();
     const { updateId, slackOutput, teamsOutput, workLogEntries, retrySlack, retryTeams, retryJira } = body;
 
@@ -568,7 +575,7 @@ export async function PUT(request: NextRequest) {
     try {
       const jiraDoc = await configsCol(user.uid).doc("JIRA").get();
       jiraBaseUrl = jiraDoc.data()?.baseUrl?.trim() || null;
-    } catch { /* ignore */ }
+    } catch (err) { console.error("[Narada] PUT /api/updates: failed to fetch Jira baseUrl:", err); }
 
     // Retry Slack
     if (retrySlack) {
@@ -587,6 +594,7 @@ export async function PUT(request: NextRequest) {
           await sendSlackWebhook(slackConfig.webhookUrl, finalOutput, slackConfig.userId, dateStr, slackConfig.teamLeadId);
           await docRef.update({ slackStatus: "SENT" });
         } else {
+          console.error("[Narada] Slack retry FAILED: no webhook URL or thread config");
           await docRef.update({ slackStatus: "FAILED" });
         }
       } catch (err) {
@@ -608,6 +616,7 @@ export async function PUT(request: NextRequest) {
           await sendTeamsWebhook(teamsConfig.webhookUrl, finalOutput, teamsConfig.userName, teamsConfig.userId, dateStr, teamsConfig.teamLeadName, teamsConfig.teamLeadId);
           await docRef.update({ teamsStatus: "SENT" });
         } else {
+          console.error("[Narada] Teams retry FAILED: no webhook URL");
           await docRef.update({ teamsStatus: "FAILED" });
         }
       } catch (err) {
@@ -650,6 +659,7 @@ export async function PUT(request: NextRequest) {
             docRef
           );
         } else {
+          console.error("[Narada] Jira retry FAILED: incomplete config");
           await docRef.update({ jiraStatus: "FAILED" });
         }
       } catch (err) {
@@ -665,7 +675,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true, update: { id: final.id, ...final.data() } });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
-    console.error("Retry update error:", error);
+    console.error("[Narada] PUT /api/updates error:", error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Failed to retry update" },
       { status: 500 }

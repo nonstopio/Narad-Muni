@@ -6,6 +6,7 @@ import { type QueryDocumentSnapshot } from "firebase-admin/firestore";
 export async function GET(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    console.log(`[Narada] GET /api/settings uid=${user.uid}`);
     const snapshot = await configsCol(user.uid).get();
 
     const configs = snapshot.docs.map((doc: QueryDocumentSnapshot) => ({
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    console.log(`[Narada] PUT /api/settings uid=${user.uid}`);
     const body = await request.json();
     const {
       id,
@@ -58,7 +60,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true, config: { id, ...configData } });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
-    console.error("Settings update error:", error);
+    console.error("[Narada] PUT /api/settings error:", error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Failed to update settings" },
       { status: 500 }

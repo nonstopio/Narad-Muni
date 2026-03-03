@@ -43,8 +43,8 @@ export function readUserId(): string {
         return config.firebaseUserId;
       }
     }
-  } catch {
-    // Fall through
+  } catch (err) {
+    process.stderr.write(`[narada-mcp] readUserId error reading config: ${err}\n`);
   }
   throw new Error(
     "No Firebase user ID found. Sign in to Narad Muni at least once."

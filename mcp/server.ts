@@ -19,6 +19,7 @@ server.tool(
   async ({ message, ticket, date }) => {
     try {
       const dateStr = date || new Date().toISOString().slice(0, 10);
+      process.stderr.write(`[narada-mcp] log_work: date=${dateStr} message="${message}"${ticket ? ` ticket=${ticket}` : ""}\n`);
 
       // Format: "- PROJ-123: Implemented user auth flow" or "- Implemented user auth flow"
       const entryLine = ticket ? `- ${ticket}: ${message}` : `- ${message}`;
@@ -36,6 +37,7 @@ server.tool(
         ],
       };
     } catch (err) {
+      process.stderr.write(`[narada-mcp] log_work error: ${err instanceof Error ? err.message : String(err)}\n`);
       const message_ = err instanceof Error ? err.message : String(err);
       return {
         content: [{ type: "text" as const, text: `Error: ${message_}` }],
@@ -48,7 +50,7 @@ server.tool(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  process.stderr.write("[narada-mcp] Server started\n");
+  process.stderr.write(`[narada-mcp] Server started (v${require("../package.json").version})\n`);
 }
 
 main().catch((err) => {

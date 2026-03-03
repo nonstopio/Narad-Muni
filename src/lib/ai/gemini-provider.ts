@@ -81,8 +81,20 @@ export class GeminiProvider implements AIParseProvider {
     const userMessage = buildUserMessage(transcript);
     console.log(`[Narada → Gemini] Sending request — model=gemini-2.0-flash, system_prompt=${systemPrompt.length} chars, user_message=${userMessage.length} chars`);
 
-    const result = await model.generateContent(userMessage);
+    let result;
+    try {
+      result = await model.generateContent(userMessage);
+    } catch (err) {
+      console.error("[Narada → Gemini] API call failed:", err);
+      throw err;
+    }
+
     const text = result.response.text();
-    return JSON.parse(text) as ClaudeParseResult;
+    try {
+      return JSON.parse(text) as ClaudeParseResult;
+    } catch (parseErr) {
+      console.error("[Narada → Gemini] JSON parse failed:", parseErr, "Raw text:", text.slice(0, 500));
+      throw new Error("Gemini returned invalid JSON");
+    }
   }
 }

@@ -48,6 +48,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       if (data.configs) {
         set({ configs: data.configs });
       }
+    } catch (err) {
+      console.error("[Narada] fetchConfigs:", err);
     } finally {
       set({ loading: false });
     }
@@ -107,6 +109,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
           hasDeepgramKey: data.hasDeepgramKey ?? false,
         },
       });
+    } catch (err) {
+      console.error("[Narada] fetchAIProviderSettings:", err);
     } finally {
       set({ aiLoading: false });
     }
@@ -114,22 +118,27 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
 
   saveAIProviderSettings: async (data) => {
     trackEvent("ai_provider_change", { provider: data.aiProvider });
-    const res = await authedFetch("/api/settings/ai-provider", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    const updated = await res.json();
-    set({
-      aiSettings: {
-        aiProvider: updated.aiProvider ?? "local-claude",
-        geminiApiKey: updated.geminiApiKey ?? "",
-        claudeApiKey: updated.claudeApiKey ?? "",
-        deepgramApiKey: updated.deepgramApiKey ?? "",
-        hasGeminiKey: updated.hasGeminiKey ?? false,
-        hasClaudeKey: updated.hasClaudeKey ?? false,
-        hasDeepgramKey: updated.hasDeepgramKey ?? false,
-      },
-    });
+    try {
+      const res = await authedFetch("/api/settings/ai-provider", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const updated = await res.json();
+      set({
+        aiSettings: {
+          aiProvider: updated.aiProvider ?? "local-claude",
+          geminiApiKey: updated.geminiApiKey ?? "",
+          claudeApiKey: updated.claudeApiKey ?? "",
+          deepgramApiKey: updated.deepgramApiKey ?? "",
+          hasGeminiKey: updated.hasGeminiKey ?? false,
+          hasClaudeKey: updated.hasClaudeKey ?? false,
+          hasDeepgramKey: updated.hasDeepgramKey ?? false,
+        },
+      });
+    } catch (err) {
+      console.error("[Narada] saveAIProviderSettings:", err);
+      throw err;
+    }
   },
 }));

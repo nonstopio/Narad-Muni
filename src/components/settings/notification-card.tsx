@@ -81,7 +81,8 @@ export function NotificationCard() {
         "Narayan Narayan! I shall ring the sacred bell at the appointed hour",
         "success"
       );
-    } catch {
+    } catch (err) {
+      console.error("[Narada] NotificationCard handleSave:", err);
       addToast("Alas! The bell could not be configured", "error");
     } finally {
       setSaving(false);

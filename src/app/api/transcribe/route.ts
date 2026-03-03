@@ -6,6 +6,7 @@ import { settingsDoc } from "@/lib/firestore-helpers";
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    console.log(`[Narada] POST /api/transcribe uid=${user.uid}`);
 
     const formData = await request.formData();
     const audioFile = formData.get("audio") as File;
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
-    console.error("Transcription error:", error);
+    console.error("[Narada] POST /api/transcribe error:", error);
     return NextResponse.json(
       {
         success: false,

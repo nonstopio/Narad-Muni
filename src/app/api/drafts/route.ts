@@ -5,6 +5,7 @@ import { draftsCol } from "@/lib/firestore-helpers";
 export async function GET(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    console.log(`[Narada] GET /api/drafts uid=${user.uid}`);
     const dateStr = request.nextUrl.searchParams.get("date");
     if (!dateStr) {
       return NextResponse.json({ error: "date is required" }, { status: 400 });
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    console.log(`[Narada] PUT /api/drafts uid=${user.uid}`);
     const body = await request.json();
     const { date: dateStr, rawTranscript } = body;
 
@@ -53,6 +55,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    console.log(`[Narada] DELETE /api/drafts uid=${user.uid}`);
     const dateStr = request.nextUrl.searchParams.get("date");
     if (!dateStr) {
       return NextResponse.json({ error: "date is required" }, { status: 400 });

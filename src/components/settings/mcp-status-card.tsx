@@ -64,7 +64,8 @@ export function McpStatusCard() {
           message: `Alas! The link could not be forged: ${data.error}`,
         });
       }
-    } catch {
+    } catch (err) {
+      console.error("[Narada] McpStatusCard handleTest:", err);
       setTestResult({
         type: "error",
         message: "Alas! Could not test the sacred link",

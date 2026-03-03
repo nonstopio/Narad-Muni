@@ -50,6 +50,7 @@ function enforceTimeRules(allEntries: ClaudeTimeEntry[]): ClaudeTimeEntry[] {
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    console.log(`[Narada] POST /api/parse uid=${user.uid}`);
     const { transcript, date, repeatEntries } = await request.json();
 
     if (!transcript) {
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
     const settings = settingsSnap.data();
 
     const provider = await getAIProvider(settings);
+    console.log(`[Narada] POST /api/parse provider=${provider.name} date=${date}`);
     const result = await provider.parseTranscript(transcript, date, repeats);
 
     // Merge repeat entries into time entries
@@ -83,6 +85,8 @@ export async function POST(request: NextRequest) {
 
     const merged = [...repeatTimeEntries, ...result.timeEntries];
     const allTimeEntries = enforceTimeRules(merged);
+    const totalSecs = allTimeEntries.reduce((s, e) => s + e.timeSpentSecs, 0);
+    console.log(`[Narada] POST /api/parse success: tasks=${result.tasks?.length ?? 0} entries=${allTimeEntries.length} totalSecs=${totalSecs}`);
 
     return NextResponse.json({
       success: true,
@@ -90,7 +94,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
-    console.error("Parse error:", error);
+    console.error("[Narada] POST /api/parse error:", error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Parsing failed" },
       { status: 500 }

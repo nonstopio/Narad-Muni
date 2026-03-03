@@ -57,7 +57,8 @@ export function AIProviderCard() {
       if (keyName === "claudeApiKey") setClaudeKey("");
       if (keyName === "deepgramApiKey") setDeepgramKey("");
       addToast(`Narayan Narayan! The ${label} mantra has been forgotten`, "success");
-    } catch {
+    } catch (err) {
+      console.error("[Narada] AIProviderCard handleRemoveKey:", err);
       addToast(`Alas! I could not forget the ${label} mantra`, "error");
     } finally {
       setRemovingKey(null);
@@ -124,7 +125,8 @@ export function AIProviderCard() {
       } else {
         setTestResult({ type: "error", message: `Alas! The oracle is silent: ${data.error}` });
       }
-    } catch {
+    } catch (err) {
+      console.error("[Narada] AIProviderCard handleTest:", err);
       setTestResult({ type: "error", message: "Alas! Could not reach the oracle" });
     } finally {
       setTesting(false);
@@ -152,7 +154,8 @@ export function AIProviderCard() {
         deepgramApiKey: deepgramKey || undefined,
       });
       addToast("Narayan Narayan! Your oracle of choice is set", "success");
-    } catch {
+    } catch (err) {
+      console.error("[Narada] AIProviderCard handleSave:", err);
       addToast("Alas! The oracle settings could not be preserved", "error");
     } finally {
       setSaving(false);
