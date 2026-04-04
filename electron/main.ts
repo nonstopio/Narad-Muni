@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, Menu, powerSaveBlocker } from "electron";
+import { app, BrowserWindow, shell, ipcMain, Menu, powerSaveBlocker, screen } from "electron";
 import * as fs from "fs";
 import * as path from "path";
 import { readConfig, saveWindowBounds, writeConfig } from "./config";
@@ -107,6 +107,26 @@ function getAppRoot(): string {
 async function createWindow(port: number): Promise<void> {
   const config = readConfig();
 
+  // Validate saved window bounds against connected displays.
+  // If the saved position is off-screen (e.g. external monitor was disconnected),
+  // reset to defaults so the window appears on a visible display.
+  if (config.window.x !== undefined && config.window.y !== undefined) {
+    const savedX = config.window.x;
+    const savedY = config.window.y;
+    const isOnScreen = screen.getAllDisplays().some((display) => {
+      const { x, y, width, height } = display.bounds;
+      return savedX >= x - 100 && savedX < x + width && savedY >= y - 100 && savedY < y + height;
+    });
+    if (!isOnScreen) {
+      console.warn("[Narada] Saved window position is off-screen, resetting to defaults");
+      delete config.window.x;
+      delete config.window.y;
+      config.window.width = Math.min(config.window.width, 1280);
+      config.window.height = Math.min(config.window.height, 800);
+      config.window.isMaximized = false;
+    }
+  }
+
   mainWindow = new BrowserWindow({
     width: config.window.width,
     height: config.window.height,
@@ -159,8 +179,17 @@ async function createWindow(port: number): Promise<void> {
     mainWindow.maximize();
   }
 
-  // Show window when ready to prevent flash
+  // Show window when ready to prevent flash, with a timeout fallback
+  // in case ready-to-show never fires (e.g. loadURL fails or server is slow).
+  const showTimeout = setTimeout(() => {
+    if (mainWindow && !mainWindow.isVisible()) {
+      console.warn("[Narada] ready-to-show timeout after 5s — forcing window visible");
+      mainWindow.show();
+    }
+  }, 5000);
+
   mainWindow.once("ready-to-show", () => {
+    clearTimeout(showTimeout);
     mainWindow?.show();
   });
 
@@ -215,7 +244,15 @@ async function createWindow(port: number): Promise<void> {
     mainWindow = null;
   });
 
-  await mainWindow.loadURL(`http://localhost:${port}`);
+  try {
+    await mainWindow.loadURL(`http://localhost:${port}`);
+  } catch (err) {
+    console.error("[Narada] Failed to load URL:", err);
+    // Show the window anyway so it's not permanently invisible
+    if (mainWindow && !mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+  }
 }
 
 async function startApp(): Promise<void> {
