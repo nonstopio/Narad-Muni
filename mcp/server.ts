@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { getDb, readUserId, appendToDraft } from "./db";
+import { getDb, readUserId, appendToDraft, getDraft } from "./db";
 
 const server = new McpServer({
   name: "narada",
@@ -41,6 +41,41 @@ server.tool(
       const message_ = err instanceof Error ? err.message : String(err);
       return {
         content: [{ type: "text" as const, text: `Error: ${message_}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_draft",
+  "Get the current draft/work log for a given date. Returns all entries logged so far for that day, or indicates if no entries exist yet.",
+  {
+    date: z.string().optional().describe("Date in YYYY-MM-DD format, defaults to today"),
+  },
+  async ({ date }) => {
+    try {
+      const dateStr = date || new Date().toISOString().slice(0, 10);
+      process.stderr.write(`[narada-mcp] get_draft: date=${dateStr}\n`);
+
+      const userId = readUserId();
+      const db = getDb();
+      const content = await getDraft(db, userId, dateStr);
+
+      if (!content) {
+        return {
+          content: [{ type: "text" as const, text: `No entries logged for ${dateStr} yet.` }],
+        };
+      }
+
+      return {
+        content: [{ type: "text" as const, text: `Draft for ${dateStr}:\n${content}` }],
+      };
+    } catch (err) {
+      process.stderr.write(`[narada-mcp] get_draft error: ${err instanceof Error ? err.message : String(err)}\n`);
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        content: [{ type: "text" as const, text: `Error: ${message}` }],
         isError: true,
       };
     }

@@ -81,6 +81,26 @@ export function getDb(): Firestore {
 }
 
 /**
+ * Read the draft for a given date.
+ * Returns the rawTranscript if it exists, null otherwise.
+ */
+export async function getDraft(
+  db: Firestore,
+  userId: string,
+  dateStr: string
+): Promise<string | null> {
+  const doc = await db
+    .collection("users")
+    .doc(userId)
+    .collection("drafts")
+    .doc(dateStr)
+    .get();
+
+  if (!doc.exists) return null;
+  return (doc.data()?.rawTranscript as string) || null;
+}
+
+/**
  * Append an entry line to the day's draft in Firestore.
  * Creates the draft doc if it doesn't exist.
  * Returns the full draft content after appending.
