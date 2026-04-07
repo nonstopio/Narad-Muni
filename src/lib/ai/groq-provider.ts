@@ -4,7 +4,7 @@ import type { AIParseProvider, RepeatEntryInput } from "./types";
 import { buildSystemPrompt, buildUserMessage, PARSE_RESULT_JSON_SCHEMA } from "./prompt";
 
 export class GroqProvider implements AIParseProvider {
-  name = "Groq (Llama 4)";
+  name = "Groq (Llama 4 Scout)";
   private apiKey: string;
 
   constructor(apiKey: string) {
@@ -20,12 +20,12 @@ export class GroqProvider implements AIParseProvider {
     const systemPrompt = buildSystemPrompt(date, repeatEntries);
     const userMessage = buildUserMessage(transcript);
 
-    console.log(`[Narada → Groq] Sending request — model=meta-llama/llama-4-maverick-17b-128e-instruct, system_prompt=${systemPrompt.length} chars, user_message=${userMessage.length} chars`);
+    console.log(`[Narada → Groq] Sending request — model=meta-llama/llama-4-scout-17b-16e-instruct, system_prompt=${systemPrompt.length} chars, user_message=${userMessage.length} chars`);
 
     let response;
     try {
       response = await client.chat.completions.create({
-        model: "meta-llama/llama-4-maverick-17b-128e-instruct",
+        model: "meta-llama/llama-4-scout-17b-16e-instruct",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
