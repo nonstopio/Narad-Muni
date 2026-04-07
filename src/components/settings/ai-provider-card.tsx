@@ -252,9 +252,20 @@ export function AIProviderCard() {
 
       {activeKeyConfig && (
         <div className="mb-4">
-          <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
-            {activeKeyConfig.label}
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-xs font-semibold text-narada-text-secondary uppercase tracking-wider">
+              {activeKeyConfig.label}
+            </label>
+            <a
+              href={activeKeyConfig.keyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-narada-primary hover:text-narada-primary/80 transition-colors"
+            >
+              Get API Key
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
           <input
             className={`glass-input font-mono text-[13px] ${keyError ? "!border-narada-rose" : ""}`}
             type="password"
@@ -262,19 +273,8 @@ export function AIProviderCard() {
             value={apiKeys[activeKeyConfig.field] ?? ""}
             onChange={(e) => { setApiKeys((prev) => ({ ...prev, [activeKeyConfig.field]: e.target.value })); setKeyError(false); }}
           />
-          <div className="flex items-center gap-2 mt-1.5">
-            <a
-              href={activeKeyConfig.keyUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-narada-primary hover:text-narada-primary/80 transition-colors"
-            >
-              <ExternalLink className="w-3 h-3" />
-              Get API Key
-            </a>
-          </div>
           {aiSettings[activeKeyConfig.hasField] && (
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1.5">
               <p className="text-xs text-narada-emerald">Key configured</p>
               <Button
                 variant="ghost"
@@ -304,9 +304,20 @@ export function AIProviderCard() {
       </div>
 
       <div className="mt-4 pt-4 border-t border-white/[0.06]">
-        <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
-          Deepgram API Key
-        </label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-xs font-semibold text-narada-text-secondary uppercase tracking-wider">
+            Deepgram API Key
+          </label>
+          <a
+            href="https://console.deepgram.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-narada-primary hover:text-narada-primary/80 transition-colors"
+          >
+            Get API Key
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
         <input
           className="glass-input font-mono text-[13px]"
           type="password"
@@ -315,7 +326,7 @@ export function AIProviderCard() {
           onChange={(e) => setDeepgramKey(e.target.value)}
         />
         {aiSettings.hasDeepgramKey && (
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1.5">
             <p className="text-xs text-narada-emerald">Key configured</p>
             <Button
               variant="ghost"
@@ -330,7 +341,7 @@ export function AIProviderCard() {
           </div>
         )}
         <p className="text-xs text-narada-text-secondary mt-1.5">
-          I need this mantra to hear your voice. Seek one at deepgram.com
+          I need this mantra to hear your voice
         </p>
       </div>
 
