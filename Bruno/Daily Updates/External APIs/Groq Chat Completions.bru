@@ -18,11 +18,17 @@ headers {
 body:json {
   {
     "model": "meta-llama/llama-4-scout-17b-16e-instruct",
-    "max_tokens": 256,
+    "max_tokens": 4096,
+    "temperature": 0.3,
+    "response_format": { "type": "json_object" },
     "messages": [
       {
+        "role": "system",
+        "content": "You are a daily standup parser for a developer productivity tool called Narada. Parse the user's daily update transcript and extract structured data.\n\nDate context: 2026-04-07\n\nInstructions:\n- Extract discrete work tasks with descriptions and any Jira issue keys mentioned (format: PROJ-1234)\n- Parse time references into durations in seconds (e.g., \"3 hours\" = 10800)\n- Detect blockers from natural speech\n- Extract tomorrow's planned tasks. If the user doesn't mention tomorrow, set tomorrowTasks to a single entry: \"Continue working on same tasks\"\n- For time entries, use the date \"2026-04-07\" combined with sequential start times beginning at 10:00. Each entry's \"started\" should be an ISO 8601 datetime string. Schedule entries sequentially — each entry starts when the previous one ends.\n- Set isRepeat to false for all entries you extract (repeat entries are handled separately)\n\nTime distribution rules:\n- The total time for non-repeat entries should be at least 28800 seconds (8.0h) to reach 8h total when combined with repeat entries\n- Minimum time per entry is 1800 seconds (30 minutes)\n- Round all time entries to the nearest 30-minute increment (1800s multiples)\n- If the user specifies exact times for tasks, use those values (rounded to nearest 30-min)\n- If the user does NOT specify exact times, infer relative weightage from each task's description\n\nOutput format for slackFormat (Slack mrkdwn):\n`TODAY`\n• TICKET-KEY : task description\n\n`TOMORROW`\n• TICKET-KEY : planned task description\n\n`BLOCKER`\n• blocker description\n(Use \"NA\" if no blockers mentioned)\n\nOutput format for teamsFormat (Teams markdown):\n**TODAY**\n- TICKET-KEY : task description\n\n**TOMORROW**\n- TICKET-KEY : planned task description\n\n**BLOCKER**\n- blocker description\n(Use \"NA\" if no blockers mentioned)\n\nRespond with a JSON object containing: tasks (array of {description, issueKey, timeEstimate}), blockers (array of strings), timeEntries (array of {issueKey, timeSpentSecs, started, comment, isRepeat}), tomorrowTasks (array of {description, issueKey}), slackFormat (string), teamsFormat (string)."
+      },
+      {
         "role": "user",
-        "content": "Say hello"
+        "content": "Parse this daily update transcript:\n\nToday I worked on the NARADA-42 Groq integration for about 3 hours, adding the provider, settings UI, and API routes. Then spent 2 hours on NARADA-43 code review for the auth refactor. Had a quick 1 hour sync with the team about the release plan. Also did about 2 hours of NARADA-44 bug fixes in the calendar component. Tomorrow I'll continue with testing the Groq integration and start on the notification system. No blockers."
       }
     ]
   }
@@ -36,10 +42,17 @@ settings {
 docs {
   # Groq Chat Completions (External)
 
-  Direct call to the Groq Chat Completions API (OpenAI-compatible).
-  Useful for verifying your GROQ_API_KEY is valid.
+  Direct call to the Groq Chat Completions API with the Narada system prompt.
+  Validates both the API key and that the model returns correct structured JSON.
 
-  Set `{{GROQ_API_KEY}}` in your Bruno environment or replace inline in the header.
+  Set `{{GROQ_API_KEY}}` in your Bruno environment.
+
+  ## What to verify
+  1. Response returns 200
+  2. JSON contains: tasks, blockers, timeEntries, tomorrowTasks, slackFormat, teamsFormat
+  3. timeEntries total ~28800 seconds (8h)
+  4. Issue keys (NARADA-42, 43, 44) are extracted correctly
+  5. slackFormat uses Slack mrkdwn, teamsFormat uses Teams markdown
 
   ## Sample 200 Response
 
@@ -53,16 +66,11 @@ docs {
         "index": 0,
         "message": {
           "role": "assistant",
-          "content": "Hello! How can I help you today?"
+          "content": "{\"tasks\":[{\"description\":\"Groq integration - provider, settings UI, API routes\",\"issueKey\":\"NARADA-42\",\"timeEstimate\":\"3 hours\"},...],\"blockers\":[],\"timeEntries\":[{\"issueKey\":\"NARADA-42\",\"timeSpentSecs\":10800,\"started\":\"2026-04-07T10:00:00.000+05:30\",\"comment\":\"Groq integration\",\"isRepeat\":false},...],\"tomorrowTasks\":[...],\"slackFormat\":\"...\",\"teamsFormat\":\"...\"}"
         },
         "finish_reason": "stop"
       }
-    ],
-    "usage": {
-      "prompt_tokens": 11,
-      "completion_tokens": 9,
-      "total_tokens": 20
-    }
+    ]
   }
   ```
 }
