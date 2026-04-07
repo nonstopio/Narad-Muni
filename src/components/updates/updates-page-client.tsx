@@ -1,13 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatsBar } from "./stats-bar";
 import { Calendar } from "./calendar";
 import { HistoryDetailModal } from "@/components/history/history-detail-modal";
 import { useAppStore } from "@/stores/app-store";
+import { useCalendar } from "@/hooks/use-calendar";
+import { authedFetch } from "@/lib/api-client";
 import { computeCombinedStatus } from "@/types";
 import type { CombinedStatus, StatData, UpdateData } from "@/types";
+
+function formatMonth(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
 
 interface Props {
   updateCount: number;
@@ -16,11 +22,43 @@ interface Props {
 }
 
 export function UpdatesPageClient({
-  updateCount,
   streak,
   monthUpdates: initialMonthUpdates,
 }: Props) {
+  const { currentMonth, monthTitle, calendarDays, prevMonth, nextMonth, goToToday } = useCalendar();
   const [monthUpdates, setMonthUpdates] = useState(initialMonthUpdates);
+  const [monthLoading, setMonthLoading] = useState(false);
+  const initialMonthRef = useRef<string>(formatMonth(new Date()));
+
+  useEffect(() => {
+    const monthStr = formatMonth(currentMonth);
+    if (monthStr === initialMonthRef.current && monthUpdates === initialMonthUpdates) {
+      return; // skip fetch on mount — we already have initial data
+    }
+
+    const controller = new AbortController();
+    setMonthLoading(true);
+    authedFetch(`/api/updates?month=${monthStr}`, { signal: controller.signal })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!controller.signal.aborted) {
+          setMonthUpdates(data.updates || []);
+        }
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted) {
+          console.error("[Narada] Failed to fetch month updates:", err);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setMonthLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [currentMonth]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const updateStatusMap = useMemo(() => {
     const map = new Map<string, CombinedStatus>();
     for (const u of monthUpdates) {
@@ -42,8 +80,8 @@ export function UpdatesPageClient({
 
   const stats: StatData[] = [
     {
-      label: "Messages This Month",
-      value: updateCount,
+      label: "Scrolls This Month",
+      value: monthUpdates.length,
       icon: "\u{1F4CA}",
       color: "blue",
     },
@@ -55,7 +93,7 @@ export function UpdatesPageClient({
     },
     {
       label: "Time Reclaimed",
-      value: `${updateCount * 12}m`,
+      value: `${monthUpdates.length * 12}m`,
       icon: "\u23F1\uFE0F",
       color: "emerald",
     },
@@ -90,7 +128,16 @@ export function UpdatesPageClient({
   return (
     <div className="flex-1 flex flex-col overflow-hidden p-6">
       <div className="flex-shrink-0"><StatsBar stats={stats} /></div>
-      <Calendar updateStatusMap={updateStatusMap} onDayClick={handleDayClick} />
+      <Calendar
+        updateStatusMap={updateStatusMap}
+        onDayClick={handleDayClick}
+        monthTitle={monthTitle}
+        calendarDays={calendarDays}
+        prevMonth={prevMonth}
+        nextMonth={nextMonth}
+        goToToday={goToToday}
+        loading={monthLoading}
+      />
       <p className="mt-auto pt-4 pb-2 text-center text-xs text-white/20">v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
 
       {selectedUpdate && (

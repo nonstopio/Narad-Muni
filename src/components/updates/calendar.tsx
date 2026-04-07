@@ -1,6 +1,5 @@
 "use client";
 
-import { useCalendar } from "@/hooks/use-calendar";
 import { Button } from "@/components/ui/button";
 import type { CombinedStatus } from "@/types";
 
@@ -15,10 +14,15 @@ const STATUS_STYLES: Record<CombinedStatus, string> = {
 interface CalendarProps {
   updateStatusMap: Map<string, CombinedStatus>;
   onDayClick: (date: Date) => void;
+  monthTitle: string;
+  calendarDays: Array<{ day: number; isCurrentMonth: boolean; isToday: boolean; date: Date }>;
+  prevMonth: () => void;
+  nextMonth: () => void;
+  goToToday: () => void;
+  loading?: boolean;
 }
 
-export function Calendar({ updateStatusMap, onDayClick }: CalendarProps) {
-  const { monthTitle, calendarDays, prevMonth, nextMonth, goToToday } = useCalendar();
+export function Calendar({ updateStatusMap, onDayClick, monthTitle, calendarDays, prevMonth, nextMonth, goToToday, loading }: CalendarProps) {
 
   const getUpdateStatus = (date: Date): CombinedStatus | null => {
     const key = date.toLocaleDateString("sv-SE");
@@ -55,7 +59,7 @@ export function Calendar({ updateStatusMap, onDayClick }: CalendarProps) {
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5 flex-1 auto-rows-fr">
+      <div className={`grid grid-cols-7 gap-1.5 flex-1 auto-rows-fr transition-opacity duration-200 ${loading ? "opacity-40 pointer-events-none" : ""}`}>
         {calendarDays.map((day, i) => {
           const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6;
           const status = day.isCurrentMonth ? getUpdateStatus(day.date) : null;
