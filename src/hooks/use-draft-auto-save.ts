@@ -9,12 +9,12 @@ import { trackEvent } from "@/lib/analytics";
 const DEBOUNCE_MS = 1500;
 
 export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
-  const addToast = useToastStore((s) => s.addToast);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef<string>("");
   const latestTextRef = useRef<string>("");
   const enabledRef = useRef(enabled);
   const dateRef = useRef(dateStr);
+  const saveErrorShownRef = useRef(false);
 
   useEffect(() => {
     enabledRef.current = enabled;
@@ -44,7 +44,7 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
       .catch((err) => {
         if (!cancelled) {
           console.error("[Narada] Failed to load draft:", err);
-          addToast("Alas! Could not retrieve your saved draft", "error");
+          useToastStore.getState().addToast("Alas! Could not retrieve your saved draft", "error");
         }
       });
 
@@ -83,10 +83,17 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ date: dateRef.current, rawTranscript: current }),
-        }).catch((err) => {
-          console.error("[Narada] Failed to save draft:", err);
-          addToast("Alas! Your draft could not be saved", "error");
-        });
+        })
+          .then(() => {
+            saveErrorShownRef.current = false;
+          })
+          .catch((err) => {
+            console.error("[Narada] Failed to save draft:", err);
+            if (!saveErrorShownRef.current) {
+              saveErrorShownRef.current = true;
+              useToastStore.getState().addToast("Alas! Your draft could not be saved", "error");
+            }
+          });
       }, DEBOUNCE_MS);
     });
 
