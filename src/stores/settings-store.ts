@@ -26,6 +26,7 @@ interface SettingsStore {
   // AI provider
   aiSettings: AIProviderSettings;
   aiLoading: boolean;
+  aiError: boolean;
   fetchAIProviderSettings: () => Promise<void>;
   saveAIProviderSettings: (data: {
     aiProvider: AIProvider;
@@ -97,11 +98,13 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     hasGroqKey: false,
   },
   aiLoading: false,
+  aiError: false,
 
   fetchAIProviderSettings: async () => {
-    set({ aiLoading: true });
+    set({ aiLoading: true, aiError: false });
     try {
       const res = await authedFetch("/api/settings/ai-provider");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       set({
         aiSettings: {
@@ -118,6 +121,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       });
     } catch (err) {
       console.error("[Narada] fetchAIProviderSettings:", err);
+      set({ aiError: true });
     } finally {
       set({ aiLoading: false });
     }

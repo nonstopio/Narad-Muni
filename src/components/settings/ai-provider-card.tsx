@@ -5,7 +5,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, X } from "lucide-react";
+import { ExternalLink, RefreshCw, X } from "lucide-react";
 import type { AIProvider } from "@/types";
 
 const PROVIDERS: { value: AIProvider; label: string; description: string }[] = [
@@ -52,7 +52,7 @@ const API_KEY_CONFIGS: {
 ];
 
 export function AIProviderCard() {
-  const { aiSettings, aiLoading, fetchAIProviderSettings, saveAIProviderSettings } =
+  const { aiSettings, aiLoading, aiError, fetchAIProviderSettings, saveAIProviderSettings } =
     useSettingsStore();
   const addToast = useToastStore((s) => s.addToast);
 
@@ -186,6 +186,24 @@ export function AIProviderCard() {
       <div className="glass-card p-6 animate-pulse">
         <div className="h-5 w-40 bg-white/[0.05] rounded mb-4" />
         <div className="h-4 w-full bg-white/[0.05] rounded" />
+      </div>
+    );
+  }
+
+  if (aiError) {
+    return (
+      <div className="glass-card p-6 text-center">
+        <div className="w-10 h-10 rounded-xl bg-narada-rose/10 flex items-center justify-center mx-auto mb-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-narada-rose">
+            <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+          </svg>
+        </div>
+        <h3 className="text-sm font-semibold text-narada-text mb-1">Alas! The oracle settings elude me</h3>
+        <p className="text-xs text-narada-text-secondary mb-4">Could not retrieve the Divine Oracle configuration.</p>
+        <Button variant="secondary" size="sm" onClick={fetchAIProviderSettings} className="gap-2">
+          <RefreshCw className="w-3.5 h-3.5" />
+          Try Again
+        </Button>
       </div>
     );
   }
