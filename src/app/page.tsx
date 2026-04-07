@@ -22,22 +22,15 @@ export default function UpdatesPage() {
 
     Promise.all([
       authedFetch(`/api/updates?month=${month}`).then((r) => {
-        if (!r.ok) {
-          if (r.status === 401) return null;
-          throw new Error(`HTTP ${r.status}`);
-        }
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       }),
       authedFetch("/api/updates").then((r) => {
-        if (!r.ok) {
-          if (r.status === 401) return null;
-          throw new Error(`HTTP ${r.status}`);
-        }
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       }),
     ])
       .then(([monthData, allData]) => {
-        if (!monthData || !allData) return; // 401 — keep spinner, AuthGuard redirects
 
         const mUpdates: UpdateData[] = monthData.updates || [];
         setMonthUpdates(mUpdates);

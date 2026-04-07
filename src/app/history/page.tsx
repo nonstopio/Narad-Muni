@@ -18,17 +18,12 @@ export default function HistoryPage() {
     setError(false);
     authedFetch("/api/updates")
       .then((r) => {
-        if (!r.ok) {
-          if (r.status === 401) return null;
-          throw new Error(`HTTP ${r.status}`);
-        }
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
       .then((data) => {
-        if (data) {
-          setUpdates(data.updates || []);
-          setLoading(false);
-        }
+        setUpdates(data.updates || []);
+        setLoading(false);
       })
       .catch((err) => {
         console.error("[Narada] Failed to load history:", err);
