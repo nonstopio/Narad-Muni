@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useUpdateStore } from "@/stores/update-store";
+import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
 import { trackEvent } from "@/lib/analytics";
 
 const DEBOUNCE_MS = 1500;
 
 export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
+  const addToast = useToastStore((s) => s.addToast);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef<string>("");
   const latestTextRef = useRef<string>("");
@@ -40,7 +42,10 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
         }
       })
       .catch((err) => {
-        console.error("[Narada] Failed to load draft:", err);
+        if (!cancelled) {
+          console.error("[Narada] Failed to load draft:", err);
+          addToast("Alas! Could not retrieve your saved draft", "error");
+        }
       });
 
     return () => {
@@ -80,6 +85,7 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
           body: JSON.stringify({ date: dateRef.current, rawTranscript: current }),
         }).catch((err) => {
           console.error("[Narada] Failed to save draft:", err);
+          addToast("Alas! Your draft could not be saved", "error");
         });
       }, DEBOUNCE_MS);
     });

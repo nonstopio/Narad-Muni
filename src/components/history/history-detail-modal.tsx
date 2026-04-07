@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { X, ClipboardList, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authedFetch } from "@/lib/api-client";
+import { useToastStore } from "@/components/ui/toast";
 import { trackEvent } from "@/lib/analytics";
 import type { UpdateData } from "@/types";
 
@@ -97,9 +98,12 @@ export function HistoryDetailModal({ update, onClose, onDelete, onRetry }: Props
       if (res.ok) {
         trackEvent("update_delete");
         onDelete(update.id);
+      } else {
+        useToastStore.getState().addToast("Alas! The chronicle could not be erased", "error");
       }
     } catch (err) {
       console.error("Delete failed:", err);
+      useToastStore.getState().addToast("Alas! The chronicle could not be erased", "error");
     } finally {
       setDeleting(false);
     }

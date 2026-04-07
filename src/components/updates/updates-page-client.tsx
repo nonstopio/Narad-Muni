@@ -7,6 +7,7 @@ import { Calendar } from "./calendar";
 import { HistoryDetailModal } from "@/components/history/history-detail-modal";
 import { useAppStore } from "@/stores/app-store";
 import { useCalendar } from "@/hooks/use-calendar";
+import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
 import { computeCombinedStatus } from "@/types";
 import type { CombinedStatus, StatData, UpdateData } from "@/types";
@@ -25,6 +26,7 @@ export function UpdatesPageClient({
   monthUpdates: initialMonthUpdates,
 }: Props) {
   const { currentMonth, monthTitle, calendarDays, prevMonth, nextMonth, goToToday } = useCalendar();
+  const addToast = useToastStore((s) => s.addToast);
   const [monthUpdates, setMonthUpdates] = useState(initialMonthUpdates);
   const [monthLoading, setMonthLoading] = useState(false);
   const hasNavigated = useRef(false);
@@ -49,6 +51,7 @@ export function UpdatesPageClient({
       .catch((err) => {
         if (!controller.signal.aborted) {
           console.error("[Narada] Failed to fetch month updates:", err);
+          addToast("Alas! Could not retrieve this month's chronicles", "error");
         }
       })
       .finally(() => {
