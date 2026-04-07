@@ -1,0 +1,68 @@
+meta {
+  name: Groq Chat Completions
+  type: http
+  seq: 4
+}
+
+post {
+  url: https://api.groq.com/openai/v1/chat/completions
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{GROQ_API_KEY}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "max_tokens": 256,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Say hello"
+      }
+    ]
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  # Groq Chat Completions (External)
+
+  Direct call to the Groq Chat Completions API (OpenAI-compatible).
+  Useful for verifying your GROQ_API_KEY is valid.
+
+  Set `{{GROQ_API_KEY}}` in your Bruno environment or replace inline in the header.
+
+  ## Sample 200 Response
+
+  ```json
+  {
+    "id": "chatcmpl-...",
+    "object": "chat.completion",
+    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Hello! How can I help you today?"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 11,
+      "completion_tokens": 9,
+      "total_tokens": 20
+    }
+  }
+  ```
+}
