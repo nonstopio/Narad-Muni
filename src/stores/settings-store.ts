@@ -105,11 +105,12 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     try {
       const res = await authedFetch("/api/settings/ai-provider");
       if (!res.ok) {
-        if (res.status === 401) return; // AuthGuard handles redirect
+        if (res.status === 401) return; // AuthGuard handles redirect, keep spinner
         throw new Error(`HTTP ${res.status}`);
       }
       const data = await res.json();
       set({
+        aiLoading: false,
         aiSettings: {
           aiProvider: data.aiProvider ?? "local-claude",
           geminiApiKey: data.geminiApiKey ?? "",
@@ -124,9 +125,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       });
     } catch (err) {
       console.error("[Narada] fetchAIProviderSettings:", err);
-      set({ aiError: true });
-    } finally {
-      set({ aiLoading: false });
+      set({ aiError: true, aiLoading: false });
     }
   },
 

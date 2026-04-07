@@ -85,9 +85,10 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: false, error: "No Groq API key provided" }, { status: 400 });
         }
         const { default: Groq } = await import("groq-sdk");
+        const { GROQ_MODEL } = await import("@/lib/ai/groq-provider");
         const client = new Groq({ apiKey, timeout: 15_000 });
         await client.chat.completions.create({
-          model: "meta-llama/llama-4-scout-17b-16e-instruct",
+          model: GROQ_MODEL,
           messages: [{ role: "user", content: "Say hello in one word" }],
           max_tokens: 10,
         });

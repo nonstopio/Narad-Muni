@@ -20,20 +20,20 @@ export default function SettingsPage() {
     authedFetch("/api/settings")
       .then((r) => {
         if (!r.ok) {
-          // 401 is handled by AuthGuard redirect — don't show error UI
-          if (r.status === 401) return null;
+          // 401 is handled by AuthGuard redirect — keep spinner until redirect
+          if (r.status === 401) return;
           throw new Error(`HTTP ${r.status}`);
         }
-        return r.json();
-      })
-      .then((data) => {
-        if (data) setConfigs(data.configs || []);
+        return r.json().then((data) => {
+          setConfigs(data.configs || []);
+          setLoading(false);
+        });
       })
       .catch((err) => {
         console.error("[Narada] Failed to load settings:", err);
         setError(true);
-      })
-      .finally(() => setLoading(false));
+        setLoading(false);
+      });
   }, []);
 
   useEffect(() => {

@@ -12,8 +12,15 @@ function maskKey(key: string | null | undefined): string {
   return key.slice(0, 4) + MASKED + key.slice(-4);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildSettingsResponse(settings: Record<string, any> | undefined) {
+interface StoredSettings {
+  aiProvider?: string;
+  geminiApiKey?: string | null;
+  claudeApiKey?: string | null;
+  deepgramApiKey?: string | null;
+  groqApiKey?: string | null;
+}
+
+function buildSettingsResponse(settings: StoredSettings | undefined) {
   return {
     aiProvider: settings?.aiProvider ?? "local-claude",
     geminiApiKey: maskKey(settings?.geminiApiKey),
@@ -32,7 +39,7 @@ export async function GET(request: NextRequest) {
     const user = await verifyAuth(request);
     console.log(`[Narada] GET /api/settings/ai-provider uid=${user.uid}`);
     const doc = await settingsDoc(user.uid).get();
-    return NextResponse.json(buildSettingsResponse(doc.data()));
+    return NextResponse.json(buildSettingsResponse(doc.data() as StoredSettings | undefined));
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada API AI Provider] GET failed:", error);
@@ -72,7 +79,7 @@ export async function PUT(request: NextRequest) {
     await ref.set(updateData, { merge: true });
 
     const doc = await ref.get();
-    return NextResponse.json(buildSettingsResponse(doc.data()));
+    return NextResponse.json(buildSettingsResponse(doc.data() as StoredSettings | undefined));
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada API AI Provider] PUT failed:", error);
