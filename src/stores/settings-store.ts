@@ -104,7 +104,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     set({ aiLoading: true, aiError: false });
     try {
       const res = await authedFetch("/api/settings/ai-provider");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        if (res.status === 401) return; // AuthGuard handles redirect
+        throw new Error(`HTTP ${res.status}`);
+      }
       const data = await res.json();
       set({
         aiSettings: {

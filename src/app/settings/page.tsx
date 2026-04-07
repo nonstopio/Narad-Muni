@@ -19,10 +19,16 @@ export default function SettingsPage() {
     setError(false);
     authedFetch("/api/settings")
       .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (!r.ok) {
+          // 401 is handled by AuthGuard redirect — don't show error UI
+          if (r.status === 401) return null;
+          throw new Error(`HTTP ${r.status}`);
+        }
         return r.json();
       })
-      .then((data) => setConfigs(data.configs || []))
+      .then((data) => {
+        if (data) setConfigs(data.configs || []);
+      })
       .catch((err) => {
         console.error("[Narada] Failed to load settings:", err);
         setError(true);
