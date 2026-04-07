@@ -16,7 +16,6 @@ function formatMonth(date: Date): string {
 }
 
 interface Props {
-  updateCount: number;
   streak: number;
   monthUpdates: UpdateData[];
 }
@@ -80,7 +79,7 @@ export function UpdatesPageClient({
 
   const stats: StatData[] = [
     {
-      label: "Scrolls This Month",
+      label: "Messages This Month",
       value: monthUpdates.length,
       icon: "\u{1F4CA}",
       color: "blue",
