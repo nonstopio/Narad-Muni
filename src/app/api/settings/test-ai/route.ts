@@ -4,17 +4,18 @@ import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware"
 import { settingsDoc } from "@/lib/firestore-helpers";
 import type { AIProvider } from "@/types";
 
-const VALID_PROVIDERS: AIProvider[] = ["gemini", "claude-api", "local-claude", "local-cursor"];
+const VALID_PROVIDERS: AIProvider[] = ["gemini", "claude-api", "local-claude", "local-cursor", "groq"];
 const CLI_TIMEOUT_MS = 15_000;
 
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const body = await request.json();
-    const { provider, geminiApiKey, claudeApiKey, useStoredKey } = body as {
+    const { provider, geminiApiKey, claudeApiKey, groqApiKey, useStoredKey } = body as {
       provider: AIProvider;
       geminiApiKey?: string;
       claudeApiKey?: string;
+      groqApiKey?: string;
       useStoredKey?: boolean;
     };
 
@@ -71,6 +72,25 @@ export async function POST(request: NextRequest) {
 
       case "local-cursor": {
         await spawnTest("agent", ["--trust", "-p", "Say hello in one word"]);
+        break;
+      }
+
+      case "groq": {
+        let apiKey = groqApiKey;
+        if (useStoredKey) {
+          const snap = await settingsDoc(user.uid).get();
+          apiKey = snap.data()?.groqApiKey ?? undefined;
+        }
+        if (!apiKey) {
+          return NextResponse.json({ success: false, error: "No Groq API key provided" }, { status: 400 });
+        }
+        const { default: Groq } = await import("groq-sdk");
+        const client = new Groq({ apiKey, timeout: 15_000 });
+        await client.chat.completions.create({
+          model: "meta-llama/llama-4-maverick-17b-128e-instruct",
+          messages: [{ role: "user", content: "Say hello in one word" }],
+          max_tokens: 10,
+        });
         break;
       }
     }

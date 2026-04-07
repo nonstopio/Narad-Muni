@@ -8,9 +8,11 @@ interface AIProviderSettings {
   geminiApiKey: string;
   claudeApiKey: string;
   deepgramApiKey: string;
+  groqApiKey: string;
   hasGeminiKey: boolean;
   hasClaudeKey: boolean;
   hasDeepgramKey: boolean;
+  hasGroqKey: boolean;
 }
 
 interface SettingsStore {
@@ -30,6 +32,7 @@ interface SettingsStore {
     geminiApiKey?: string;
     claudeApiKey?: string;
     deepgramApiKey?: string;
+    groqApiKey?: string;
     removeKeys?: string[];
   }) => Promise<void>;
 }
@@ -87,9 +90,11 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     geminiApiKey: "",
     claudeApiKey: "",
     deepgramApiKey: "",
+    groqApiKey: "",
     hasGeminiKey: false,
     hasClaudeKey: false,
     hasDeepgramKey: false,
+    hasGroqKey: false,
   },
   aiLoading: false,
 
@@ -104,9 +109,11 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
           geminiApiKey: data.geminiApiKey ?? "",
           claudeApiKey: data.claudeApiKey ?? "",
           deepgramApiKey: data.deepgramApiKey ?? "",
+          groqApiKey: data.groqApiKey ?? "",
           hasGeminiKey: data.hasGeminiKey ?? false,
           hasClaudeKey: data.hasClaudeKey ?? false,
           hasDeepgramKey: data.hasDeepgramKey ?? false,
+          hasGroqKey: data.hasGroqKey ?? false,
         },
       });
     } catch (err) {
@@ -131,9 +138,11 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
           geminiApiKey: updated.geminiApiKey ?? "",
           claudeApiKey: updated.claudeApiKey ?? "",
           deepgramApiKey: updated.deepgramApiKey ?? "",
+          groqApiKey: updated.groqApiKey ?? "",
           hasGeminiKey: updated.hasGeminiKey ?? false,
           hasClaudeKey: updated.hasClaudeKey ?? false,
           hasDeepgramKey: updated.hasDeepgramKey ?? false,
+          hasGroqKey: updated.hasGroqKey ?? false,
         },
       });
     } catch (err) {

@@ -5,6 +5,7 @@ interface AppSettings {
   aiProvider?: string;
   geminiApiKey?: string | null;
   claudeApiKey?: string | null;
+  groqApiKey?: string | null;
 }
 
 export async function getAIProvider(settings?: AppSettings | null): Promise<AIParseProvider> {
@@ -39,6 +40,15 @@ export async function getAIProvider(settings?: AppSettings | null): Promise<AIPa
     case "local-cursor": {
       const { LocalCursorProvider } = await import("./local-cursor-provider");
       return new LocalCursorProvider();
+    }
+
+    case "groq": {
+      const apiKey = settings?.groqApiKey;
+      if (!apiKey) {
+        throw new Error("Groq API key not configured. Add it in Settings.");
+      }
+      const { GroqProvider } = await import("./groq-provider");
+      return new GroqProvider(apiKey);
     }
 
     default:

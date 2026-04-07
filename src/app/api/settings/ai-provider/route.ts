@@ -3,7 +3,7 @@ import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware"
 import { settingsDoc } from "@/lib/firestore-helpers";
 import type { AIProvider } from "@/types";
 
-const VALID_PROVIDERS: AIProvider[] = ["gemini", "claude-api", "local-claude", "local-cursor"];
+const VALID_PROVIDERS: AIProvider[] = ["gemini", "claude-api", "local-claude", "local-cursor", "groq"];
 const MASKED = "••••••••";
 
 function maskKey(key: string | null | undefined): string {
@@ -12,22 +12,27 @@ function maskKey(key: string | null | undefined): string {
   return key.slice(0, 4) + MASKED + key.slice(-4);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildSettingsResponse(settings: Record<string, any> | undefined) {
+  return {
+    aiProvider: settings?.aiProvider ?? "local-claude",
+    geminiApiKey: maskKey(settings?.geminiApiKey),
+    claudeApiKey: maskKey(settings?.claudeApiKey),
+    deepgramApiKey: maskKey(settings?.deepgramApiKey),
+    groqApiKey: maskKey(settings?.groqApiKey),
+    hasGeminiKey: !!settings?.geminiApiKey,
+    hasClaudeKey: !!settings?.claudeApiKey,
+    hasDeepgramKey: !!settings?.deepgramApiKey,
+    hasGroqKey: !!settings?.groqApiKey,
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     console.log(`[Narada] GET /api/settings/ai-provider uid=${user.uid}`);
     const doc = await settingsDoc(user.uid).get();
-    const settings = doc.data();
-
-    return NextResponse.json({
-      aiProvider: settings?.aiProvider ?? "local-claude",
-      geminiApiKey: maskKey(settings?.geminiApiKey),
-      claudeApiKey: maskKey(settings?.claudeApiKey),
-      deepgramApiKey: maskKey(settings?.deepgramApiKey),
-      hasGeminiKey: !!settings?.geminiApiKey,
-      hasClaudeKey: !!settings?.claudeApiKey,
-      hasDeepgramKey: !!settings?.deepgramApiKey,
-    });
+    return NextResponse.json(buildSettingsResponse(doc.data()));
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada API AI Provider] GET failed:", error);
@@ -40,7 +45,7 @@ export async function PUT(request: NextRequest) {
     const user = await verifyAuth(request);
     console.log(`[Narada] PUT /api/settings/ai-provider uid=${user.uid}`);
     const body = await request.json();
-    const { aiProvider, geminiApiKey, claudeApiKey, deepgramApiKey, removeKeys } = body;
+    const { aiProvider, geminiApiKey, claudeApiKey, deepgramApiKey, groqApiKey, removeKeys } = body;
 
     if (aiProvider && !VALID_PROVIDERS.includes(aiProvider)) {
       return NextResponse.json(
@@ -54,10 +59,11 @@ export async function PUT(request: NextRequest) {
     if (geminiApiKey && !geminiApiKey.includes(MASKED)) updateData.geminiApiKey = geminiApiKey;
     if (claudeApiKey && !claudeApiKey.includes(MASKED)) updateData.claudeApiKey = claudeApiKey;
     if (deepgramApiKey && !deepgramApiKey.includes(MASKED)) updateData.deepgramApiKey = deepgramApiKey;
+    if (groqApiKey && !groqApiKey.includes(MASKED)) updateData.groqApiKey = groqApiKey;
 
     const keysToRemove: string[] = Array.isArray(removeKeys) ? removeKeys : [];
     for (const key of keysToRemove) {
-      if (["geminiApiKey", "claudeApiKey", "deepgramApiKey"].includes(key)) {
+      if (["geminiApiKey", "claudeApiKey", "deepgramApiKey", "groqApiKey"].includes(key)) {
         updateData[key] = null;
       }
     }
@@ -66,17 +72,7 @@ export async function PUT(request: NextRequest) {
     await ref.set(updateData, { merge: true });
 
     const doc = await ref.get();
-    const settings = doc.data();
-
-    return NextResponse.json({
-      aiProvider: settings?.aiProvider ?? "local-claude",
-      geminiApiKey: maskKey(settings?.geminiApiKey),
-      claudeApiKey: maskKey(settings?.claudeApiKey),
-      deepgramApiKey: maskKey(settings?.deepgramApiKey),
-      hasGeminiKey: !!settings?.geminiApiKey,
-      hasClaudeKey: !!settings?.claudeApiKey,
-      hasDeepgramKey: !!settings?.deepgramApiKey,
-    });
+    return NextResponse.json(buildSettingsResponse(doc.data()));
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada API AI Provider] PUT failed:", error);

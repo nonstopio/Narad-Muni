@@ -5,7 +5,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 import type { AIProvider } from "@/types";
 
 const PROVIDERS: { value: AIProvider; label: string; description: string }[] = [
@@ -29,6 +29,26 @@ const PROVIDERS: { value: AIProvider; label: string; description: string }[] = [
     label: "Claude API",
     description: "Summons Claude Sonnet through the Anthropic gateway. Requires an API key.",
   },
+  {
+    value: "groq",
+    label: "Groq",
+    description: "Invokes the swift Groq oracle — blazing fast inference. Requires an API key.",
+  },
+];
+
+const API_KEY_CONFIGS: {
+  provider: AIProvider;
+  field: string;
+  hasField: "hasGeminiKey" | "hasClaudeKey" | "hasGroqKey";
+  label: string;
+  displayName: string;
+  placeholder: string;
+  errorMsg: string;
+  keyUrl: string;
+}[] = [
+  { provider: "gemini", field: "geminiApiKey", hasField: "hasGeminiKey", label: "Gemini API Key", displayName: "Gemini", placeholder: "AIza...", errorMsg: "The Gemini oracle requires an API key to speak", keyUrl: "https://aistudio.google.com/apikey" },
+  { provider: "claude-api", field: "claudeApiKey", hasField: "hasClaudeKey", label: "Anthropic API Key", displayName: "Claude", placeholder: "sk-ant-...", errorMsg: "The Claude gateway requires an API key to open", keyUrl: "https://console.anthropic.com/settings/keys" },
+  { provider: "groq", field: "groqApiKey", hasField: "hasGroqKey", label: "Groq API Key", displayName: "Groq", placeholder: "gsk_...", errorMsg: "The Groq oracle requires an API key to awaken", keyUrl: "https://console.groq.com/keys" },
 ];
 
 export function AIProviderCard() {
@@ -37,8 +57,11 @@ export function AIProviderCard() {
   const addToast = useToastStore((s) => s.addToast);
 
   const [selected, setSelected] = useState<AIProvider>(aiSettings.aiProvider);
-  const [geminiKey, setGeminiKey] = useState(aiSettings.geminiApiKey);
-  const [claudeKey, setClaudeKey] = useState(aiSettings.claudeApiKey);
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({
+    geminiApiKey: aiSettings.geminiApiKey,
+    claudeApiKey: aiSettings.claudeApiKey,
+    groqApiKey: aiSettings.groqApiKey,
+  });
   const [deepgramKey, setDeepgramKey] = useState(aiSettings.deepgramApiKey);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -53,9 +76,11 @@ export function AIProviderCard() {
         aiProvider: selected,
         removeKeys: [keyName],
       });
-      if (keyName === "geminiApiKey") setGeminiKey("");
-      if (keyName === "claudeApiKey") setClaudeKey("");
-      if (keyName === "deepgramApiKey") setDeepgramKey("");
+      if (keyName === "deepgramApiKey") {
+        setDeepgramKey("");
+      } else {
+        setApiKeys((prev) => ({ ...prev, [keyName]: "" }));
+      }
       addToast(`Narayan Narayan! The ${label} mantra has been forgotten`, "success");
     } catch (err) {
       console.error("[Narada] AIProviderCard handleRemoveKey:", err);
@@ -71,25 +96,26 @@ export function AIProviderCard() {
 
   useEffect(() => {
     setSelected(aiSettings.aiProvider);
-    setGeminiKey(aiSettings.geminiApiKey);
-    setClaudeKey(aiSettings.claudeApiKey);
+    setApiKeys({
+      geminiApiKey: aiSettings.geminiApiKey,
+      claudeApiKey: aiSettings.claudeApiKey,
+      groqApiKey: aiSettings.groqApiKey,
+    });
     setDeepgramKey(aiSettings.deepgramApiKey);
   }, [aiSettings]);
 
   const busy = saving || testing;
 
+  const getActiveKeyConfig = () => API_KEY_CONFIGS.find((c) => c.provider === selected);
+
   const handleTest = async () => {
     setKeyError(false);
     setTestResult(null);
-    // Client-side validation for API-key providers
-    if (selected === "gemini" && !geminiKey.trim() && !aiSettings.hasGeminiKey) {
+
+    const config = getActiveKeyConfig();
+    if (config && !apiKeys[config.field]?.trim() && !aiSettings[config.hasField]) {
       setKeyError(true);
-      setTestResult({ type: "error", message: "The Gemini oracle requires an API key to speak" });
-      return;
-    }
-    if (selected === "claude-api" && !claudeKey.trim() && !aiSettings.hasClaudeKey) {
-      setKeyError(true);
-      setTestResult({ type: "error", message: "The Claude gateway requires an API key to open" });
+      setTestResult({ type: "error", message: config.errorMsg });
       return;
     }
 
@@ -98,16 +124,10 @@ export function AIProviderCard() {
       const isMasked = (v: string) => v.includes("••••••••");
       const payload: Record<string, unknown> = { provider: selected };
 
-      if (selected === "gemini") {
-        if (geminiKey && !isMasked(geminiKey)) {
-          payload.geminiApiKey = geminiKey;
-        } else {
-          payload.useStoredKey = true;
-        }
-      }
-      if (selected === "claude-api") {
-        if (claudeKey && !isMasked(claudeKey)) {
-          payload.claudeApiKey = claudeKey;
+      if (config) {
+        const keyValue = apiKeys[config.field];
+        if (keyValue && !isMasked(keyValue)) {
+          payload[config.field] = keyValue;
         } else {
           payload.useStoredKey = true;
         }
@@ -135,24 +155,23 @@ export function AIProviderCard() {
 
   const handleSave = async () => {
     setKeyError(false);
-    if (selected === "gemini" && !geminiKey.trim() && !aiSettings.hasGeminiKey) {
+
+    const config = getActiveKeyConfig();
+    if (config && !apiKeys[config.field]?.trim() && !aiSettings[config.hasField]) {
       setKeyError(true);
-      addToast("The Gemini oracle requires an API key to speak", "error");
+      addToast(config.errorMsg, "error");
       return;
     }
-    if (selected === "claude-api" && !claudeKey.trim() && !aiSettings.hasClaudeKey) {
-      setKeyError(true);
-      addToast("The Claude gateway requires an API key to open", "error");
-      return;
-    }
+
     setSaving(true);
     try {
-      await saveAIProviderSettings({
-        aiProvider: selected,
-        geminiApiKey: selected === "gemini" ? geminiKey : undefined,
-        claudeApiKey: selected === "claude-api" ? claudeKey : undefined,
-        deepgramApiKey: deepgramKey || undefined,
-      });
+      const saveData: Record<string, unknown> = { aiProvider: selected };
+      if (config) {
+        saveData[config.field] = apiKeys[config.field] || undefined;
+      }
+      saveData.deepgramApiKey = deepgramKey || undefined;
+
+      await saveAIProviderSettings(saveData as Parameters<typeof saveAIProviderSettings>[0]);
       addToast("Narayan Narayan! Your oracle of choice is set", "success");
     } catch (err) {
       console.error("[Narada] AIProviderCard handleSave:", err);
@@ -170,6 +189,8 @@ export function AIProviderCard() {
       </div>
     );
   }
+
+  const activeKeyConfig = getActiveKeyConfig();
 
   return (
     <div className="glass-card p-6">
@@ -211,56 +232,37 @@ export function AIProviderCard() {
         ))}
       </div>
 
-      {selected === "gemini" && (
+      {activeKeyConfig && (
         <div className="mb-4">
           <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
-            Gemini API Key
+            {activeKeyConfig.label}
           </label>
           <input
-            className={`glass-input font-mono text-[13px] ${keyError && selected === "gemini" ? "!border-narada-rose" : ""}`}
+            className={`glass-input font-mono text-[13px] ${keyError ? "!border-narada-rose" : ""}`}
             type="password"
-            placeholder="AIza..."
-            value={geminiKey}
-            onChange={(e) => { setGeminiKey(e.target.value); setKeyError(false); }}
+            placeholder={activeKeyConfig.placeholder}
+            value={apiKeys[activeKeyConfig.field] ?? ""}
+            onChange={(e) => { setApiKeys((prev) => ({ ...prev, [activeKeyConfig.field]: e.target.value })); setKeyError(false); }}
           />
-          {aiSettings.hasGeminiKey && (
+          <div className="flex items-center gap-2 mt-1.5">
+            <a
+              href={activeKeyConfig.keyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-narada-primary hover:text-narada-primary/80 transition-colors"
+            >
+              <ExternalLink className="w-3 h-3" />
+              Get API Key
+            </a>
+          </div>
+          {aiSettings[activeKeyConfig.hasField] && (
             <div className="flex items-center gap-2 mt-1">
               <p className="text-xs text-narada-emerald">Key configured</p>
               <Button
                 variant="ghost"
                 size="xs"
-                onClick={() => handleRemoveKey("geminiApiKey", "Gemini")}
-                disabled={removingKey === "geminiApiKey"}
-                className="text-narada-text-muted hover:text-narada-rose h-auto py-0 px-1"
-              >
-                <X className="w-3 h-3" />
-                Remove
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {selected === "claude-api" && (
-        <div className="mb-4">
-          <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
-            Anthropic API Key
-          </label>
-          <input
-            className={`glass-input font-mono text-[13px] ${keyError && selected === "claude-api" ? "!border-narada-rose" : ""}`}
-            type="password"
-            placeholder="sk-ant-..."
-            value={claudeKey}
-            onChange={(e) => { setClaudeKey(e.target.value); setKeyError(false); }}
-          />
-          {aiSettings.hasClaudeKey && (
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-xs text-narada-emerald">Key configured</p>
-              <Button
-                variant="ghost"
-                size="xs"
-                onClick={() => handleRemoveKey("claudeApiKey", "Claude")}
-                disabled={removingKey === "claudeApiKey"}
+                onClick={() => handleRemoveKey(activeKeyConfig.field, activeKeyConfig.displayName)}
+                disabled={removingKey === activeKeyConfig.field}
                 className="text-narada-text-muted hover:text-narada-rose h-auto py-0 px-1"
               >
                 <X className="w-3 h-3" />
