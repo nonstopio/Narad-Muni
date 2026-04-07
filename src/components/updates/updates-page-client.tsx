@@ -27,16 +27,18 @@ export function UpdatesPageClient({
   const { currentMonth, monthTitle, calendarDays, prevMonth, nextMonth, goToToday } = useCalendar();
   const [monthUpdates, setMonthUpdates] = useState(initialMonthUpdates);
   const [monthLoading, setMonthLoading] = useState(false);
-  const initialMonthRef = useRef<string>(formatMonth(new Date()));
+  const hasNavigated = useRef(false);
 
   useEffect(() => {
-    const monthStr = formatMonth(currentMonth);
-    if (monthStr === initialMonthRef.current && monthUpdates === initialMonthUpdates) {
+    if (!hasNavigated.current) {
+      hasNavigated.current = true;
       return; // skip fetch on mount — we already have initial data
     }
 
     const controller = new AbortController();
     setMonthLoading(true);
+    setMonthUpdates([]);
+    const monthStr = formatMonth(currentMonth);
     authedFetch(`/api/updates?month=${monthStr}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((data) => {
@@ -56,7 +58,7 @@ export function UpdatesPageClient({
       });
 
     return () => controller.abort();
-  }, [currentMonth]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentMonth]);
 
   const updateStatusMap = useMemo(() => {
     const map = new Map<string, CombinedStatus>();
