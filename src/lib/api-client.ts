@@ -1,8 +1,10 @@
 import { auth } from "./firebase";
 
+const DEFAULT_TIMEOUT_MS = 15_000;
+
 /**
  * Wrapper around fetch that injects the Firebase ID token as a Bearer token.
- * Use this instead of raw fetch() for all API calls.
+ * Includes a 15s default timeout — callers can override via their own signal.
  */
 export async function authedFetch(
   url: string,
@@ -25,10 +27,27 @@ export async function authedFetch(
   const headers = new Headers(options.headers);
   headers.set("Authorization", `Bearer ${token}`);
 
+  // Add timeout if caller didn't provide their own signal
+  let controller: AbortController | undefined;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  if (!options.signal) {
+    controller = new AbortController();
+    timeoutId = setTimeout(() => controller!.abort(), DEFAULT_TIMEOUT_MS);
+  }
+
   try {
-    return await fetch(url, { ...options, headers });
+    return await fetch(url, {
+      ...options,
+      headers,
+      signal: options.signal ?? controller?.signal,
+    });
   } catch (err) {
+    if (controller?.signal.aborted) {
+      throw new Error(`Request to ${url} timed out after ${DEFAULT_TIMEOUT_MS / 1000}s`);
+    }
     console.error("[Narada] authedFetch: network error for", url, err);
     throw err;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 }
