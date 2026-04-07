@@ -8,7 +8,6 @@ import { PageSpinner } from "@/components/ui/page-spinner";
 import type { UpdateData } from "@/types";
 
 export default function UpdatesPage() {
-  const [updateCount, setUpdateCount] = useState(0);
   const [streak, setStreak] = useState(0);
   const [monthUpdates, setMonthUpdates] = useState<UpdateData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +24,6 @@ export default function UpdatesPage() {
       .then(([monthData, allData]) => {
         const mUpdates: UpdateData[] = monthData.updates || [];
         setMonthUpdates(mUpdates);
-        setUpdateCount(mUpdates.length);
 
         // Calculate streak client-side
         const allUpdates: UpdateData[] = allData.updates || [];
@@ -66,7 +64,6 @@ export default function UpdatesPage() {
 
   return (
     <UpdatesPageClient
-      updateCount={updateCount}
       streak={streak}
       monthUpdates={monthUpdates}
     />
