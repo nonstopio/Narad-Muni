@@ -1,7 +1,7 @@
 import Groq from "groq-sdk";
 import type { ClaudeParseResult } from "@/types/claude";
 import type { AIParseProvider, RepeatEntryInput } from "./types";
-import { buildSystemPrompt, buildUserMessage, PARSE_RESULT_JSON_SCHEMA } from "./prompt";
+import { buildSystemPrompt, buildUserMessage } from "./prompt";
 
 export class GroqProvider implements AIParseProvider {
   name = "Groq (Llama 4 Scout)";
@@ -30,14 +30,7 @@ export class GroqProvider implements AIParseProvider {
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
         ],
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "parse_result",
-            schema: PARSE_RESULT_JSON_SCHEMA,
-            strict: true,
-          },
-        },
+        response_format: { type: "json_object" },
         temperature: 0.3,
       });
     } catch (err) {
