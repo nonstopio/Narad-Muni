@@ -90,10 +90,10 @@ export async function POST(request: NextRequest) {
 function testMcpServer(
   command: string,
   args: string[]
-): Promise<{ success: boolean; tools?: string[]; error?: string }> {
+): Promise<{ success: boolean; tools?: Array<{ name: string; description: string }>; error?: string }> {
   return new Promise((resolve) => {
     let resolved = false;
-    const done = (result: { success: boolean; tools?: string[]; error?: string }) => {
+    const done = (result: { success: boolean; tools?: Array<{ name: string; description: string }>; error?: string }) => {
       if (resolved) return;
       resolved = true;
       clearTimeout(timer);
@@ -155,7 +155,10 @@ function testMcpServer(
           child.stdin.write(listReq + "\n");
         }
         if (msg.id === 2 && msg.result) {
-          const tools = (msg.result.tools || []).map((t: { name: string }) => t.name);
+          const tools = (msg.result.tools || []).map((t: { name: string; description?: string }) => ({
+            name: t.name,
+            description: t.description || "",
+          }));
           done({ success: true, tools });
         }
       }

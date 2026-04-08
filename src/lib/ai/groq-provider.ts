@@ -1,7 +1,7 @@
 import Groq from "groq-sdk";
 import type { ClaudeParseResult } from "@/types/claude";
 import type { AIParseProvider, RepeatEntryInput } from "./types";
-import { buildSystemPrompt, buildUserMessage } from "./prompt";
+import { buildSystemPrompt, buildUserMessage, PARSE_RESULT_JSON_SCHEMA } from "./prompt";
 
 export const GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 
@@ -21,6 +21,9 @@ export class GroqProvider implements AIParseProvider {
     const systemPrompt = buildSystemPrompt(date, repeatEntries);
     const userMessage = buildUserMessage(transcript);
 
+    // Groq requires the word "json" in messages when using response_format: json_object
+    const jsonInstruction = `\n\nRespond with ONLY a valid JSON object matching this schema:\n${JSON.stringify(PARSE_RESULT_JSON_SCHEMA, null, 2)}`;
+
     console.log(`[Narada → Groq] Sending request — model=${GROQ_MODEL}, system_prompt=${systemPrompt.length} chars, user_message=${userMessage.length} chars`);
 
     let response;
@@ -28,7 +31,7 @@ export class GroqProvider implements AIParseProvider {
       response = await this.client.chat.completions.create({
         model: GROQ_MODEL,
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: systemPrompt + jsonInstruction },
           { role: "user", content: userMessage },
         ],
         response_format: { type: "json_object" },

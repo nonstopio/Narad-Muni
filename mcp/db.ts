@@ -101,6 +101,80 @@ export async function getDraft(
 }
 
 /**
+ * Replace the entire draft content for a given date.
+ * If content is empty, deletes the draft doc.
+ */
+export async function replaceDraft(
+  db: Firestore,
+  userId: string,
+  dateStr: string,
+  content: string
+): Promise<void> {
+  const draftRef = db
+    .collection("users")
+    .doc(userId)
+    .collection("drafts")
+    .doc(dateStr);
+
+  if (!content.trim()) {
+    await draftRef.delete();
+    return;
+  }
+
+  await draftRef.set(
+    {
+      date: dateStr,
+      rawTranscript: content,
+      updatedAt: new Date().toISOString(),
+    },
+    { merge: true }
+  );
+}
+
+export interface UpdateStatus {
+  exists: boolean;
+  slackStatus?: string;
+  teamsStatus?: string;
+  jiraStatus?: string;
+  workLogTotal?: number;
+  workLogPosted?: number;
+}
+
+/**
+ * Check if an update has been published for a given date.
+ * Returns platform statuses and worklog counts.
+ */
+export async function getUpdateForDate(
+  db: Firestore,
+  userId: string,
+  dateStr: string
+): Promise<UpdateStatus> {
+  const snapshot = await db
+    .collection("users")
+    .doc(userId)
+    .collection("updates")
+    .where("date", "==", dateStr)
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    return { exists: false };
+  }
+
+  const data = snapshot.docs[0].data();
+  const workLogEntries = (data.workLogEntries || []) as Array<{ jiraWorklogId?: string | null }>;
+
+  return {
+    exists: true,
+    slackStatus: data.slackStatus,
+    teamsStatus: data.teamsStatus,
+    jiraStatus: data.jiraStatus,
+    workLogTotal: workLogEntries.length,
+    workLogPosted: workLogEntries.filter((e) => !!e.jiraWorklogId).length,
+  };
+}
+
+/**
  * Append an entry line to the day's draft in Firestore.
  * Creates the draft doc if it doesn't exist.
  * Returns the full draft content after appending.
