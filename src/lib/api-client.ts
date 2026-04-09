@@ -1,10 +1,10 @@
 import { auth } from "./firebase";
 
-const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 /**
  * Wrapper around fetch that injects the Firebase ID token as a Bearer token.
- * Includes a 15s default timeout — callers can override via their own signal.
+ * Includes a 30s default timeout — callers can override via their own signal.
  */
 export async function authedFetch(
   url: string,
