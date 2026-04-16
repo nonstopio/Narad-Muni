@@ -38,8 +38,15 @@ const adminApp = getAdminApp();
 console.log(`[Narada] Firebase Admin app ready (project: ${adminApp.options.projectId ?? "unknown"})`);
 
 export const adminDb = getFirestore(adminApp);
-// Allow undefined values in document data (they are stripped out instead of throwing)
-adminDb.settings({ ignoreUndefinedProperties: true });
+// Allow undefined values in document data (they are stripped out instead of throwing).
+// `settings()` can only be called once per Firestore instance; on Next.js dev hot-reload
+// the module may re-evaluate while the underlying Firestore singleton persists.
+try {
+  adminDb.settings({ ignoreUndefinedProperties: true });
+} catch (err) {
+  const message = err instanceof Error ? err.message : String(err);
+  if (!message.includes("already been initialized")) throw err;
+}
 
 export const adminAuth = getAuth(adminApp);
 export { adminApp };
