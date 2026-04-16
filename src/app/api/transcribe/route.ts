@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { transcribeAudio } from "@/lib/deepgram";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
 import { settingsDoc } from "@/lib/firestore-helpers";
+import { time } from "@/lib/timing";
 
 export async function POST(request: NextRequest) {
+  const routeStart = Date.now();
   try {
     const user = await verifyAuth(request);
     console.log(`[Narada] POST /api/transcribe uid=${user.uid}`);
@@ -26,14 +28,22 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer);
     console.log("[transcribe] Received audio:", audioFile.name, "size:", buffer.length, "bytes, type:", audioFile.type);
 
-    const { transcript, confidence, duration } = await transcribeAudio(buffer, deepgramApiKey);
-    console.log("[transcribe] Result: confidence:", confidence, "duration:", duration, "transcript length:", transcript.length);
+    const { result, ms: deepgramMs } = await time(() => transcribeAudio(buffer, deepgramApiKey));
+    const { transcript, confidence, duration } = result;
+    console.log(`[transcribe] Result: confidence=${confidence} duration=${duration} transcript_chars=${transcript.length} deepgram_ms=${deepgramMs}`);
 
+    const totalMs = Date.now() - routeStart;
     return NextResponse.json({
       success: true,
       transcript,
       confidence,
       duration,
+      _timings: {
+        totalMs,
+        deepgramMs,
+        overheadMs: Math.max(0, totalMs - deepgramMs),
+        audioSizeBytes: buffer.length,
+      },
     });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);

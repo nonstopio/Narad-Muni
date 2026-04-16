@@ -3,6 +3,24 @@ import { verifyAdmin } from "@/lib/admin-auth";
 import { handleAuthError } from "@/lib/auth-middleware";
 import { adminDb, adminAuth } from "@/lib/firebase-admin";
 import type { AdminAnalyticsData } from "@/types/admin";
+import type { UpdateMetrics } from "@/types";
+
+const LOCAL_PROVIDER_NAMES = new Set(["local-claude", "local-cursor"]);
+
+function percentile(sortedAsc: number[], p: number): number | null {
+  if (sortedAsc.length === 0) return null;
+  const idx = Math.min(sortedAsc.length - 1, Math.floor((p / 100) * sortedAsc.length));
+  return Math.round(sortedAsc[idx]);
+}
+
+function percentiles(samples: number[]): { p50: number | null; p95: number | null; sampleCount: number } {
+  const sorted = [...samples].sort((a, b) => a - b);
+  return {
+    p50: percentile(sorted, 50),
+    p95: percentile(sorted, 95),
+    sampleCount: samples.length,
+  };
+}
 
 // 5-minute in-memory cache
 let cache: { data: AdminAnalyticsData; expiry: number } | null = null;
@@ -84,6 +102,7 @@ async function computeAnalytics(rangeDays: number): Promise<AdminAnalyticsData> 
       slackStatus: string;
       teamsStatus: string;
       jiraStatus: string;
+      metrics: UpdateMetrics | null;
     }[];
   }[] = [];
 
@@ -205,6 +224,90 @@ async function computeAnalytics(rangeDays: number): Promise<AdminAnalyticsData> 
     userStreaks.set(user.uid, streak);
   }
 
+  // Performance metrics aggregation (only updates that carry `metrics`)
+  const samples = {
+    transcribe: [] as number[],
+    deepgram: [] as number[],
+    aiParse: [] as number[],
+    aiProvider: [] as number[],
+    slack: [] as number[],
+    teams: [] as number[],
+    jira: [] as number[],
+    totalPublish: [] as number[],
+  };
+  const providerProviderMs = new Map<string, number[]>();
+  let updatesWithMetrics = 0;
+  let totalTimeSavedSecs = 0;
+  const slowestStageCounts = new Map<string, number>();
+
+  for (const user of perUser) {
+    for (const update of user.updates) {
+      const m = update.metrics;
+      if (!m || !m.timings) continue;
+      updatesWithMetrics++;
+      totalTimeSavedSecs += m.estTimeSavedSecs ?? 0;
+
+      const t = m.timings;
+      const pushIf = (arr: number[], v: number | undefined) => {
+        if (typeof v === "number" && v >= 0) arr.push(v);
+      };
+      pushIf(samples.transcribe, t.transcribeMs);
+      pushIf(samples.deepgram, t.deepgramMs);
+      pushIf(samples.aiParse, t.aiParseMs);
+      pushIf(samples.aiProvider, t.aiProviderMs);
+      pushIf(samples.slack, t.slackMs);
+      pushIf(samples.teams, t.teamsMs);
+      pushIf(samples.jira, t.jiraMs);
+      pushIf(samples.totalPublish, t.totalPublishMs);
+
+      if (m.aiProvider && typeof t.aiProviderMs === "number" && t.aiProviderMs >= 0) {
+        const list = providerProviderMs.get(m.aiProvider) ?? [];
+        list.push(t.aiProviderMs);
+        providerProviderMs.set(m.aiProvider, list);
+      }
+
+      // Slowest stage (ignores totalPublish)
+      const stageSamples: Array<[string, number | undefined]> = [
+        ["transcribe", t.transcribeMs],
+        ["aiParse", t.aiParseMs],
+        ["slack", t.slackMs],
+        ["teams", t.teamsMs],
+        ["jira", t.jiraMs],
+      ];
+      let slowest: { stage: string; ms: number } | null = null;
+      for (const [stage, ms] of stageSamples) {
+        if (typeof ms !== "number" || ms < 0) continue;
+        if (!slowest || ms > slowest.ms) slowest = { stage, ms };
+      }
+      if (slowest) {
+        slowestStageCounts.set(slowest.stage, (slowestStageCounts.get(slowest.stage) ?? 0) + 1);
+      }
+    }
+  }
+
+  const stageLatency: AdminAnalyticsData["stageLatency"] = (
+    ["transcribe", "deepgram", "aiParse", "aiProvider", "slack", "teams", "jira", "totalPublish"] as const
+  ).map((stage) => ({ stage, ...percentiles(samples[stage]) }));
+
+  const cloudProviderLatency: AdminAnalyticsData["cloudProviderLatency"] = [];
+  const localProviderLatency: AdminAnalyticsData["localProviderLatency"] = [];
+  for (const [provider, arr] of providerProviderMs.entries()) {
+    const entry = { provider, ...percentiles(arr) };
+    if (LOCAL_PROVIDER_NAMES.has(provider)) {
+      localProviderLatency.push(entry);
+    } else {
+      cloudProviderLatency.push(entry);
+    }
+  }
+  cloudProviderLatency.sort((a, b) => (a.p50 ?? Infinity) - (b.p50 ?? Infinity));
+  localProviderLatency.sort((a, b) => (a.p50 ?? Infinity) - (b.p50 ?? Infinity));
+
+  const slowestStageDistribution: AdminAnalyticsData["slowestStageDistribution"] = Array.from(
+    slowestStageCounts.entries()
+  )
+    .map(([stage, count]) => ({ stage, count }))
+    .sort((a, b) => b.count - a.count);
+
   // Streak distribution buckets
   const streakBuckets = { "0": 0, "1-3": 0, "4-7": 0, "8-14": 0, "15+": 0 };
   for (const s of userStreaks.values()) {
@@ -224,10 +327,11 @@ async function computeAnalytics(rangeDays: number): Promise<AdminAnalyticsData> 
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  // Inactive users (no updates in range) — fetch their most recent update
-  const inactiveUserData = perUser.filter((u) => u.updates.length === 0);
-  for (let i = 0; i < inactiveUserData.length; i += CONCURRENCY) {
-    const batch = inactiveUserData.slice(i, i + CONCURRENCY);
+  // For users with no updates in range, fetch their most recent update so we can
+  // still show a meaningful "last active" value.
+  const usersWithoutUpdatesInRange = perUser.filter((u) => u.updates.length === 0);
+  for (let i = 0; i < usersWithoutUpdatesInRange.length; i += CONCURRENCY) {
+    const batch = usersWithoutUpdatesInRange.slice(i, i + CONCURRENCY);
     await Promise.all(
       batch.map(async (u) => {
         const snap = await adminDb
@@ -244,12 +348,17 @@ async function computeAnalytics(rangeDays: number): Promise<AdminAnalyticsData> 
     );
   }
 
-  const inactiveUsers = inactiveUserData
+  const users = perUser
     .map((u) => ({
       email: userEmails.get(u.uid) ?? u.uid,
       lastActive: lastActiveMap.get(u.uid) ?? null,
+      updateCount: u.updates.length,
+      isActive: u.updates.length > 0,
     }))
     .sort((a, b) => {
+      // Active first (desc by updateCount), then inactive by lastActive desc.
+      if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+      if (a.isActive && b.isActive) return b.updateCount - a.updateCount;
       if (!a.lastActive && !b.lastActive) return 0;
       if (!a.lastActive) return 1;
       if (!b.lastActive) return -1;
@@ -281,7 +390,13 @@ async function computeAnalytics(rangeDays: number): Promise<AdminAnalyticsData> 
       count,
     })),
     hourlyDistribution: hourly,
-    inactiveUsers,
+    users,
+    updatesWithMetrics,
+    totalTimeSavedSecs,
+    stageLatency,
+    cloudProviderLatency,
+    localProviderLatency,
+    slowestStageDistribution,
   };
 }
 
@@ -318,6 +433,7 @@ async function fetchUserData(uid: string, rangeStartStr: string) {
       slackStatus: d.slackStatus ?? "SKIPPED",
       teamsStatus: d.teamsStatus ?? "SKIPPED",
       jiraStatus: d.jiraStatus ?? "SKIPPED",
+      metrics: (d.metrics ?? null) as UpdateMetrics | null,
     };
   });
 

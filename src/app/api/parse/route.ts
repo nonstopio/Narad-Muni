@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAIProvider } from "@/lib/ai";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
 import { configsCol, settingsDoc } from "@/lib/firestore-helpers";
+import { time } from "@/lib/timing";
 import type { ClaudeTimeEntry } from "@/types/claude";
 
 const MIN_TOTAL_SECS = 28800; // 8 hours
@@ -48,6 +49,7 @@ function enforceTimeRules(allEntries: ClaudeTimeEntry[]): ClaudeTimeEntry[] {
 }
 
 export async function POST(request: NextRequest) {
+  const routeStart = Date.now();
   try {
     const user = await verifyAuth(request);
     console.log(`[Narada] POST /api/parse uid=${user.uid}`);
@@ -67,10 +69,13 @@ export async function POST(request: NextRequest) {
     // Read AI settings from Firestore to pass to provider
     const settingsSnap = await settingsDoc(user.uid).get();
     const settings = settingsSnap.data();
+    const providerName = (settings?.aiProvider ?? "local-claude") as string;
 
     const provider = await getAIProvider(settings);
     console.log(`[Narada] POST /api/parse provider=${provider.name} date=${date}`);
-    const result = await provider.parseTranscript(transcript, date, repeats);
+    const { result, ms: providerMs } = await time(() =>
+      provider.parseTranscript(transcript, date, repeats)
+    );
 
     // Merge repeat entries into time entries
     const repeatTimeEntries: ClaudeTimeEntry[] = (repeats || []).map(
@@ -86,11 +91,19 @@ export async function POST(request: NextRequest) {
     const merged = [...repeatTimeEntries, ...result.timeEntries];
     const allTimeEntries = enforceTimeRules(merged);
     const totalSecs = allTimeEntries.reduce((s, e) => s + e.timeSpentSecs, 0);
-    console.log(`[Narada] POST /api/parse success: tasks=${result.tasks?.length ?? 0} entries=${allTimeEntries.length} totalSecs=${totalSecs}`);
+    console.log(`[Narada] POST /api/parse success: tasks=${result.tasks?.length ?? 0} entries=${allTimeEntries.length} totalSecs=${totalSecs} provider_ms=${providerMs}`);
 
+    const totalMs = Date.now() - routeStart;
     return NextResponse.json({
       success: true,
       data: { ...result, timeEntries: allTimeEntries },
+      _timings: {
+        totalMs,
+        providerMs,
+        overheadMs: Math.max(0, totalMs - providerMs),
+        provider: providerName,
+        transcriptChars: transcript.length,
+      },
     });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);

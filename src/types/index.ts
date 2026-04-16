@@ -20,6 +20,48 @@ export interface UpdateData {
   teamsStatus: PublishStatus;
   jiraStatus: PublishStatus;
   workLogEntries: WorkLogEntryData[];
+  metrics?: UpdateMetrics;
+}
+
+export interface UpdateMetricsTimings {
+  transcribeMs?: number;
+  deepgramMs?: number;
+  aiParseMs?: number;
+  aiProviderMs?: number;
+  slackMs?: number;
+  teamsMs?: number;
+  jiraMs?: number;
+  totalPublishMs: number;
+}
+
+export interface UpdateMetrics {
+  aiProvider: string;
+  transcriptChars: number;
+  transcriptWords: number;
+  audioSizeBytes: number | null;
+  taskCount: number;
+  blockerCount: number;
+  timeEntryCount: number;
+  platformsEnabled: number;
+  platformsSucceeded: number;
+  estTimeSavedSecs: number;
+  timings: UpdateMetricsTimings;
+}
+
+/**
+ * Client-side accumulator of metrics collected during the transcribe/parse phases,
+ * forwarded to POST /api/updates so the server can assemble the final `metrics` object.
+ */
+export interface UpdateMetricsHints {
+  aiProvider?: string;
+  transcriptChars?: number;
+  audioSizeBytes?: number;
+  taskCount?: number;
+  blockerCount?: number;
+  deepgramMs?: number;
+  transcribeMs?: number;
+  aiProviderMs?: number;
+  aiParseMs?: number;
 }
 
 export interface WorkLogEntryData {

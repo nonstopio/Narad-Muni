@@ -3,7 +3,7 @@
 import { useRef, useCallback, useEffect } from "react";
 import { useUpdateStore } from "@/stores/update-store";
 import { authedFetch } from "@/lib/api-client";
-import { trackEvent } from "@/lib/analytics";
+import { trackEvent, classifyError } from "@/lib/analytics";
 
 export function useAudioRecorder() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -69,6 +69,8 @@ export function useAudioRecorder() {
         // Auto-transcribe and fill the textarea
         setIsTranscribing(true);
         setProcessingError(null);
+        trackEvent("transcription_start", { audio_size_bytes: blob.size });
+        const autoTranscribeStart = Date.now();
         try {
           console.log("[Narada] Auto-transcribing audio:", blob.size, "bytes");
           const formData = new FormData();
@@ -78,16 +80,33 @@ export function useAudioRecorder() {
             body: formData,
           });
           const data = await res.json();
+          const wallMs = Date.now() - autoTranscribeStart;
           console.log("[Narada] Transcription result:", data);
           if (data.success && data.transcript) {
             console.log("[Narada] Transcript received:", data.transcript.substring(0, 100) + (data.transcript.length > 100 ? "..." : ""));
             const current = useUpdateStore.getState().rawTranscript;
-            setRawTranscript(current ? current + " " + data.transcript : data.transcript);
+            const next = current ? current + " " + data.transcript : data.transcript;
+            setRawTranscript(next);
+            const deepgramMs: number | undefined = data._timings?.deepgramMs;
+            useUpdateStore.getState().mergeMetricsHints({
+              audioSizeBytes: blob.size,
+              transcriptChars: next.length,
+              transcribeMs: wallMs,
+              deepgramMs,
+            });
+            trackEvent("transcription_complete", {
+              duration_ms: wallMs,
+              deepgram_ms: typeof deepgramMs === "number" ? deepgramMs : -1,
+              audio_size_bytes: blob.size,
+              transcript_chars: next.length,
+            });
           } else {
+            trackEvent("processing_error", { stage: "transcribe", reason: classifyError(data.error) });
             setProcessingError(data.error || "Transcription failed");
           }
         } catch (err) {
           console.error("[Narada] Transcription error:", err);
+          trackEvent("processing_error", { stage: "transcribe", reason: classifyError(err) });
           setProcessingError(err instanceof Error ? err.message : "Transcription failed");
         } finally {
           setIsTranscribing(false);

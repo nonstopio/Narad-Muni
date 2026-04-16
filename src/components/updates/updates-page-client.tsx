@@ -16,6 +16,21 @@ function formatMonth(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// Fallback used for updates missing `metrics` (i.e. published before analytics v2).
+const FALLBACK_TIME_SAVED_SECS = 12 * 60;
+
+function formatTimeReclaimed(updates: UpdateData[]): string {
+  const totalSecs = updates.reduce((sum, u) => {
+    const v = u.metrics?.estTimeSavedSecs;
+    return sum + (typeof v === "number" ? v : FALLBACK_TIME_SAVED_SECS);
+  }, 0);
+  const totalMins = Math.round(totalSecs / 60);
+  if (totalMins < 60) return `${totalMins}m`;
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
+}
+
 interface Props {
   streak: number;
   monthUpdates: UpdateData[];
@@ -97,7 +112,7 @@ export function UpdatesPageClient({
     },
     {
       label: "Time Reclaimed",
-      value: `${monthUpdates.length * 12}m`,
+      value: formatTimeReclaimed(monthUpdates),
       icon: "\u23F1\uFE0F",
       color: "emerald",
     },

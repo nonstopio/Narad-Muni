@@ -5,7 +5,7 @@ import { useUpdateStore } from "@/stores/update-store";
 import { useAppStore } from "@/stores/app-store";
 import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
-import { trackEvent } from "@/lib/analytics";
+import { trackEvent, classifyError } from "@/lib/analytics";
 import { traceAsync, startTrace, stopTrace } from "@/lib/performance";
 import type { PublishStatus } from "@/types";
 
@@ -37,7 +37,10 @@ export function useUpdateFlow() {
       setProcessingStage,
       setIsProcessing,
       setPreviewReady,
+      mergeMetricsHints,
+      setMetricsHints,
     } = store;
+    setMetricsHints(null);
 
     if (!rawTranscript && !audioBlob) return;
 
@@ -61,10 +64,11 @@ export function useUpdateFlow() {
 
       // Transcribe audio if we have a blob but no text
       if (audioBlob && !transcript) {
-        trackEvent("transcription_start");
+        trackEvent("transcription_start", { audio_size_bytes: audioBlob.size });
         setProcessingStage("transcribing");
         console.log("[Narada] Transcribing audio blob:", audioBlob.size, "bytes, type:", audioBlob.type);
 
+        const transcribeStart = Date.now();
         const transcribeData = await traceAsync("narada_transcribe", async () => {
           const formData = new FormData();
           formData.append("audio", audioBlob, "recording.webm");
@@ -75,14 +79,30 @@ export function useUpdateFlow() {
           });
           return transcribeRes.json();
         });
+        const transcribeWallMs = Date.now() - transcribeStart;
         console.log("[Narada] Transcription response:", transcribeData);
 
         if (!transcribeData.success) {
+          trackEvent("processing_error", { stage: "transcribe", reason: classifyError(transcribeData.error) });
           throw new Error(transcribeData.error || "Transcription failed");
         }
 
-        transcript = transcribeData.transcript;
+        transcript = transcribeData.transcript ?? "";
         setRawTranscript(transcript);
+
+        const deepgramMs = transcribeData._timings?.deepgramMs;
+        mergeMetricsHints({
+          audioSizeBytes: audioBlob.size,
+          transcriptChars: transcript.length,
+          transcribeMs: transcribeWallMs,
+          deepgramMs,
+        });
+        trackEvent("transcription_complete", {
+          duration_ms: transcribeWallMs,
+          deepgram_ms: typeof deepgramMs === "number" ? deepgramMs : -1,
+          audio_size_bytes: audioBlob.size,
+          transcript_chars: transcript.length,
+        });
       } else {
         setProcessingStage("transcribing");
         // Brief pause so user sees transcript stage
@@ -90,12 +110,13 @@ export function useUpdateFlow() {
       }
 
       // Parse with AI
-      trackEvent("ai_processing_start");
+      trackEvent("ai_processing_start", { transcript_chars: transcript.length });
       setProcessingStage("analyzing");
       const dateStr = selectedDate
         ? selectedDate.toLocaleDateString("sv-SE")
         : new Date().toLocaleDateString("sv-SE");
 
+      const parseStart = Date.now();
       const parseData = await traceAsync("narada_ai_parse", async () => {
         const parseRes = await authedFetch("/api/parse", {
           method: "POST",
@@ -104,14 +125,36 @@ export function useUpdateFlow() {
         });
         return parseRes.json();
       });
+      const parseWallMs = Date.now() - parseStart;
 
       if (!parseData.success) {
+        trackEvent("processing_error", { stage: "parse", reason: classifyError(parseData.error) });
         throw new Error(parseData.error || "Parsing failed");
       }
 
-      trackEvent("ai_processing_complete");
-      setProcessingStage("formatting");
       const { data } = parseData;
+      const providerMs: number | undefined = parseData._timings?.providerMs;
+      const provider: string = parseData._timings?.provider ?? "unknown";
+      const taskCount: number = Array.isArray(data?.tasks) ? data.tasks.length : 0;
+      const blockerCount: number = Array.isArray(data?.blockers) ? data.blockers.length : 0;
+      const timeEntryCount: number = Array.isArray(data?.timeEntries) ? data.timeEntries.length : 0;
+
+      mergeMetricsHints({
+        aiProvider: provider,
+        aiParseMs: parseWallMs,
+        aiProviderMs: providerMs,
+        taskCount,
+        blockerCount,
+      });
+      trackEvent("ai_processing_complete", {
+        duration_ms: parseWallMs,
+        provider_ms: typeof providerMs === "number" ? providerMs : -1,
+        provider,
+        task_count: taskCount,
+        blocker_count: blockerCount,
+        time_entry_count: timeEntryCount,
+      });
+      setProcessingStage("formatting");
       setSlackOutput(data.slackFormat);
       setTeamsOutput(data.teamsFormat);
       setWorkLogEntries(
@@ -133,6 +176,7 @@ export function useUpdateFlow() {
     } catch (error) {
       console.error("[Narada] Processing error:", error);
       const message = error instanceof Error ? error.message : "Something went wrong";
+      trackEvent("processing_error", { stage: "process", reason: classifyError(error) });
       setProcessingError(message);
       setProcessingStage(null);
       setIsProcessing(false);
@@ -151,6 +195,7 @@ export function useUpdateFlow() {
       jiraEnabled,
       setStep,
       setIsProcessing,
+      metricsHints,
     } = store;
 
     trackEvent("publish_start", {
@@ -166,6 +211,7 @@ export function useUpdateFlow() {
         ? selectedDate.toLocaleDateString("sv-SE")
         : new Date().toLocaleDateString("sv-SE");
 
+      const publishStart = Date.now();
       const data = await traceAsync("narada_publish", async () => {
         const res = await authedFetch("/api/updates", {
           method: "POST",
@@ -179,18 +225,29 @@ export function useUpdateFlow() {
             slackEnabled,
             teamsEnabled,
             jiraEnabled,
+            metricsHints,
           }),
         });
         return res.json();
       });
+      const publishWallMs = Date.now() - publishStart;
       if (!data.success) {
+        trackEvent("processing_error", { stage: "publish", reason: classifyError(data.error) });
         throw new Error(data.error);
       }
 
+      const timings = data._timings ?? {};
       trackEvent("publish_complete", {
         slack: data.update.slackStatus,
         teams: data.update.teamsStatus,
         jira: data.update.jiraStatus,
+        duration_ms: publishWallMs,
+        total_publish_ms: typeof timings.totalPublishMs === "number" ? timings.totalPublishMs : -1,
+        slack_ms: typeof timings.slackMs === "number" ? timings.slackMs : -1,
+        teams_ms: typeof timings.teamsMs === "number" ? timings.teamsMs : -1,
+        jira_ms: typeof timings.jiraMs === "number" ? timings.jiraMs : -1,
+        platforms_succeeded: typeof timings.platformsSucceeded === "number" ? timings.platformsSucceeded : 0,
+        est_time_saved_secs: typeof timings.estTimeSavedSecs === "number" ? timings.estTimeSavedSecs : 0,
       });
       setStep("editing");
       setIsProcessing(false);

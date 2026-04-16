@@ -3,7 +3,10 @@ import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware"
 import { updatesCol, configsCol } from "@/lib/firestore-helpers";
 import { linkifyTickets } from "@/lib/linkify-tickets";
 import { findWorkflowThread, postThreadReply } from "@/lib/slack-thread";
+import { time } from "@/lib/timing";
+import { getTimeSavedConstants, estimateTimeSavedSecs } from "@/lib/time-saved";
 import { type DocumentReference, type Query, type QueryDocumentSnapshot } from "firebase-admin/firestore";
+import type { UpdateMetrics, UpdateMetricsHints } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Jira worklog helpers
@@ -87,10 +90,11 @@ async function publishJiraWorklogs(
   config: { baseUrl: string; email: string; apiToken: string; timezone: string },
   entries: WorkLogEntryDoc[],
   updateRef: DocumentReference
-): Promise<void> {
+): Promise<{ fetchMs: number }> {
   const authToken = "Basic " + Buffer.from(config.email + ":" + config.apiToken).toString("base64");
   const total = entries.length;
   let succeeded = 0;
+  let fetchMs = 0;
   const failedKeys: string[] = [];
 
   console.log(`[Narada] Jira worklogs: publishing ${total} entries`);
@@ -127,6 +131,7 @@ async function publishJiraWorklogs(
 
     for (let attempt = 1; attempt <= JIRA_MAX_RETRIES; attempt++) {
       try {
+        const fetchStart = Date.now();
         const res = await fetch(url, {
           method: "POST",
           headers: {
@@ -136,6 +141,7 @@ async function publishJiraWorklogs(
           },
           body: JSON.stringify(payload),
         });
+        fetchMs += Date.now() - fetchStart;
 
         if (res.ok) {
           const body = await res.json();
@@ -176,12 +182,13 @@ async function publishJiraWorklogs(
   }
 
   const allSucceeded = failedKeys.length === 0;
-  console.log(`[Narada] Jira worklogs: ${succeeded}/${total} succeeded`);
+  console.log(`[Narada] Jira worklogs: ${succeeded}/${total} succeeded, fetchMs=${fetchMs}`);
   // Single write at the end with all updated worklog IDs + final status
   await updateRef.update({
     workLogEntries: entries,
     jiraStatus: allSucceeded ? "SENT" : "FAILED",
   });
+  return { fetchMs };
 }
 
 // ---------------------------------------------------------------------------
@@ -396,15 +403,36 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const routeStart = Date.now();
   try {
     const user = await verifyAuth(request);
     console.log(`[Narada] POST /api/updates uid=${user.uid}`);
     const body = await request.json();
-    const { date, rawTranscript, slackOutput, teamsOutput, workLogEntries, slackEnabled, teamsEnabled, jiraEnabled } = body;
+    const {
+      date,
+      rawTranscript,
+      slackOutput,
+      teamsOutput,
+      workLogEntries,
+      slackEnabled,
+      teamsEnabled,
+      jiraEnabled,
+      metricsHints,
+    }: {
+      date: string;
+      rawTranscript: string;
+      slackOutput?: string;
+      teamsOutput?: string;
+      workLogEntries?: { issueKey: string; timeSpentSecs: number; started: string; comment?: string; isRepeat: boolean }[];
+      slackEnabled: boolean;
+      teamsEnabled: boolean;
+      jiraEnabled: boolean;
+      metricsHints?: UpdateMetricsHints;
+    } = body;
 
     // Build work log entries with IDs
     const entries: WorkLogEntryDoc[] = (workLogEntries || []).map(
-      (entry: { issueKey: string; timeSpentSecs: number; started: string; comment?: string; isRepeat: boolean }) => ({
+      (entry) => ({
         id: crypto.randomUUID(),
         issueKey: entry.issueKey,
         timeSpentSecs: entry.timeSpentSecs,
@@ -428,7 +456,7 @@ export async function POST(request: NextRequest) {
     };
 
     const docRef = await updatesCol(user.uid).add(updateData);
-    const update = { id: docRef.id, ...updateData };
+    const update: typeof updateData & { id: string; metrics?: UpdateMetrics } = { id: docRef.id, ...updateData };
 
     // Fetch Jira baseUrl for linkifying
     let jiraBaseUrl: string | null = null;
@@ -436,6 +464,10 @@ export async function POST(request: NextRequest) {
       const jiraDoc = await configsCol(user.uid).doc("JIRA").get();
       jiraBaseUrl = jiraDoc.data()?.baseUrl?.trim() || null;
     } catch (err) { console.error("[Narada] POST /api/updates: failed to fetch Jira baseUrl:", err); }
+
+    let slackMs: number | undefined;
+    let teamsMs: number | undefined;
+    let jiraMs: number | undefined;
 
     // Publish to Slack
     if (slackEnabled && slackOutput) {
@@ -447,11 +479,17 @@ export async function POST(request: NextRequest) {
           const linkedSlackOutput = jiraBaseUrl ? linkifyTickets(slackOutput, jiraBaseUrl, "slack") : slackOutput;
 
           if (slackConfig.slackThreadMode && slackConfig.slackBotToken && slackConfig.slackChannelId) {
-            await publishSlackViaThread(slackConfig as Parameters<typeof publishSlackViaThread>[0], linkedSlackOutput, slackConfig.userId, date, slackConfig.teamLeadId);
+            const { ms } = await time(() =>
+              publishSlackViaThread(slackConfig as Parameters<typeof publishSlackViaThread>[0], linkedSlackOutput, slackConfig.userId, date, slackConfig.teamLeadId)
+            );
+            slackMs = ms;
             await docRef.update({ slackStatus: "SENT" });
             update.slackStatus = "SENT";
           } else if (slackConfig.webhookUrl) {
-            await sendSlackWebhook(slackConfig.webhookUrl, linkedSlackOutput, slackConfig.userId, date, slackConfig.teamLeadId);
+            const { ms } = await time(() =>
+              sendSlackWebhook(slackConfig.webhookUrl, linkedSlackOutput, slackConfig.userId, date, slackConfig.teamLeadId)
+            );
+            slackMs = ms;
             await docRef.update({ slackStatus: "SENT" });
             update.slackStatus = "SENT";
           } else {
@@ -475,7 +513,10 @@ export async function POST(request: NextRequest) {
 
         if (teamsConfig?.isActive && teamsConfig?.webhookUrl) {
           const linkedTeamsOutput = jiraBaseUrl ? linkifyTickets(teamsOutput, jiraBaseUrl, "teams") : teamsOutput;
-          await sendTeamsWebhook(teamsConfig.webhookUrl, linkedTeamsOutput, teamsConfig.userName, teamsConfig.userId, date, teamsConfig.teamLeadName, teamsConfig.teamLeadId);
+          const { ms } = await time(() =>
+            sendTeamsWebhook(teamsConfig.webhookUrl, linkedTeamsOutput, teamsConfig.userName, teamsConfig.userId, date, teamsConfig.teamLeadName, teamsConfig.teamLeadId)
+          );
+          teamsMs = ms;
           await docRef.update({ teamsStatus: "SENT" });
           update.teamsStatus = "SENT";
         } else {
@@ -497,11 +538,12 @@ export async function POST(request: NextRequest) {
         const jiraConfig = jiraDoc.data();
 
         if (jiraConfig?.isActive && jiraConfig?.baseUrl && jiraConfig?.email && jiraConfig?.apiToken) {
-          await publishJiraWorklogs(
+          const { fetchMs } = await publishJiraWorklogs(
             { baseUrl: jiraConfig.baseUrl, email: jiraConfig.email, apiToken: jiraConfig.apiToken, timezone: jiraConfig.timezone || "Asia/Kolkata" },
             entries,
             docRef
           );
+          jiraMs = fetchMs;
           const refreshed = await docRef.get();
           const refreshedData = refreshed.data();
           update.jiraStatus = refreshedData?.jiraStatus ?? update.jiraStatus;
@@ -518,7 +560,65 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, update });
+    // Assemble metrics
+    const totalPublishMs = Date.now() - routeStart;
+    const platformsEnabled = [slackEnabled, teamsEnabled, jiraEnabled].filter(Boolean).length;
+    const platformsSucceeded =
+      (update.slackStatus === "SENT" ? 1 : 0) +
+      (update.teamsStatus === "SENT" ? 1 : 0) +
+      (update.jiraStatus === "SENT" ? 1 : 0);
+
+    const transcript = rawTranscript || "";
+    const transcriptChars = metricsHints?.transcriptChars ?? transcript.length;
+    const transcriptWords = transcript.trim() ? transcript.trim().split(/\s+/).length : 0;
+    const taskCount = metricsHints?.taskCount ?? 0;
+    const blockerCount = metricsHints?.blockerCount ?? 0;
+    const timeEntryCount = entries.length;
+
+    const constants = await getTimeSavedConstants();
+    const estTimeSavedSecs = estimateTimeSavedSecs(
+      { platformsSucceeded, taskCount, timeEntryCount, toolTimeSecs: totalPublishMs / 1000 },
+      constants
+    );
+
+    const metrics: UpdateMetrics = {
+      aiProvider: metricsHints?.aiProvider ?? "unknown",
+      transcriptChars,
+      transcriptWords,
+      audioSizeBytes: metricsHints?.audioSizeBytes ?? null,
+      taskCount,
+      blockerCount,
+      timeEntryCount,
+      platformsEnabled,
+      platformsSucceeded,
+      estTimeSavedSecs,
+      timings: {
+        transcribeMs: metricsHints?.transcribeMs,
+        deepgramMs: metricsHints?.deepgramMs,
+        aiParseMs: metricsHints?.aiParseMs,
+        aiProviderMs: metricsHints?.aiProviderMs,
+        slackMs,
+        teamsMs,
+        jiraMs,
+        totalPublishMs,
+      },
+    };
+
+    await docRef.update({ metrics });
+    update.metrics = metrics;
+
+    return NextResponse.json({
+      success: true,
+      update,
+      _timings: {
+        totalPublishMs,
+        slackMs,
+        teamsMs,
+        jiraMs,
+        platformsSucceeded,
+        estTimeSavedSecs,
+      },
+    });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada] POST /api/updates error:", error);

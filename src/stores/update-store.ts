@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ModalStep, ProcessingStage, WorkLogEntryData, PlatformConfigData, PublishStatus } from "@/types";
+import type { ModalStep, ProcessingStage, WorkLogEntryData, PlatformConfigData, PublishStatus, UpdateMetricsHints } from "@/types";
 
 interface UpdateStore {
   step: ModalStep;
@@ -23,6 +23,11 @@ interface UpdateStore {
   // Jira linkification
   jiraBaseUrl: string | null;
   setJiraBaseUrl: (url: string | null) => void;
+
+  // Metrics hints carried forward from transcribe/parse to publish
+  metricsHints: UpdateMetricsHints | null;
+  setMetricsHints: (hints: UpdateMetricsHints | null) => void;
+  mergeMetricsHints: (patch: Partial<UpdateMetricsHints>) => void;
 
   // Retry mode
   retryMode: boolean;
@@ -93,6 +98,7 @@ const initialState = {
   retrySlackStatus: null as PublishStatus | null,
   retryTeamsStatus: null as PublishStatus | null,
   retryJiraStatus: null as PublishStatus | null,
+  metricsHints: null as UpdateMetricsHints | null,
 };
 
 export const useUpdateStore = create<UpdateStore>((set) => ({
@@ -144,6 +150,9 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
   setRetryUpdateId: (id) => set({ retryUpdateId: id }),
   setRetryStatuses: (slack, teams, jira) =>
     set({ retrySlackStatus: slack, retryTeamsStatus: teams, retryJiraStatus: jira }),
+  setMetricsHints: (hints) => set({ metricsHints: hints }),
+  mergeMetricsHints: (patch) =>
+    set((state) => ({ metricsHints: { ...(state.metricsHints ?? {}), ...patch } })),
   initPlatformToggles: (configs) =>
     set({
       slackEnabled: configs.find((c) => c.platform === "SLACK")?.isActive ?? false,
@@ -175,6 +184,7 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
       retrySlackStatus: null,
       retryTeamsStatus: null,
       retryJiraStatus: null,
+      metricsHints: null,
       // Note: platform toggles are NOT reset — they're set by initPlatformToggles
     }),
   reset: () => set(initialState),
