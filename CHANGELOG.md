@@ -5,6 +5,15 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2026-04-17
+
+### ✨ Features
+- Per-transaction performance analytics and admin observability
+
+### 🐛 Bug Fixes
+- Bump authedFetch timeout to 45s and guard firebase-admin hot-reload
+- Increase authedFetch default timeout from 15s to 30s
+
 ## [1.10.2] - 2026-04-08
 
 ### ✨ Features
