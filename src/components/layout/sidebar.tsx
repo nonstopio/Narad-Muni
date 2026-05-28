@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Clock, Settings, Bug, LogOut, BarChart3 } from "lucide-react";
+import { Calendar, Clock, Settings, Bug, LogOut, BarChart3, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { authedFetch } from "@/lib/api-client";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -69,7 +69,11 @@ export function Sidebar() {
   }, []);
 
   const allNavItems = isAdmin
-    ? [...navItems, { href: "/admin/analytics", label: "Observatory", icon: BarChart3 }]
+    ? [
+        ...navItems,
+        { href: "/admin/analytics", label: "Observatory", icon: BarChart3 },
+        { href: "/admin/settings", label: "Sacred Sanctum", icon: ShieldCheck },
+      ]
     : navItems;
 
   return (

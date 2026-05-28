@@ -2,21 +2,68 @@ import { NextRequest, NextResponse } from "next/server";
 import { spawn } from "child_process";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
 import { settingsDoc } from "@/lib/firestore-helpers";
-import type { AIProvider } from "@/types";
+import { resolveProviderConfig, type AppSettings } from "@/lib/ai";
+import { getGlobalAIConfig } from "@/lib/global-ai-config";
+import type { AIProvider, KeyProvider } from "@/types";
 
-const VALID_PROVIDERS: AIProvider[] = ["gemini", "claude-api", "local-claude", "local-cursor", "groq"];
+const VALID_PROVIDERS: AIProvider[] = [
+  "gemini",
+  "claude-api",
+  "local-claude",
+  "local-cursor",
+  "groq",
+  "openai",
+  "azure-openai",
+];
 const CLI_TIMEOUT_MS = 15_000;
+const MASKED = "••••••••";
+
+const KEY_PROVIDERS = new Set<AIProvider>([
+  "gemini",
+  "claude-api",
+  "groq",
+  "openai",
+  "azure-openai",
+]);
+
+function isKeyProvider(p: AIProvider): p is KeyProvider {
+  return KEY_PROVIDERS.has(p);
+}
+
+/** Treat masked/empty values from the form as "no override". */
+function pickOverride(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  if (!v) return undefined;
+  if (v.includes(MASKED)) return undefined;
+  return v;
+}
 
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const body = await request.json();
-    const { provider, geminiApiKey, claudeApiKey, groqApiKey, useStoredKey } = body as {
+    const {
+      provider,
+      geminiApiKey,
+      claudeApiKey,
+      groqApiKey,
+      openaiApiKey,
+      azureOpenaiApiKey,
+      azureOpenaiEndpoint,
+      azureOpenaiDeployment,
+      azureOpenaiApiVersion,
+      useGlobal,
+    } = body as {
       provider: AIProvider;
       geminiApiKey?: string;
       claudeApiKey?: string;
       groqApiKey?: string;
-      useStoredKey?: boolean;
+      openaiApiKey?: string;
+      azureOpenaiApiKey?: string;
+      azureOpenaiEndpoint?: string;
+      azureOpenaiDeployment?: string;
+      azureOpenaiApiVersion?: string;
+      useGlobal?: boolean;
     };
 
     if (!provider || !VALID_PROVIDERS.includes(provider)) {
@@ -26,34 +73,61 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    switch (provider) {
+    if (provider === "local-claude") {
+      await spawnTest("claude", [
+        "--print", "--no-session-persistence", "--model", "sonnet",
+        "--max-budget-usd", "0.01", "Say hello in one word",
+      ]);
+      return NextResponse.json({ success: true });
+    }
+
+    if (provider === "local-cursor") {
+      await spawnTest("agent", ["--trust", "-p", "Say hello in one word"]);
+      return NextResponse.json({ success: true });
+    }
+
+    if (!isKeyProvider(provider)) {
+      return NextResponse.json({ success: false, error: "Unsupported provider" }, { status: 400 });
+    }
+
+    // Always start from the user's stored settings, then overlay any form
+    // values the request provided. Masked / blank values from the form are
+    // treated as "no override" so the stored secret is preserved.
+    const snap = await settingsDoc(user.uid).get();
+    const stored = (snap.data() ?? {}) as Record<string, string | undefined>;
+
+    const settings: AppSettings = {
+      geminiApiKey: pickOverride(geminiApiKey) ?? stored.geminiApiKey,
+      claudeApiKey: pickOverride(claudeApiKey) ?? stored.claudeApiKey,
+      groqApiKey: pickOverride(groqApiKey) ?? stored.groqApiKey,
+      openaiApiKey: pickOverride(openaiApiKey) ?? stored.openaiApiKey,
+      azureOpenaiApiKey: pickOverride(azureOpenaiApiKey) ?? stored.azureOpenaiApiKey,
+      azureOpenaiEndpoint:
+        pickOverride(azureOpenaiEndpoint) ?? stored.azureOpenaiEndpoint,
+      azureOpenaiDeployment:
+        pickOverride(azureOpenaiDeployment) ?? stored.azureOpenaiDeployment,
+      azureOpenaiApiVersion:
+        pickOverride(azureOpenaiApiVersion) ?? stored.azureOpenaiApiVersion,
+    };
+
+    if (useGlobal) {
+      settings.useGlobalFor = { [provider]: true };
+    }
+
+    const global = await getGlobalAIConfig();
+    const resolved = resolveProviderConfig(provider, settings, global);
+
+    switch (resolved.kind) {
       case "gemini": {
-        let apiKey = geminiApiKey;
-        if (useStoredKey) {
-          const snap = await settingsDoc(user.uid).get();
-          apiKey = snap.data()?.geminiApiKey ?? undefined;
-        }
-        if (!apiKey) {
-          return NextResponse.json({ success: false, error: "No Gemini API key provided" }, { status: 400 });
-        }
         const { GoogleGenerativeAI } = await import("@google/generative-ai");
-        const genAI = new GoogleGenerativeAI(apiKey);
+        const genAI = new GoogleGenerativeAI(resolved.apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
         await model.generateContent("Say hello in one word");
         break;
       }
-
       case "claude-api": {
-        let apiKey = claudeApiKey;
-        if (useStoredKey) {
-          const snap = await settingsDoc(user.uid).get();
-          apiKey = snap.data()?.claudeApiKey ?? undefined;
-        }
-        if (!apiKey) {
-          return NextResponse.json({ success: false, error: "No Anthropic API key provided" }, { status: 400 });
-        }
         const { default: Anthropic } = await import("@anthropic-ai/sdk");
-        const client = new Anthropic({ apiKey });
+        const client = new Anthropic({ apiKey: resolved.apiKey });
         await client.messages.create({
           model: "claude-sonnet-4-20250514",
           max_tokens: 10,
@@ -61,36 +135,48 @@ export async function POST(request: NextRequest) {
         });
         break;
       }
-
-      case "local-claude": {
-        await spawnTest("claude", [
-          "--print", "--no-session-persistence", "--model", "sonnet",
-          "--max-budget-usd", "0.01", "Say hello in one word",
-        ]);
-        break;
-      }
-
-      case "local-cursor": {
-        await spawnTest("agent", ["--trust", "-p", "Say hello in one word"]);
-        break;
-      }
-
       case "groq": {
-        let apiKey = groqApiKey;
-        if (useStoredKey) {
-          const snap = await settingsDoc(user.uid).get();
-          apiKey = snap.data()?.groqApiKey ?? undefined;
-        }
-        if (!apiKey) {
-          return NextResponse.json({ success: false, error: "No Groq API key provided" }, { status: 400 });
-        }
         const { default: Groq } = await import("groq-sdk");
         const { GROQ_MODEL } = await import("@/lib/ai/groq-provider");
-        const client = new Groq({ apiKey, timeout: 15_000 });
+        const client = new Groq({ apiKey: resolved.apiKey, timeout: 15_000 });
         await client.chat.completions.create({
           model: GROQ_MODEL,
           messages: [{ role: "user", content: "Say hello in one word" }],
           max_tokens: 10,
+        });
+        break;
+      }
+      case "openai": {
+        const { default: OpenAI } = await import("openai");
+        const { DEFAULT_OPENAI_MODEL } = await import("@/lib/ai/openai-provider");
+        const client = new OpenAI({
+          apiKey: resolved.apiKey,
+          baseURL: resolved.baseUrl || undefined,
+          timeout: 15_000,
+        });
+        await client.chat.completions.create({
+          model: resolved.model || DEFAULT_OPENAI_MODEL,
+          messages: [{ role: "user", content: "Say hello in one word" }],
+          max_completion_tokens: 16,
+        });
+        break;
+      }
+      case "azure-openai": {
+        const { AzureOpenAI } = await import("openai");
+        const client = new AzureOpenAI({
+          apiKey: resolved.apiKey,
+          endpoint: resolved.endpoint,
+          deployment: resolved.deployment,
+          apiVersion: resolved.apiVersion,
+          timeout: 15_000,
+        });
+        console.log(
+          `[Test AI → Azure] endpoint=${resolved.endpoint} deployment=${resolved.deployment} apiVersion=${resolved.apiVersion}`
+        );
+        await client.chat.completions.create({
+          model: resolved.deployment,
+          messages: [{ role: "user", content: "Say hello in one word" }],
+          max_completion_tokens: 16,
         });
         break;
       }

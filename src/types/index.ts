@@ -1,4 +1,8 @@
-export type AIProvider = "gemini" | "claude-api" | "local-claude" | "local-cursor" | "groq";
+export type AIProvider = "gemini" | "claude-api" | "local-claude" | "local-cursor" | "groq" | "openai" | "azure-openai";
+
+export type KeyProvider = Exclude<AIProvider, "local-claude" | "local-cursor">;
+
+export const KEY_PROVIDERS: KeyProvider[] = ["gemini", "claude-api", "groq", "openai", "azure-openai"];
 
 export type PublishStatus = "PENDING" | "SENT" | "FAILED" | "SKIPPED";
 
