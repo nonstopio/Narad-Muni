@@ -5,8 +5,8 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, RefreshCw, X } from "lucide-react";
-import type { AIProvider } from "@/types";
+import { ExternalLink, RefreshCw, X, Sparkles } from "lucide-react";
+import type { AIProvider, KeyProvider } from "@/types";
 
 const PROVIDERS: { value: AIProvider; label: string; description: string }[] = [
   {
@@ -34,26 +34,65 @@ const PROVIDERS: { value: AIProvider; label: string; description: string }[] = [
     label: "Groq",
     description: "Invokes the swift Groq oracle — blazing fast inference. Requires an API key.",
   },
+  {
+    value: "openai",
+    label: "OpenAI",
+    description: "Beseeches the OpenAI oracle (GPT). Requires an API key.",
+  },
+  {
+    value: "azure-openai",
+    label: "Azure OpenAI",
+    description: "Invokes OpenAI through your organization's Azure gateway. Requires endpoint, deployment, and key.",
+  },
 ];
 
-const API_KEY_CONFIGS: {
-  provider: AIProvider;
+type KeyConfig = {
+  provider: KeyProvider;
   field: string;
-  hasField: "hasGeminiKey" | "hasClaudeKey" | "hasGroqKey";
+  hasField: keyof KeySettingsSlice;
   label: string;
   displayName: string;
   placeholder: string;
   errorMsg: string;
   keyUrl: string;
-}[] = [
+};
+
+interface KeySettingsSlice {
+  hasGeminiKey: boolean;
+  hasClaudeKey: boolean;
+  hasGroqKey: boolean;
+  hasOpenaiKey: boolean;
+  hasAzureOpenaiKey: boolean;
+  hasAzureOpenaiEndpoint: boolean;
+  hasAzureOpenaiDeployment: boolean;
+}
+
+const API_KEY_CONFIGS: KeyConfig[] = [
   { provider: "gemini", field: "geminiApiKey", hasField: "hasGeminiKey", label: "Gemini API Key", displayName: "Gemini", placeholder: "AIza...", errorMsg: "The Gemini oracle requires an API key to speak", keyUrl: "https://aistudio.google.com/apikey" },
   { provider: "claude-api", field: "claudeApiKey", hasField: "hasClaudeKey", label: "Anthropic API Key", displayName: "Claude", placeholder: "sk-ant-...", errorMsg: "The Claude gateway requires an API key to open", keyUrl: "https://console.anthropic.com/settings/keys" },
   { provider: "groq", field: "groqApiKey", hasField: "hasGroqKey", label: "Groq API Key", displayName: "Groq", placeholder: "gsk_...", errorMsg: "The Groq oracle requires an API key to awaken", keyUrl: "https://console.groq.com/keys" },
+  { provider: "openai", field: "openaiApiKey", hasField: "hasOpenaiKey", label: "OpenAI API Key", displayName: "OpenAI", placeholder: "sk-...", errorMsg: "The OpenAI oracle requires an API key to whisper back", keyUrl: "https://platform.openai.com/api-keys" },
+  { provider: "azure-openai", field: "azureOpenaiApiKey", hasField: "hasAzureOpenaiKey", label: "Azure OpenAI API Key", displayName: "Azure OpenAI", placeholder: "your-azure-key", errorMsg: "The Azure scrolls demand a key, endpoint, and deployment", keyUrl: "https://portal.azure.com/" },
 ];
 
+const GLOBAL_STATUS_KEY: Record<KeyProvider, string> = {
+  "claude-api": "claudeApi",
+  gemini: "gemini",
+  groq: "groq",
+  openai: "openai",
+  "azure-openai": "azureOpenai",
+};
+
 export function AIProviderCard() {
-  const { aiSettings, aiLoading, aiError, fetchAIProviderSettings, saveAIProviderSettings } =
-    useSettingsStore();
+  const {
+    aiSettings,
+    aiLoading,
+    aiError,
+    fetchAIProviderSettings,
+    saveAIProviderSettings,
+    globalAIStatus,
+    fetchGlobalAIStatus,
+  } = useSettingsStore();
   const addToast = useToastStore((s) => s.addToast);
 
   const [selected, setSelected] = useState<AIProvider>(aiSettings.aiProvider);
@@ -61,7 +100,13 @@ export function AIProviderCard() {
     geminiApiKey: aiSettings.geminiApiKey,
     claudeApiKey: aiSettings.claudeApiKey,
     groqApiKey: aiSettings.groqApiKey,
+    openaiApiKey: aiSettings.openaiApiKey,
+    azureOpenaiApiKey: aiSettings.azureOpenaiApiKey,
   });
+  const [azureEndpoint, setAzureEndpoint] = useState(aiSettings.azureOpenaiEndpoint);
+  const [azureDeployment, setAzureDeployment] = useState(aiSettings.azureOpenaiDeployment);
+  const [azureApiVersion, setAzureApiVersion] = useState(aiSettings.azureOpenaiApiVersion);
+  const [useGlobalFor, setUseGlobalFor] = useState<Partial<Record<KeyProvider, boolean>>>(aiSettings.useGlobalFor);
   const [deepgramKey, setDeepgramKey] = useState(aiSettings.deepgramApiKey);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -92,7 +137,8 @@ export function AIProviderCard() {
 
   useEffect(() => {
     fetchAIProviderSettings();
-  }, [fetchAIProviderSettings]);
+    fetchGlobalAIStatus();
+  }, [fetchAIProviderSettings, fetchGlobalAIStatus]);
 
   useEffect(() => {
     setSelected(aiSettings.aiProvider);
@@ -100,7 +146,13 @@ export function AIProviderCard() {
       geminiApiKey: aiSettings.geminiApiKey,
       claudeApiKey: aiSettings.claudeApiKey,
       groqApiKey: aiSettings.groqApiKey,
+      openaiApiKey: aiSettings.openaiApiKey,
+      azureOpenaiApiKey: aiSettings.azureOpenaiApiKey,
     });
+    setAzureEndpoint(aiSettings.azureOpenaiEndpoint);
+    setAzureDeployment(aiSettings.azureOpenaiDeployment);
+    setAzureApiVersion(aiSettings.azureOpenaiApiVersion);
+    setUseGlobalFor(aiSettings.useGlobalFor);
     setDeepgramKey(aiSettings.deepgramApiKey);
   }, [aiSettings]);
 
@@ -108,28 +160,62 @@ export function AIProviderCard() {
 
   const getActiveKeyConfig = () => API_KEY_CONFIGS.find((c) => c.provider === selected);
 
+  const isUsingGlobal = (provider: KeyProvider) => useGlobalFor[provider] === true;
+  const globalAvailable = (provider: KeyProvider) =>
+    !!globalAIStatus[GLOBAL_STATUS_KEY[provider]];
+
+  const handleToggleGlobal = (provider: KeyProvider, next: boolean) => {
+    setUseGlobalFor((prev) => ({ ...prev, [provider]: next }));
+    setKeyError(false);
+  };
+
   const handleTest = async () => {
     setKeyError(false);
     setTestResult(null);
 
     const config = getActiveKeyConfig();
-    if (config && !apiKeys[config.field]?.trim() && !aiSettings[config.hasField]) {
-      setKeyError(true);
-      setTestResult({ type: "error", message: config.errorMsg });
-      return;
-    }
 
     setTesting(true);
     try {
-      const isMasked = (v: string) => v.includes("••••••••");
       const payload: Record<string, unknown> = { provider: selected };
 
       if (config) {
-        const keyValue = apiKeys[config.field];
-        if (keyValue && !isMasked(keyValue)) {
-          payload[config.field] = keyValue;
+        const usingGlobal = isUsingGlobal(config.provider);
+        if (usingGlobal) {
+          if (!globalAvailable(config.provider)) {
+            setTestResult({ type: "error", message: "Alas! No global oracle has been bestowed by the high priest yet." });
+            setTesting(false);
+            return;
+          }
+          payload.useGlobal = true;
         } else {
-          payload.useStoredKey = true;
+          const keyValue = apiKeys[config.field];
+          const isMasked = (v: string) => v.includes("••••••••");
+          if (config.provider === "azure-openai") {
+            if (!keyValue && !aiSettings.hasAzureOpenaiKey) {
+              setKeyError(true);
+              setTestResult({ type: "error", message: config.errorMsg });
+              setTesting(false);
+              return;
+            }
+            if (keyValue && !isMasked(keyValue)) payload.azureOpenaiApiKey = keyValue;
+            payload.azureOpenaiEndpoint = azureEndpoint;
+            payload.azureOpenaiDeployment = azureDeployment;
+            payload.azureOpenaiApiVersion = azureApiVersion;
+            if (!keyValue) payload.useStoredKey = true;
+          } else {
+            if (!keyValue?.trim() && !aiSettings[config.hasField]) {
+              setKeyError(true);
+              setTestResult({ type: "error", message: config.errorMsg });
+              setTesting(false);
+              return;
+            }
+            if (keyValue && !isMasked(keyValue)) {
+              payload[config.field] = keyValue;
+            } else {
+              payload.useStoredKey = true;
+            }
+          }
         }
       }
 
@@ -157,21 +243,42 @@ export function AIProviderCard() {
     setKeyError(false);
 
     const config = getActiveKeyConfig();
-    if (config && !apiKeys[config.field]?.trim() && !aiSettings[config.hasField]) {
-      setKeyError(true);
-      addToast(config.errorMsg, "error");
-      return;
+    if (config && !isUsingGlobal(config.provider)) {
+      const keyValue = apiKeys[config.field];
+      if (config.provider === "azure-openai") {
+        const hasStoredAzure = aiSettings.hasAzureOpenaiKey && aiSettings.hasAzureOpenaiEndpoint && aiSettings.hasAzureOpenaiDeployment;
+        const incoming = keyValue?.trim() && azureEndpoint?.trim() && azureDeployment?.trim();
+        if (!hasStoredAzure && !incoming) {
+          setKeyError(true);
+          addToast(config.errorMsg, "error");
+          return;
+        }
+      } else {
+        if (!keyValue?.trim() && !aiSettings[config.hasField]) {
+          setKeyError(true);
+          addToast(config.errorMsg, "error");
+          return;
+        }
+      }
     }
 
     setSaving(true);
     try {
-      const saveData: Record<string, unknown> = { aiProvider: selected };
+      const saveData: Record<string, unknown> = {
+        aiProvider: selected,
+        useGlobalFor,
+      };
       if (config) {
         saveData[config.field] = apiKeys[config.field] || undefined;
+        if (config.provider === "azure-openai") {
+          saveData.azureOpenaiEndpoint = azureEndpoint || undefined;
+          saveData.azureOpenaiDeployment = azureDeployment || undefined;
+          saveData.azureOpenaiApiVersion = azureApiVersion || undefined;
+        }
       }
       saveData.deepgramApiKey = deepgramKey || undefined;
 
-      await saveAIProviderSettings(saveData as Parameters<typeof saveAIProviderSettings>[0]);
+      await saveAIProviderSettings(saveData as unknown as Parameters<typeof saveAIProviderSettings>[0]);
       addToast("Narayan Narayan! Your oracle of choice is set", "success");
     } catch (err) {
       console.error("[Narada] AIProviderCard handleSave:", err);
@@ -209,6 +316,9 @@ export function AIProviderCard() {
   }
 
   const activeKeyConfig = getActiveKeyConfig();
+  const activeGlobalAvailable = activeKeyConfig ? globalAvailable(activeKeyConfig.provider) : false;
+  const activeUsingGlobal = activeKeyConfig ? isUsingGlobal(activeKeyConfig.provider) : false;
+  const isAzure = activeKeyConfig?.provider === "azure-openai";
 
   return (
     <div className="glass-card p-6">
@@ -240,8 +350,10 @@ export function AIProviderCard() {
               onChange={() => setSelected(p.value)}
               className="mt-1 accent-narada-primary"
             />
-            <div>
-              <div className="text-sm font-medium text-narada-text">{p.label}</div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium text-narada-text">{p.label}</div>
+              </div>
               <div className="text-xs text-narada-text-secondary mt-0.5">
                 {p.description}
               </div>
@@ -251,42 +363,114 @@ export function AIProviderCard() {
       </div>
 
       {activeKeyConfig && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-xs font-semibold text-narada-text-secondary uppercase tracking-wider">
-              {activeKeyConfig.label}
-            </label>
-            <a
-              href={activeKeyConfig.keyUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-narada-primary hover:text-narada-primary/80 transition-colors"
-            >
-              Get API Key
-              <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
-          <input
-            className={`glass-input font-mono text-[13px] ${keyError ? "!border-narada-rose" : ""}`}
-            type="password"
-            placeholder={activeKeyConfig.placeholder}
-            value={apiKeys[activeKeyConfig.field] ?? ""}
-            onChange={(e) => { setApiKeys((prev) => ({ ...prev, [activeKeyConfig.field]: e.target.value })); setKeyError(false); }}
-          />
-          {aiSettings[activeKeyConfig.hasField] && (
-            <div className="flex items-center gap-2 mt-1.5">
-              <p className="text-xs text-narada-emerald">Key configured</p>
-              <Button
-                variant="ghost"
-                size="xs"
-                onClick={() => handleRemoveKey(activeKeyConfig.field, activeKeyConfig.displayName)}
-                disabled={removingKey === activeKeyConfig.field}
-                className="text-narada-text-muted hover:text-narada-rose h-auto py-0 px-1"
-              >
-                <X className="w-3 h-3" />
-                Remove
-              </Button>
+        <div className="mb-4 space-y-3">
+          <div className="flex items-start justify-between gap-3 p-3 rounded-xl bg-narada-violet/[0.05] border border-narada-violet/20">
+            <div className="flex items-start gap-2.5">
+              <Sparkles className="w-4 h-4 text-narada-violet mt-0.5 shrink-0" />
+              <div>
+                <div className="text-sm font-medium text-narada-text">Use the global oracle</div>
+                <div className="text-xs text-narada-text-secondary mt-0.5">
+                  {activeGlobalAvailable
+                    ? "Your high priest has set a global oracle for this provider."
+                    : "Awaiting bestowal — no global oracle set yet by the high priest."}
+                </div>
+              </div>
             </div>
+            <label className="relative inline-flex items-center cursor-pointer mt-0.5 shrink-0">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={activeUsingGlobal}
+                onChange={(e) => handleToggleGlobal(activeKeyConfig.provider, e.target.checked)}
+              />
+              <div className="w-9 h-5 bg-white/[0.08] rounded-full peer peer-checked:bg-narada-violet/60 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-transform peer-checked:after:translate-x-4" />
+            </label>
+          </div>
+
+          {!activeUsingGlobal && (
+            <>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-semibold text-narada-text-secondary uppercase tracking-wider">
+                    {activeKeyConfig.label}
+                  </label>
+                  <a
+                    href={activeKeyConfig.keyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-narada-primary hover:text-narada-primary/80 transition-colors"
+                  >
+                    Get API Key
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                <input
+                  className={`glass-input font-mono text-[13px] ${keyError ? "!border-narada-rose" : ""}`}
+                  type="password"
+                  placeholder={activeKeyConfig.placeholder}
+                  value={apiKeys[activeKeyConfig.field] ?? ""}
+                  onChange={(e) => { setApiKeys((prev) => ({ ...prev, [activeKeyConfig.field]: e.target.value })); setKeyError(false); }}
+                />
+                {aiSettings[activeKeyConfig.hasField] && (
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <p className="text-xs text-narada-emerald">Key configured</p>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => handleRemoveKey(activeKeyConfig.field, activeKeyConfig.displayName)}
+                      disabled={removingKey === activeKeyConfig.field}
+                      className="text-narada-text-muted hover:text-narada-rose h-auto py-0 px-1"
+                    >
+                      <X className="w-3 h-3" />
+                      Remove
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {isAzure && (
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-narada-text-secondary uppercase tracking-wider mb-2">
+                      Azure Endpoint
+                    </label>
+                    <input
+                      className="glass-input font-mono text-[13px]"
+                      type="text"
+                      placeholder="https://your-resource.openai.azure.com"
+                      value={azureEndpoint}
+                      onChange={(e) => setAzureEndpoint(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-narada-text-secondary uppercase tracking-wider mb-2">
+                        Deployment
+                      </label>
+                      <input
+                        className="glass-input font-mono text-[13px]"
+                        type="text"
+                        placeholder="gpt-4o"
+                        value={azureDeployment}
+                        onChange={(e) => setAzureDeployment(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-narada-text-secondary uppercase tracking-wider mb-2">
+                        API Version
+                      </label>
+                      <input
+                        className="glass-input font-mono text-[13px]"
+                        type="text"
+                        placeholder="2024-08-01-preview"
+                        value={azureApiVersion}
+                        onChange={(e) => setAzureApiVersion(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

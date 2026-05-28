@@ -13,6 +13,9 @@ const PROVIDER_LABELS: Record<string, string> = {
   "local-cursor": "Local Cursor CLI",
   "gemini": "Gemini AI",
   "claude-api": "Claude API",
+  "groq": "Groq",
+  "openai": "OpenAI",
+  "azure-openai": "Azure OpenAI",
 };
 
 const STAGE_LABELS: Record<ProcessingStage, string> = {

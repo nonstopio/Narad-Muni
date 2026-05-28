@@ -1,16 +1,26 @@
 import { spawn } from "child_process";
-import type { AIProvider } from "@/types";
+import type { AIProvider, KeyProvider } from "@/types";
 import { buildIssueSystemPrompt, buildIssueUserMessage } from "./issue-prompt";
+import { resolveProviderConfig, type AppSettings } from "./index";
+import { getGlobalAIConfig } from "@/lib/global-ai-config";
+import { DEFAULT_OPENAI_MODEL } from "./openai-provider";
+import { GROQ_MODEL } from "./groq-provider";
 
 export interface EnrichedIssue {
   title: string;
   body: string;
 }
 
-interface AppSettings {
-  aiProvider?: string;
-  claudeApiKey?: string | null;
-  geminiApiKey?: string | null;
+const KEY_PROVIDER_SET = new Set<AIProvider>([
+  "claude-api",
+  "gemini",
+  "groq",
+  "openai",
+  "azure-openai",
+]);
+
+function isKeyProvider(p: AIProvider): p is KeyProvider {
+  return KEY_PROVIDER_SET.has(p);
 }
 
 export async function enrichIssueDescription(
@@ -27,64 +37,109 @@ export async function enrichIssueDescription(
   let rawOutput: string;
 
   try {
-    switch (provider) {
-      case "claude-api": {
-        const apiKey = settings?.claudeApiKey;
-        if (!apiKey) throw new Error("Anthropic API key not configured");
-        const Anthropic = (await import("@anthropic-ai/sdk")).default;
-        const client = new Anthropic({ apiKey });
-        const response = await client.messages.create({
-          model: "claude-sonnet-4-5-20250514",
-          max_tokens: 2048,
-          system: systemPrompt,
-          messages: [{ role: "user", content: userMessage }],
-        });
-        const textBlock = response.content.find((b) => b.type === "text");
-        if (!textBlock || textBlock.type !== "text") {
-          throw new Error("No text response from Claude API");
+    if (provider === "local-claude") {
+      rawOutput = await spawnCli("claude", [
+        "--print", "--no-session-persistence", "--model", "sonnet",
+        "--tools", "", "--append-system-prompt", systemPrompt,
+        "--max-budget-usd", "0.50",
+      ], userMessage);
+    } else if (provider === "local-cursor") {
+      const combined = `${systemPrompt}\n\n${userMessage}`;
+      rawOutput = await spawnCli("agent", ["--trust", "-p", combined]);
+    } else if (isKeyProvider(provider)) {
+      const global = await getGlobalAIConfig();
+      const resolved = resolveProviderConfig(provider, settings ?? null, global);
+
+      switch (resolved.kind) {
+        case "claude-api": {
+          const Anthropic = (await import("@anthropic-ai/sdk")).default;
+          const client = new Anthropic({ apiKey: resolved.apiKey });
+          const response = await client.messages.create({
+            model: "claude-sonnet-4-5-20250514",
+            max_tokens: 2048,
+            system: systemPrompt,
+            messages: [{ role: "user", content: userMessage }],
+          });
+          const textBlock = response.content.find((b) => b.type === "text");
+          if (!textBlock || textBlock.type !== "text") {
+            throw new Error("No text response from Claude API");
+          }
+          rawOutput = textBlock.text;
+          break;
         }
-        rawOutput = textBlock.text;
-        break;
+        case "gemini": {
+          const { GoogleGenerativeAI } = await import("@google/generative-ai");
+          const genAI = new GoogleGenerativeAI(resolved.apiKey);
+          const model = genAI.getGenerativeModel({
+            model: "gemini-2.0-flash",
+            systemInstruction: systemPrompt,
+          });
+          const result = await model.generateContent(userMessage);
+          rawOutput = result.response.text();
+          break;
+        }
+        case "groq": {
+          const { default: Groq } = await import("groq-sdk");
+          const client = new Groq({ apiKey: resolved.apiKey, timeout: 60_000 });
+          const response = await client.chat.completions.create({
+            model: GROQ_MODEL,
+            max_tokens: 2048,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userMessage },
+            ],
+          });
+          rawOutput = response.choices[0]?.message?.content ?? "";
+          break;
+        }
+        case "openai": {
+          const { default: OpenAI } = await import("openai");
+          const client = new OpenAI({
+            apiKey: resolved.apiKey,
+            baseURL: resolved.baseUrl || undefined,
+            timeout: 60_000,
+          });
+          const response = await client.chat.completions.create({
+            model: resolved.model || DEFAULT_OPENAI_MODEL,
+            max_completion_tokens: 2048,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userMessage },
+            ],
+          });
+          rawOutput = response.choices[0]?.message?.content ?? "";
+          break;
+        }
+        case "azure-openai": {
+          const { AzureOpenAI } = await import("openai");
+          const client = new AzureOpenAI({
+            apiKey: resolved.apiKey,
+            endpoint: resolved.endpoint,
+            deployment: resolved.deployment,
+            apiVersion: resolved.apiVersion,
+            timeout: 60_000,
+          });
+          const response = await client.chat.completions.create({
+            model: resolved.deployment,
+            max_completion_tokens: 2048,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userMessage },
+            ],
+          });
+          rawOutput = response.choices[0]?.message?.content ?? "";
+          break;
+        }
       }
-
-      case "gemini": {
-        const apiKey = settings?.geminiApiKey;
-        if (!apiKey) throw new Error("Gemini API key not configured");
-        const { GoogleGenerativeAI } = await import("@google/generative-ai");
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({
-          model: "gemini-2.0-flash",
-          systemInstruction: systemPrompt,
-        });
-        const result = await model.generateContent(userMessage);
-        rawOutput = result.response.text();
-        break;
-      }
-
-      case "local-claude": {
-        rawOutput = await spawnCli("claude", [
-          "--print", "--no-session-persistence", "--model", "sonnet",
-          "--tools", "", "--append-system-prompt", systemPrompt,
-          "--max-budget-usd", "0.50",
-        ], userMessage);
-        break;
-      }
-
-      case "local-cursor": {
-        const combined = `${systemPrompt}\n\n${userMessage}`;
-        rawOutput = await spawnCli("agent", ["--trust", "-p", combined]);
-        break;
-      }
-
-      default:
-        throw new Error(`Unknown AI provider: ${provider}`);
+    } else {
+      throw new Error(`Unknown AI provider: ${provider}`);
     }
   } catch (err) {
     console.error("[Narada → Issue Enrichment] AI enrichment failed, using raw description:", err);
     return { title, body: description.trim() || "No description provided." };
   }
 
-  return parseEnrichedOutput(rawOutput, title);
+  return parseEnrichedOutput(rawOutput!, title);
 }
 
 function parseEnrichedOutput(raw: string, fallbackTitle: string): EnrichedIssue {

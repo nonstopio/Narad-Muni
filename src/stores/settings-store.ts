@@ -1,7 +1,9 @@
 import { create } from "zustand";
 import { authedFetch } from "@/lib/api-client";
 import { trackEvent } from "@/lib/analytics";
-import type { PlatformConfigData, AIProvider } from "@/types";
+import type { PlatformConfigData, AIProvider, KeyProvider } from "@/types";
+
+export type UseGlobalForMap = Partial<Record<KeyProvider, boolean>>;
 
 interface AIProviderSettings {
   aiProvider: AIProvider;
@@ -9,10 +11,81 @@ interface AIProviderSettings {
   claudeApiKey: string;
   deepgramApiKey: string;
   groqApiKey: string;
+  openaiApiKey: string;
+  azureOpenaiApiKey: string;
+  azureOpenaiEndpoint: string;
+  azureOpenaiDeployment: string;
+  azureOpenaiApiVersion: string;
   hasGeminiKey: boolean;
   hasClaudeKey: boolean;
   hasDeepgramKey: boolean;
   hasGroqKey: boolean;
+  hasOpenaiKey: boolean;
+  hasAzureOpenaiKey: boolean;
+  hasAzureOpenaiEndpoint: boolean;
+  hasAzureOpenaiDeployment: boolean;
+  useGlobalFor: UseGlobalForMap;
+}
+
+const EMPTY_AI_SETTINGS: AIProviderSettings = {
+  aiProvider: "local-claude",
+  geminiApiKey: "",
+  claudeApiKey: "",
+  deepgramApiKey: "",
+  groqApiKey: "",
+  openaiApiKey: "",
+  azureOpenaiApiKey: "",
+  azureOpenaiEndpoint: "",
+  azureOpenaiDeployment: "",
+  azureOpenaiApiVersion: "",
+  hasGeminiKey: false,
+  hasClaudeKey: false,
+  hasDeepgramKey: false,
+  hasGroqKey: false,
+  hasOpenaiKey: false,
+  hasAzureOpenaiKey: false,
+  hasAzureOpenaiEndpoint: false,
+  hasAzureOpenaiDeployment: false,
+  useGlobalFor: {},
+};
+
+function mapApiToSettings(data: Record<string, unknown>): AIProviderSettings {
+  return {
+    aiProvider: (data.aiProvider as AIProvider) ?? "local-claude",
+    geminiApiKey: (data.geminiApiKey as string) ?? "",
+    claudeApiKey: (data.claudeApiKey as string) ?? "",
+    deepgramApiKey: (data.deepgramApiKey as string) ?? "",
+    groqApiKey: (data.groqApiKey as string) ?? "",
+    openaiApiKey: (data.openaiApiKey as string) ?? "",
+    azureOpenaiApiKey: (data.azureOpenaiApiKey as string) ?? "",
+    azureOpenaiEndpoint: (data.azureOpenaiEndpoint as string) ?? "",
+    azureOpenaiDeployment: (data.azureOpenaiDeployment as string) ?? "",
+    azureOpenaiApiVersion: (data.azureOpenaiApiVersion as string) ?? "",
+    hasGeminiKey: !!data.hasGeminiKey,
+    hasClaudeKey: !!data.hasClaudeKey,
+    hasDeepgramKey: !!data.hasDeepgramKey,
+    hasGroqKey: !!data.hasGroqKey,
+    hasOpenaiKey: !!data.hasOpenaiKey,
+    hasAzureOpenaiKey: !!data.hasAzureOpenaiKey,
+    hasAzureOpenaiEndpoint: !!data.hasAzureOpenaiEndpoint,
+    hasAzureOpenaiDeployment: !!data.hasAzureOpenaiDeployment,
+    useGlobalFor: (data.useGlobalFor as UseGlobalForMap) ?? {},
+  };
+}
+
+export interface SaveAIProviderPayload {
+  aiProvider: AIProvider;
+  geminiApiKey?: string;
+  claudeApiKey?: string;
+  deepgramApiKey?: string;
+  groqApiKey?: string;
+  openaiApiKey?: string;
+  azureOpenaiApiKey?: string;
+  azureOpenaiEndpoint?: string;
+  azureOpenaiDeployment?: string;
+  azureOpenaiApiVersion?: string;
+  useGlobalFor?: UseGlobalForMap;
+  removeKeys?: string[];
 }
 
 interface SettingsStore {
@@ -28,14 +101,11 @@ interface SettingsStore {
   aiLoading: boolean;
   aiError: boolean;
   fetchAIProviderSettings: () => Promise<void>;
-  saveAIProviderSettings: (data: {
-    aiProvider: AIProvider;
-    geminiApiKey?: string;
-    claudeApiKey?: string;
-    deepgramApiKey?: string;
-    groqApiKey?: string;
-    removeKeys?: string[];
-  }) => Promise<void>;
+  saveAIProviderSettings: (data: SaveAIProviderPayload) => Promise<void>;
+
+  // Global AI status (read-only — set by admin)
+  globalAIStatus: Record<string, boolean>;
+  fetchGlobalAIStatus: () => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -86,17 +156,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   },
 
   // AI provider
-  aiSettings: {
-    aiProvider: "local-claude",
-    geminiApiKey: "",
-    claudeApiKey: "",
-    deepgramApiKey: "",
-    groqApiKey: "",
-    hasGeminiKey: false,
-    hasClaudeKey: false,
-    hasDeepgramKey: false,
-    hasGroqKey: false,
-  },
+  aiSettings: EMPTY_AI_SETTINGS,
   aiLoading: false,
   aiError: false,
 
@@ -106,20 +166,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       const res = await authedFetch("/api/settings/ai-provider");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      set({
-        aiLoading: false,
-        aiSettings: {
-          aiProvider: data.aiProvider ?? "local-claude",
-          geminiApiKey: data.geminiApiKey ?? "",
-          claudeApiKey: data.claudeApiKey ?? "",
-          deepgramApiKey: data.deepgramApiKey ?? "",
-          groqApiKey: data.groqApiKey ?? "",
-          hasGeminiKey: data.hasGeminiKey ?? false,
-          hasClaudeKey: data.hasClaudeKey ?? false,
-          hasDeepgramKey: data.hasDeepgramKey ?? false,
-          hasGroqKey: data.hasGroqKey ?? false,
-        },
-      });
+      set({ aiLoading: false, aiSettings: mapApiToSettings(data) });
     } catch (err) {
       console.error("[Narada] fetchAIProviderSettings:", err);
       set({ aiError: true, aiLoading: false });
@@ -135,22 +182,22 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
         body: JSON.stringify(data),
       });
       const updated = await res.json();
-      set({
-        aiSettings: {
-          aiProvider: updated.aiProvider ?? "local-claude",
-          geminiApiKey: updated.geminiApiKey ?? "",
-          claudeApiKey: updated.claudeApiKey ?? "",
-          deepgramApiKey: updated.deepgramApiKey ?? "",
-          groqApiKey: updated.groqApiKey ?? "",
-          hasGeminiKey: updated.hasGeminiKey ?? false,
-          hasClaudeKey: updated.hasClaudeKey ?? false,
-          hasDeepgramKey: updated.hasDeepgramKey ?? false,
-          hasGroqKey: updated.hasGroqKey ?? false,
-        },
-      });
+      set({ aiSettings: mapApiToSettings(updated) });
     } catch (err) {
       console.error("[Narada] saveAIProviderSettings:", err);
       throw err;
+    }
+  },
+
+  globalAIStatus: {},
+  fetchGlobalAIStatus: async () => {
+    try {
+      const res = await authedFetch("/api/settings/global-ai-status");
+      if (!res.ok) return;
+      const data = await res.json();
+      set({ globalAIStatus: data as Record<string, boolean> });
+    } catch (err) {
+      console.error("[Narada] fetchGlobalAIStatus:", err);
     }
   },
 }));
