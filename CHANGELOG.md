@@ -5,6 +5,16 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-05-31
+
+### ✨ Features
+- "Fetch from Last Update" — pre-fill the day's input with your most recent prior update's transcript, so you can reuse and tweak yesterday's words instead of starting from scratch. Skips empty days (weekends, leave, blanks) to land on the last day with reusable content.
+
+### 🔌 Integrations
+- Add OpenAI and Azure OpenAI as AI provider options, with an admin-only "Sacred Sanctum" page for bestowing global API keys. Each devotee can opt in per-provider via the "Use the global oracle" toggle in Divine Oracle; personal keys still take precedence, falling back to the global config when set.
+- Centralize the global-vs-personal key decision in a shared resolver reused across parsing, AI testing, and Jira issue enrichment for consistent behavior.
+- Extend Jira issue enrichment to support Groq, OpenAI, and Azure OpenAI providers (previously errored for Groq).
+
 ## [1.11.0] - 2026-04-17
 
 ### ✨ Features
