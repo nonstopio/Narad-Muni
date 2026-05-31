@@ -378,6 +378,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ update: { id: doc.id, ...doc.data() } });
     }
 
+    // Most recent *non-empty* update strictly before a given day — for
+    // "fetch from last update". Walks back past empty days (weekends, leave,
+    // or blank entries) to the last day that actually has content to reuse.
+    const latest = searchParams.get("latest");
+    if (latest) {
+      const before = searchParams.get("before"); // YYYY-MM-DD
+      let latestQuery: Query = updatesCol(user.uid).orderBy("date", "desc");
+      if (before) {
+        const beforeIso = new Date(`${before}T00:00:00.000Z`).toISOString();
+        latestQuery = updatesCol(user.uid)
+          .where("date", "<", beforeIso)
+          .orderBy("date", "desc");
+      }
+      // Scan recent updates newest-first; return the first with reusable
+      // content — either spoken/written words or logged work.
+      const snap = await latestQuery.limit(60).get();
+      const doc = snap.docs.find((d: QueryDocumentSnapshot) => {
+        const data = d.data();
+        const hasText = typeof data.rawTranscript === "string" && data.rawTranscript.trim().length > 0;
+        const hasLogs = Array.isArray(data.workLogEntries) && data.workLogEntries.length > 0;
+        return hasText || hasLogs;
+      });
+      return NextResponse.json({ update: doc ? { id: doc.id, ...doc.data() } : null });
+    }
+
     // List updates by month
     const month = searchParams.get("month");
     let query: Query = updatesCol(user.uid).orderBy("date", "desc");
