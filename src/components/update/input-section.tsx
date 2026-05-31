@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useUpdateStore } from "@/stores/update-store";
+import { useAppStore } from "@/stores/app-store";
 import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { AudioVisualizer } from "./audio-visualizer";
-import { Mic, Square, Loader2, Zap, RotateCcw } from "lucide-react";
+import { Mic, Square, Loader2, Zap, RotateCcw, History } from "lucide-react";
 
 interface InputSectionProps {
   onProcess: () => void;
@@ -28,8 +29,10 @@ export function InputSection({ onProcess }: InputSectionProps) {
     setAudioBlob,
   } = useUpdateStore();
   const { toggleRecording, startRecording } = useAudioRecorder();
+  const selectedDate = useAppStore((s) => s.selectedDate);
 
   const [hasDeepgramKey, setHasDeepgramKey] = useState<boolean | null>(null);
+  const [isFetchingLast, setIsFetchingLast] = useState(false);
   useEffect(() => {
     authedFetch("/api/settings/ai-provider")
       .then((r) => r.json())
@@ -86,13 +89,60 @@ export function InputSection({ onProcess }: InputSectionProps) {
     startRecording();
   };
 
+  const handleFetchLast = async () => {
+    if (isFetchingLast || isProcessing || isTranscribing) return;
+    setIsFetchingLast(true);
+    try {
+      const dateStr = selectedDate
+        ? selectedDate.toLocaleDateString("sv-SE")
+        : new Date().toLocaleDateString("sv-SE");
+      const res = await authedFetch(`/api/updates?latest=true&before=${dateStr}`);
+      if (!res.ok) throw new Error("request failed");
+      const { update } = await res.json();
+      const prior = (update?.rawTranscript ?? "").trim();
+      if (!prior) {
+        useToastStore
+          .getState()
+          .addToast("Alas! No prior chronicle to draw upon", "warning");
+        return;
+      }
+      setRawTranscript(prior);
+      useToastStore
+        .getState()
+        .addToast("Narayan Narayan! Your last words return — edit, then invoke the sage", "success");
+    } catch {
+      useToastStore
+        .getState()
+        .addToast("Alas! The last chronicle eluded my grasp", "error");
+    } finally {
+      setIsFetchingLast(false);
+    }
+  };
+
   const hasText = rawTranscript.trim().length > 0;
 
   return (
     <div className="flex flex-col h-full pb-6">
-      {/* Section label */}
-      <div className="text-xs font-semibold text-narada-text-secondary uppercase tracking-wider mb-4">
-        Your Words
+      {/* Section label + fetch-from-last action */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-xs font-semibold text-narada-text-secondary uppercase tracking-wider">
+          Your Words
+        </div>
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={handleFetchLast}
+          disabled={isFetchingLast || isProcessing || isTranscribing}
+          className="text-narada-text-muted"
+          title="Pre-fill with your last update's words"
+        >
+          {isFetchingLast ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <History className="w-3.5 h-3.5" />
+          )}
+          <span>Fetch from Last Update</span>
+        </Button>
       </div>
 
       {/* Textarea — at top, fills available space */}
