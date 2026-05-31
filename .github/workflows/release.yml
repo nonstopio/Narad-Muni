@@ -18,7 +18,7 @@ jobs:
             platform: mac
             build_args: --mac --arm64 --x64
             artifact: narada-mac
-          - os: windows-latest
+          - os: windows-2025
             platform: win
             build_args: --win --x64
             artifact: narada-win-x64
@@ -31,10 +31,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: npm
@@ -80,7 +80,7 @@ jobs:
         run: npx electron-builder ${{ matrix.build_args }} --publish never
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: |
@@ -98,7 +98,7 @@ jobs:
 
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
@@ -107,7 +107,7 @@ jobs:
         run: find artifacts -type f | head -30
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           files: |
