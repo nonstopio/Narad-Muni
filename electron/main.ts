@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, Menu, powerSaveBlocker, screen } from "electron";
+import { app, BrowserWindow, shell, ipcMain, Menu, powerSaveBlocker, screen, globalShortcut } from "electron";
 import * as fs from "fs";
 import * as path from "path";
 import { readConfig, saveWindowBounds, writeConfig } from "./config";
@@ -90,11 +90,49 @@ if (!gotTheLock) {
   app.quit();
 } else {
   app.on("second-instance", () => {
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
+      showMainWindow();
     }
   });
+}
+
+// Returns true if the given point lies within any connected display's work area.
+function isPointOnScreen(x: number, y: number): boolean {
+  return screen.getAllDisplays().some((display) => {
+    const { x: dx, y: dy, width, height } = display.workArea;
+    return x >= dx && x < dx + width && y >= dy && y < dy + height;
+  });
+}
+
+// Guarantee a window sits on a visible display. If its center is off every
+// display (e.g. the external monitor it was on got disconnected), recenter it
+// on the primary display so it can't reappear off-screen / invisible.
+function ensureWindowOnScreen(win: BrowserWindow): void {
+  if (win.isMaximized()) return;
+  const b = win.getBounds();
+  const centerX = b.x + b.width / 2;
+  const centerY = b.y + b.height / 2;
+  if (!isPointOnScreen(centerX, centerY)) {
+    console.warn("[Narada] Window center is off-screen, recentering on primary display");
+    const { workArea } = screen.getPrimaryDisplay();
+    const width = Math.min(b.width, workArea.width);
+    const height = Math.min(b.height, workArea.height);
+    win.setBounds({
+      width,
+      height,
+      x: Math.round(workArea.x + (workArea.width - width) / 2),
+      y: Math.round(workArea.y + (workArea.height - height) / 2),
+    });
+  }
+}
+
+// Show the main window, guaranteeing it lands on a visible display with focus.
+function showMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  ensureWindowOnScreen(mainWindow);
+  mainWindow.show();
+  mainWindow.focus();
 }
 
 function getAppRoot(): string {
@@ -156,6 +194,12 @@ async function createWindow(port: number): Promise<void> {
           click: () => checkForUpdatesManual(),
         },
         { type: "separator" },
+        {
+          label: "Bring Window to Front",
+          accelerator: "CmdOrCtrl+Shift+O",
+          click: () => showMainWindow(),
+        },
+        { type: "separator" },
         { role: "services" },
         { type: "separator" },
         { role: "hide", label: `Hide ${APP_NAME}` },
@@ -171,7 +215,22 @@ async function createWindow(port: number): Promise<void> {
     },
     { role: "editMenu" },
     { role: "viewMenu" },
-    { role: "windowMenu" },
+    {
+      label: "Window",
+      role: "windowMenu",
+      submenu: [
+        {
+          label: "Bring Window to Front",
+          accelerator: "CmdOrCtrl+Shift+O",
+          click: () => showMainWindow(),
+        },
+        { type: "separator" },
+        { role: "minimize" },
+        { role: "zoom" },
+        { type: "separator" },
+        { role: "front" },
+      ],
+    },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 
@@ -184,13 +243,13 @@ async function createWindow(port: number): Promise<void> {
   const showTimeout = setTimeout(() => {
     if (mainWindow && !mainWindow.isVisible()) {
       console.warn("[Narada] ready-to-show timeout after 5s — forcing window visible");
-      mainWindow.show();
+      showMainWindow();
     }
   }, 5000);
 
   mainWindow.once("ready-to-show", () => {
     clearTimeout(showTimeout);
-    mainWindow?.show();
+    showMainWindow();
   });
 
   // Open external links in browser, but allow Firebase auth popups
@@ -250,7 +309,7 @@ async function createWindow(port: number): Promise<void> {
     console.error("[Narada] Failed to load URL:", err);
     // Show the window anyway so it's not permanently invisible
     if (mainWindow && !mainWindow.isVisible()) {
-      mainWindow.show();
+      showMainWindow();
     }
   }
 }
@@ -328,6 +387,19 @@ async function startApp(): Promise<void> {
     await createWindow(port);
   }
 
+  // Global rescue shortcut: force the window onto a visible display and focus it,
+  // even when the app is unfocused / the window is stuck off-screen.
+  try {
+    const registered = globalShortcut.register("CommandOrControl+Shift+O", () => {
+      showMainWindow();
+    });
+    if (!registered) {
+      console.warn("[Narada] Failed to register global shortcut CmdOrCtrl+Shift+O (already in use?)");
+    }
+  } catch (err) {
+    console.error("[Narada] Error registering global shortcut:", err);
+  }
+
   initAutoUpdater();
 
   // Prevent macOS App Nap from throttling timers when window is hidden.
@@ -375,13 +447,17 @@ app.on("before-quit", () => {
   isQuitting = true;
 });
 
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
+});
+
 app.on("window-all-closed", () => {
   // Standard macOS: app stays alive when window is closed (reopen via dock icon)
 });
 
 app.on("activate", () => {
-  if (mainWindow) {
-    mainWindow.show();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    showMainWindow();
   }
 });
 

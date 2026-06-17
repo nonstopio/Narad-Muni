@@ -5,6 +5,15 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.1] - 2026-06-17
+
+### 🐛 Bug Fixes
+- Fix Electron window launching off-screen and staying invisible (only the menu bar appeared). The off-screen bounds check previously ran only at window creation; since the app stays alive on macOS after the window is closed, re-showing it via `activate`, `second-instance`, or the timeout fallback skipped validation and could reappear on a now-disconnected external monitor. Every show path now validates and recenters the window onto a visible display via new `isPointOnScreen` / `ensureWindowOnScreen` / `showMainWindow` helpers (center-based check).
+
+### 🖥️ Electron
+- Add a global rescue shortcut ⌘⇧O (CommandOrControl+Shift+O) that forces the window onto a visible display and focuses it — works even when the app is unfocused or the window is stuck off-screen.
+- Add "Bring Window to Front" menu items (⌘⇧O) in both the app menu and a new custom Window menu.
+
 ## [1.12.0] - 2026-05-31
 
 ### ✨ Features
