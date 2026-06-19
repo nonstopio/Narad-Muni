@@ -22,8 +22,6 @@ if (fs.existsSync(saPath)) {
   const saJson = fs.readFileSync(saPath, "utf-8");
   process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 = Buffer.from(saJson).toString("base64");
   console.log("[dev-start] Firebase service account loaded from resources/firebase-sa.json");
-  // Also set the path for MCP server (used when Electron spawns --mcp in dev)
-  process.env.NARADA_FIREBASE_SA_PATH = saPath;
 } else {
   console.warn("[dev-start] WARNING: resources/firebase-sa.json not found — API routes will fail without it");
 }

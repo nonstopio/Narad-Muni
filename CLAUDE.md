@@ -148,7 +148,6 @@ The app ships as a native macOS desktop app via Electron.
 - **Config:** `electron/config.ts` — reads/writes `narada.config.json` in user data dir (window bounds, Firebase user ID)
 - **Dev mode:** `electron/dev-start.js` — loads Firebase service account, starts Next.js dev server + Electron concurrently
 - **Build:** `npm run electron:build` — production build + electron-builder packaging
-- **MCP mode:** `electron/main.ts --mcp` — headless MCP stdio server, reads user ID from config and service account from `NARADA_FIREBASE_SA_PATH`
 
 ```bash
 npm run electron:dev      # Compile TS + start Next.js + Electron
@@ -172,8 +171,6 @@ npm run electron:build    # Full production build + package
 | `src/hooks/use-update-flow.ts` | Orchestrates transcribe -> parse -> preview |
 | `src/hooks/use-audio-recorder.ts` | Microphone + MediaRecorder + AnalyserNode |
 | `src/app/api/updates/route.ts` | Core publish logic (Slack webhook, Teams Adaptive Card, Jira worklog) |
-| `mcp/server.ts` | MCP server for Claude Code integration |
-| `mcp/db.ts` | MCP Firestore operations (draft append) |
 | `electron/main.ts` | Electron main process entry point |
 | `electron/dev-start.js` | Dev mode orchestrator |
 

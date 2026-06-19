@@ -245,48 +245,6 @@ Set up daily reminders so you never miss logging your standup.
 
 ---
 
-## MCP Server — Log Work from Your AI Assistant
-
-Narad Muni ships an [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that lets AI coding assistants log completed work directly into your daily draft — without leaving the editor.
-
-**How it works:** Your AI assistant calls `log_work` → entry is saved to the day's draft → you open Narad Muni later to preview and publish as usual.
-
-### Auto-Registration (Recommended)
-
-The desktop app **auto-registers** with Claude Code on every launch. No manual setup needed — just install the app, open it once, and the MCP server is ready.
-
-You can verify the registration in **Settings → Divine Messenger Protocol**.
-
-Then you can say things like:
-- *"Log that I finished the auth refactor on PROJ-123"*
-- *"Log work: Fixed flaky tests in CI pipeline"*
-
-### Manual Setup (Cursor, Windsurf, etc.)
-
-Add the server to your MCP client config (e.g., `~/.cursor/mcp.json`):
-
-```json
-{
-  "mcpServers": {
-    "narada": {
-      "type": "stdio",
-      "command": "/Applications/Narad Muni.app/Contents/MacOS/Narad Muni",
-      "args": ["--mcp"]
-    }
-  }
-}
-```
-
-### `log_work` Tool
-
-| Parameter | Type | Required | Description |
-|:----------|:-----|:---------|:------------|
-| `message` | string | Yes | What you worked on — *"Implemented user auth flow"* |
-| `ticket` | string | No | Jira ticket key — *"PROJ-123"* |
-| `date` | string | No | `YYYY-MM-DD` format, defaults to today |
-
----
-
 ## Developer Setup
 
 For contributors working from the source repo.
@@ -311,7 +269,6 @@ npm run build            # Production build
 npm run lint             # ESLint
 npm run electron:dev     # Dev mode (Next.js + Electron)
 npm run electron:build   # Production build + package
-npm run mcp:compile      # Build the MCP server
 ```
 
 ### CI/CD Secret

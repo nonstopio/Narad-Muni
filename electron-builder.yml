@@ -8,7 +8,6 @@ directories:
 
 files:
   - dist-electron/**/*
-  - dist-mcp/**/*
   - .next/standalone/**/*
   - package.json
 
