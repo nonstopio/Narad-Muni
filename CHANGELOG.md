@@ -5,6 +5,18 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-06-19
+
+### 🗑️ Removed
+- Removed the MCP (Model Context Protocol) server entirely. This retires the `mcp/` server, the `electron/mcp-config.ts` auto-registration with Claude Code, the `--mcp` headless mode, the "Messenger Protocol" settings card, the `/api/settings/mcp-status` route, the `mcp:compile` / `mcp:dev` scripts, `dist-mcp` bundling, and the direct `@modelcontextprotocol/sdk` dependency. The MCP integration was no longer used.
+
+### 🐛 Bug Fixes
+- Fix the recurring "app won't launch" / duplicate-process issue on macOS. Spawned `--mcp` instances were booting a full Chromium profile against the same `userData` directory as the GUI and taking the profile lock, so the main window never appeared. Removing MCP eliminates the contention and the sage opens reliably once more.
+- Add an `ensureWindow()` fallback so the `second-instance` and `activate` handlers recreate the window when it has been destroyed, instead of silently doing nothing.
+
+### 🖥️ Electron
+- Removed the ⌘⇧O global rescue shortcut and its menu accelerators, introduced in v1.12.1.
+
 ## [1.12.1] - 2026-06-17
 
 ### 🐛 Bug Fixes
