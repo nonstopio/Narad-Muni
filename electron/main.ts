@@ -1,11 +1,10 @@
-import { app, BrowserWindow, shell, ipcMain, Menu, powerSaveBlocker, screen, globalShortcut } from "electron";
+import { app, BrowserWindow, shell, ipcMain, Menu, powerSaveBlocker, screen } from "electron";
 import * as fs from "fs";
 import * as path from "path";
 import { readConfig, saveWindowBounds, writeConfig } from "./config";
 import { findAvailablePort } from "./port";
 import { initAutoUpdater, checkForUpdatesManual } from "./updater";
 import { setupScheduler, reloadSchedule, fireTestNotification, NotificationSettings } from "./scheduler";
-import { registerMcpConfig } from "./mcp-config";
 
 process.on("uncaughtException", (err) => console.error("[Narada] Uncaught exception:", err));
 process.on("unhandledRejection", (reason) => console.error("[Narada] Unhandled rejection:", reason));
@@ -42,33 +41,6 @@ try {
   // module.register() not available — post-build script handles it
 }
 
-// --mcp mode: run as a headless MCP stdio server (no GUI, no dock icon).
-// AI clients spawn: /path/to/Narad Muni --mcp
-if (process.argv.includes("--mcp")) {
-  app.dock?.hide();
-  app.whenReady().then(() => {
-    process.stderr.write(`[narada-mcp] v${require("../package.json").version} starting in MCP mode\n`);
-    process.env.NARADA_USER_DATA_DIR = app.getPath("userData");
-
-    // Point MCP server at the bundled Firebase service account
-    const saPath = path.join(process.resourcesPath, "firebase-sa.json");
-    const saExists = fs.existsSync(saPath);
-    process.stderr.write(`[narada-mcp] resourcesPath: ${process.resourcesPath}\n`);
-    process.stderr.write(`[narada-mcp] Firebase SA path: ${saPath}, exists: ${saExists}\n`);
-    if (saExists) {
-      process.env.NARADA_FIREBASE_SA_PATH = saPath;
-    } else {
-      process.stderr.write(`[narada-mcp] firebase-sa.json NOT FOUND — MCP DB operations will fail\n`);
-    }
-
-    require("../dist-mcp/server");
-  }).catch((err) => {
-    process.stderr.write(`[narada-mcp] Fatal: ${err}\n`);
-    process.exit(1);
-  });
-  // Skip everything below — no window, tray, scheduler, updater, single-instance lock
-} else {
-
 const APP_NAME = "Narad Muni";
 app.setName(APP_NAME);
 app.setAboutPanelOptions({
@@ -93,6 +65,10 @@ if (!gotTheLock) {
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       showMainWindow();
+    } else {
+      // Lock-holder is alive but its window is gone — recreate it so a relaunch
+      // actually surfaces a window instead of silently being swallowed by the lock.
+      void ensureWindow();
     }
   });
 }
@@ -133,6 +109,21 @@ function showMainWindow(): void {
   ensureWindowOnScreen(mainWindow);
   mainWindow.show();
   mainWindow.focus();
+}
+
+// Surface a window for the running app: reuse the existing one, or recreate it if
+// it was destroyed (the Next server stays up, so we can rebuild the window on demand).
+async function ensureWindow(): Promise<void> {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    showMainWindow();
+    return;
+  }
+  try {
+    await createWindow(appPort);
+  } catch (err) {
+    console.error("[Narada] Failed to recreate window:", err);
+  }
 }
 
 function getAppRoot(): string {
@@ -196,7 +187,6 @@ async function createWindow(port: number): Promise<void> {
         { type: "separator" },
         {
           label: "Bring Window to Front",
-          accelerator: "CmdOrCtrl+Shift+O",
           click: () => showMainWindow(),
         },
         { type: "separator" },
@@ -221,7 +211,6 @@ async function createWindow(port: number): Promise<void> {
       submenu: [
         {
           label: "Bring Window to Front",
-          accelerator: "CmdOrCtrl+Shift+O",
           click: () => showMainWindow(),
         },
         { type: "separator" },
@@ -345,9 +334,6 @@ async function startApp(): Promise<void> {
   const appRoot = getAppRoot();
   console.log(`App root: ${appRoot}`);
 
-  // Auto-register MCP server with Claude Code
-  registerMcpConfig();
-
   if (isDev) {
     // In dev, connect to the already-running Next.js dev server on port 3947
     appPort = 3947;
@@ -385,19 +371,6 @@ async function startApp(): Promise<void> {
     });
 
     await createWindow(port);
-  }
-
-  // Global rescue shortcut: force the window onto a visible display and focus it,
-  // even when the app is unfocused / the window is stuck off-screen.
-  try {
-    const registered = globalShortcut.register("CommandOrControl+Shift+O", () => {
-      showMainWindow();
-    });
-    if (!registered) {
-      console.warn("[Narada] Failed to register global shortcut CmdOrCtrl+Shift+O (already in use?)");
-    }
-  } catch (err) {
-    console.error("[Narada] Error registering global shortcut:", err);
   }
 
   initAutoUpdater();
@@ -447,18 +420,12 @@ app.on("before-quit", () => {
   isQuitting = true;
 });
 
-app.on("will-quit", () => {
-  globalShortcut.unregisterAll();
-});
-
 app.on("window-all-closed", () => {
   // Standard macOS: app stays alive when window is closed (reopen via dock icon)
 });
 
 app.on("activate", () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    showMainWindow();
-  }
+  void ensureWindow();
 });
 
 // Start the app
@@ -466,5 +433,3 @@ app.whenReady().then(startApp).catch((err) => {
   console.error("[Narada] Failed to start app:", err);
   app.quit();
 });
-
-} // end of else (non-MCP mode)

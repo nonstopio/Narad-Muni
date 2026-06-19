@@ -6,14 +6,12 @@ import { PlatformConfigCard } from "./platform-config-card";
 import { JiraConfigCard } from "./jira-config-card";
 import { AIProviderCard } from "./ai-provider-card";
 import { NotificationCard } from "./notification-card";
-import { McpStatusCard } from "./mcp-status-card";
 import { KeyboardShortcutsCard } from "./keyboard-shortcuts-card";
 import {
   MessageSquare,
   Users,
   BookOpen,
   Sparkles,
-  Workflow,
   Bell,
   Keyboard,
 } from "lucide-react";
@@ -32,7 +30,6 @@ const navItems: NavItem[] = [
   { key: "teams", label: "Teams Portal", icon: Users },
   { key: "jira", label: "Jira Chronicle", icon: BookOpen },
   { key: "ai", label: "Divine Oracle", icon: Sparkles },
-  { key: "mcp", label: "Messenger Protocol", icon: Workflow },
   { key: "notifications", label: "Sacred Bell", icon: Bell, electronOnly: true },
   { key: "shortcuts", label: "Sacred Gestures", icon: Keyboard },
 ];
@@ -100,8 +97,6 @@ export function SettingsClient({ initialConfigs }: Props) {
         ));
       case "ai":
         return <AIProviderCard />;
-      case "mcp":
-        return <McpStatusCard />;
       case "notifications":
         return <NotificationCard />;
       case "shortcuts":
