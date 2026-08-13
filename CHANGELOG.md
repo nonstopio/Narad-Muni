@@ -5,6 +5,15 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-08-13
+
+### ✨ Features
+- "Oracle Patience" — the wait before I despair is now yours to set. Choose anywhere from 15 to 600 seconds in the Divine Oracle card; your choice is inscribed per devotee and travels with you.
+
+### 🐛 Bug Fixes
+- Fix "Request to /api/parse timed out after 45s" striking again and again when the oracle pondered too long. I now wait 2 minutes by default instead of 45 seconds.
+- Every oracle now honors the same patience. Groq, OpenAI, and Azure OpenAI carried their own 60-second limits, and the local Claude/Cursor CLIs their own 2-minute ones, so a longer wait on your side was quietly cut short by theirs.
+
 ## [1.13.0] - 2026-06-19
 
 ### 🗑️ Removed
