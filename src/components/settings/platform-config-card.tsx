@@ -250,6 +250,42 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
           The sage shall summon your lead when blockers arise
         </p>
 
+        {/* Slack App tokens — used by thread replies and personal missives alike */}
+        {isSlack && (
+          <div className="mb-4 space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+                Bot Token
+              </label>
+              <input
+                className={`glass-input font-mono text-[13px] ${errors.slackBotToken ? "!border-narada-rose" : ""}`}
+                type="password"
+                placeholder="xoxb-..."
+                value={form.slackBotToken || ""}
+                onChange={(e) => update("slackBotToken", e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
+                User Token
+              </label>
+              <input
+                className="glass-input font-mono text-[13px]"
+                type="password"
+                placeholder="xoxp-... (optional)"
+                value={form.slackUserToken || ""}
+                onChange={(e) => update("slackUserToken", e.target.value)}
+              />
+              <p className="text-[11px] text-narada-text-secondary/60 mt-1">
+                Grant this and your missives bear your own name rather than the sage&apos;s.
+                Requires user scopes <code className="font-mono text-narada-violet/80">chat:write</code>,{" "}
+                <code className="font-mono text-narada-violet/80">im:write</code>,{" "}
+                <code className="font-mono text-narada-violet/80">users:read</code>.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Slack Delivery Mode — segmented control */}
         {isSlack && (
           <div className="mb-4">
@@ -298,19 +334,6 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
         {isSlack && form.slackThreadMode && (
           <div className="mb-4">
             <div className="pl-0 space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
-                  Bot Token
-                </label>
-                <input
-                  className={`glass-input font-mono text-[13px] ${errors.slackBotToken ? "!border-narada-rose" : ""}`}
-                  type="password"
-                  placeholder="xoxb-..."
-                  value={form.slackBotToken || ""}
-                  onChange={(e) => update("slackBotToken", e.target.value)}
-                />
-              </div>
-
               <div>
                 <label className="block text-xs font-semibold text-narada-text-secondary mb-2 uppercase tracking-wider">
                   Channel ID

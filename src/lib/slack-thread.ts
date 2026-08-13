@@ -28,7 +28,7 @@ interface ChatPostMessageResponse {
  * Convert a date string + HH:MM time + timezone into a UTC epoch (seconds).
  * Uses Intl to resolve the timezone offset for that specific date/time.
  */
-function workflowTimeToUtcEpoch(
+export function workflowTimeToUtcEpoch(
   date: string,
   time: string,
   timezone: string

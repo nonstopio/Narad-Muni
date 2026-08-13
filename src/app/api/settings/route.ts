@@ -35,14 +35,14 @@ export async function PUT(request: NextRequest) {
     const {
       id,
       userName, userId, webhookUrl, apiToken, baseUrl, email, projectKey,
-      timezone, teamLeadName, teamLeadId, slackBotToken, slackChannelId,
+      timezone, teamLeadName, teamLeadId, slackBotToken, slackUserToken, slackChannelId,
       slackThreadMode, slackThreadMatch, slackWorkflowTime, isActive, repeatEntries,
     } = body;
 
     const configData = {
       platform: id, // id is the platform name (SLACK, TEAMS, JIRA)
       userName, userId, webhookUrl, apiToken, baseUrl, email, projectKey,
-      timezone, teamLeadName, teamLeadId, slackBotToken, slackChannelId,
+      timezone, teamLeadName, teamLeadId, slackBotToken, slackUserToken, slackChannelId,
       slackThreadMode, slackThreadMatch, slackWorkflowTime, isActive,
       repeatEntries: (repeatEntries || []).map(
         (entry: { ticketId: string; hours: number; startTime: string; comment: string }) => ({

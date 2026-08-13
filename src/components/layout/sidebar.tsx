@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Clock, Settings, Bug, LogOut, BarChart3, ShieldCheck } from "lucide-react";
+import { Calendar, Clock, Settings, Bug, LogOut, BarChart3, ShieldCheck, Send } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { authedFetch } from "@/lib/api-client";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -11,6 +11,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 const navItems = [
   { href: "/", label: "Scrolls", icon: Calendar },
   { href: "/history", label: "Chronicles", icon: Clock },
+  { href: "/broadcast", label: "Missives", icon: Send },
   { href: "/settings", label: "Configurations", icon: Settings },
   { href: "/report", label: "Seek Aid", icon: Bug },
 ];

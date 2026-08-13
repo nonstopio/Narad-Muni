@@ -21,6 +21,7 @@ export async function seedUserIfNeeded(userId: string): Promise<void> {
       userId: "",
       webhookUrl: "",
       slackBotToken: "",
+      slackUserToken: "",
       slackChannelId: "",
       slackThreadMode: true,
       slackThreadMatch: "",

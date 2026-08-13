@@ -54,6 +54,7 @@ All user data is scoped under `users/{userId}/`:
 - **`configs/{platform}`** — SLACK, TEAMS, or JIRA config with embedded `repeatEntries[]` array
 - **`settings/app`** — AI provider selection + API keys + Deepgram key + notification settings (singleton doc)
 - **`drafts/{YYYY-MM-DD}`** — Draft text keyed by date string
+- **`broadcasts/{templateId}`** — Missive template: name, body (with `{{name}}`/`{{first_name}}` placeholders), `recipients[]`, and `scheduled[]` refs for queued Slack sends
 
 ## API Routes
 
@@ -73,6 +74,10 @@ All routes require `Authorization: Bearer <firebaseIdToken>` header.
 | PUT | `/api/settings/ai-provider` | Update AI provider + API keys |
 | GET/PUT | `/api/drafts` | Read/write draft text for a date |
 | POST | `/api/auth/seed` | Seed default configs for new user (idempotent) |
+| GET/POST/DELETE | `/api/broadcast` | Missive template CRUD |
+| GET | `/api/broadcast/members` | Slack workspace members for the recipient picker |
+| POST | `/api/broadcast/send` | Send DMs now, or queue a weekly/monthly cadence with Slack |
+| DELETE | `/api/broadcast/send?templateId=<id>` | Withdraw all queued sends for a template |
 
 ## Pages
 
@@ -84,6 +89,7 @@ All pages are client components that fetch data via `authedFetch()` in `useEffec
 | `/update?date=YYYY-MM-DD` | Update creation — record/type -> AI process -> preview -> publish |
 | `/history` | Past updates list with search, detail modal, delete |
 | `/settings` | Platform configs (Slack/Teams/Jira), repeat entries, AI provider |
+| `/broadcast` | Missives — DM templates, recipient picker, send now or on a weekly/monthly cadence |
 
 ## Voice & Personality
 

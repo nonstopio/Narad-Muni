@@ -92,12 +92,35 @@ export interface PlatformConfigData {
   teamLeadName?: string | null;
   teamLeadId?: string | null;
   slackBotToken?: string | null;
+  slackUserToken?: string | null;
   slackChannelId?: string | null;
   slackThreadMode?: boolean;
   slackThreadMatch?: string | null;
   slackWorkflowTime?: string | null;
   isActive: boolean;
   repeatEntries: RepeatEntryData[];
+}
+
+export type BroadcastCadence = "once" | "weekly" | "monthly";
+
+export interface BroadcastRecipient {
+  id: string;
+  name: string;
+}
+
+export interface BroadcastScheduledRef {
+  channel: string;
+  id: string;
+  postAt: number;
+}
+
+export interface BroadcastTemplateData {
+  id: string;
+  name: string;
+  body: string;
+  recipients: BroadcastRecipient[];
+  scheduled?: BroadcastScheduledRef[];
+  updatedAt?: string;
 }
 
 export interface RepeatEntryData {
