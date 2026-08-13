@@ -2,8 +2,7 @@ import { spawn } from "child_process";
 import type { ClaudeParseResult } from "@/types/claude";
 import type { AIParseProvider, RepeatEntryInput } from "./types";
 import { buildSystemPrompt, buildUserMessage, PARSE_RESULT_JSON_SCHEMA } from "./prompt";
-
-const TIMEOUT_MS = 120_000;
+import { DEFAULT_AI_TIMEOUT_MS } from "@/lib/ai-timeout";
 
 /**
  * Build a self-contained prompt for the CLI that combines system prompt,
@@ -26,6 +25,8 @@ ${JSON.stringify(PARSE_RESULT_JSON_SCHEMA, null, 2)}`;
 }
 
 export class LocalClaudeProvider implements AIParseProvider {
+  constructor(private timeoutMs: number = DEFAULT_AI_TIMEOUT_MS) {}
+
   name = "Local Claude (CLI)";
 
   async parseTranscript(
@@ -110,8 +111,8 @@ export class LocalClaudeProvider implements AIParseProvider {
       // Handle timeout
       const timer = setTimeout(() => {
         proc.kill("SIGTERM");
-        settle(() => reject(new Error("Claude CLI timed out after 2 minutes")));
-      }, TIMEOUT_MS);
+        settle(() => reject(new Error(`Claude CLI timed out after ${Math.round(this.timeoutMs / 1000)}s`)));
+      }, this.timeoutMs);
 
       proc.on("close", () => clearTimeout(timer));
     });

@@ -2,6 +2,7 @@ import OpenAI, { AzureOpenAI } from "openai";
 import type { ClaudeParseResult } from "@/types/claude";
 import type { AIParseProvider, RepeatEntryInput } from "./types";
 import { buildSystemPrompt, buildUserMessage, PARSE_RESULT_JSON_SCHEMA } from "./prompt";
+import { DEFAULT_AI_TIMEOUT_MS } from "@/lib/ai-timeout";
 
 export const DEFAULT_OPENAI_MODEL = "gpt-4o";
 export const DEFAULT_AZURE_API_VERSION = "2024-08-01-preview";
@@ -25,11 +26,11 @@ export class OpenAIProvider implements AIParseProvider {
   private client: OpenAI;
   private model: string;
 
-  constructor(opts: { apiKey: string; model?: string; baseUrl?: string }) {
+  constructor(opts: { apiKey: string; model?: string; baseUrl?: string; timeoutMs?: number }) {
     this.client = new OpenAI({
       apiKey: opts.apiKey,
       baseURL: opts.baseUrl || undefined,
-      timeout: 60_000,
+      timeout: opts.timeoutMs ?? DEFAULT_AI_TIMEOUT_MS,
     });
     this.model = opts.model || DEFAULT_OPENAI_MODEL;
     this.name = `OpenAI (${this.model})`;
@@ -76,13 +77,14 @@ export class AzureOpenAIProvider implements AIParseProvider {
     endpoint: string;
     deployment: string;
     apiVersion: string;
+    timeoutMs?: number;
   }) {
     this.client = new AzureOpenAI({
       apiKey: opts.apiKey,
       endpoint: opts.endpoint,
       deployment: opts.deployment,
       apiVersion: opts.apiVersion,
-      timeout: 60_000,
+      timeout: opts.timeoutMs ?? DEFAULT_AI_TIMEOUT_MS,
     });
     this.deployment = opts.deployment;
     this.name = `Azure OpenAI (${opts.deployment})`;

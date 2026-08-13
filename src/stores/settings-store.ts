@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { authedFetch } from "@/lib/api-client";
+import { authedFetch, cacheRequestTimeout } from "@/lib/api-client";
+import { DEFAULT_AI_TIMEOUT_MS, resolveAiTimeout } from "@/lib/ai-timeout";
 import { trackEvent } from "@/lib/analytics";
 import type { PlatformConfigData, AIProvider, KeyProvider } from "@/types";
 
@@ -25,6 +26,7 @@ interface AIProviderSettings {
   hasAzureOpenaiEndpoint: boolean;
   hasAzureOpenaiDeployment: boolean;
   useGlobalFor: UseGlobalForMap;
+  aiTimeoutMs: number;
 }
 
 const EMPTY_AI_SETTINGS: AIProviderSettings = {
@@ -47,6 +49,7 @@ const EMPTY_AI_SETTINGS: AIProviderSettings = {
   hasAzureOpenaiEndpoint: false,
   hasAzureOpenaiDeployment: false,
   useGlobalFor: {},
+  aiTimeoutMs: DEFAULT_AI_TIMEOUT_MS,
 };
 
 function mapApiToSettings(data: Record<string, unknown>): AIProviderSettings {
@@ -70,6 +73,7 @@ function mapApiToSettings(data: Record<string, unknown>): AIProviderSettings {
     hasAzureOpenaiEndpoint: !!data.hasAzureOpenaiEndpoint,
     hasAzureOpenaiDeployment: !!data.hasAzureOpenaiDeployment,
     useGlobalFor: (data.useGlobalFor as UseGlobalForMap) ?? {},
+    aiTimeoutMs: resolveAiTimeout(data.aiTimeoutMs),
   };
 }
 
@@ -85,6 +89,7 @@ export interface SaveAIProviderPayload {
   azureOpenaiDeployment?: string;
   azureOpenaiApiVersion?: string;
   useGlobalFor?: UseGlobalForMap;
+  aiTimeoutMs?: number;
   removeKeys?: string[];
 }
 
@@ -166,7 +171,9 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       const res = await authedFetch("/api/settings/ai-provider");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      set({ aiLoading: false, aiSettings: mapApiToSettings(data) });
+      const mapped = mapApiToSettings(data);
+      cacheRequestTimeout(mapped.aiTimeoutMs);
+      set({ aiLoading: false, aiSettings: mapped });
     } catch (err) {
       console.error("[Narada] fetchAIProviderSettings:", err);
       set({ aiError: true, aiLoading: false });
@@ -182,7 +189,9 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
         body: JSON.stringify(data),
       });
       const updated = await res.json();
-      set({ aiSettings: mapApiToSettings(updated) });
+      const mapped = mapApiToSettings(updated);
+      cacheRequestTimeout(mapped.aiTimeoutMs);
+      set({ aiSettings: mapped });
     } catch (err) {
       console.error("[Narada] saveAIProviderSettings:", err);
       throw err;

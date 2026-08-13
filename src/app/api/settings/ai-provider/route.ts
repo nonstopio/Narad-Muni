@@ -3,6 +3,7 @@ import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware"
 import { settingsDoc } from "@/lib/firestore-helpers";
 import type { AIProvider, KeyProvider } from "@/types";
 import type { UseGlobalFor } from "@/lib/ai";
+import { resolveAiTimeout } from "@/lib/ai-timeout";
 
 const VALID_PROVIDERS: AIProvider[] = [
   "gemini",
@@ -33,6 +34,7 @@ interface StoredSettings {
   azureOpenaiDeployment?: string | null;
   azureOpenaiApiVersion?: string | null;
   useGlobalFor?: UseGlobalFor;
+  aiTimeoutMs?: number;
 }
 
 const REMOVABLE_FIELDS = [
@@ -80,6 +82,7 @@ function buildSettingsResponse(settings: StoredSettings | undefined) {
     hasAzureOpenaiEndpoint: !!settings?.azureOpenaiEndpoint,
     hasAzureOpenaiDeployment: !!settings?.azureOpenaiDeployment,
     useGlobalFor,
+    aiTimeoutMs: resolveAiTimeout(settings?.aiTimeoutMs),
   };
 }
 
@@ -126,6 +129,7 @@ export async function PUT(request: NextRequest) {
       azureOpenaiDeployment,
       azureOpenaiApiVersion,
       useGlobalFor,
+      aiTimeoutMs,
       removeKeys,
     } = body;
 
@@ -138,6 +142,7 @@ export async function PUT(request: NextRequest) {
 
     const updateData: Record<string, unknown> = {};
     if (aiProvider) updateData.aiProvider = aiProvider;
+    if (aiTimeoutMs !== undefined) updateData.aiTimeoutMs = resolveAiTimeout(aiTimeoutMs);
 
     applyKeyField(updateData, "geminiApiKey", geminiApiKey);
     applyKeyField(updateData, "claudeApiKey", claudeApiKey);

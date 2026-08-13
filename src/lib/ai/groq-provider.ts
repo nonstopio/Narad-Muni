@@ -2,6 +2,7 @@ import Groq from "groq-sdk";
 import type { ClaudeParseResult } from "@/types/claude";
 import type { AIParseProvider, RepeatEntryInput } from "./types";
 import { buildSystemPrompt, buildUserMessage, PARSE_RESULT_JSON_SCHEMA } from "./prompt";
+import { DEFAULT_AI_TIMEOUT_MS } from "@/lib/ai-timeout";
 
 export const GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 
@@ -9,8 +10,8 @@ export class GroqProvider implements AIParseProvider {
   name = "Groq (Llama 4 Scout)";
   private client: Groq;
 
-  constructor(apiKey: string) {
-    this.client = new Groq({ apiKey, timeout: 60_000 });
+  constructor(apiKey: string, timeoutMs: number = DEFAULT_AI_TIMEOUT_MS) {
+    this.client = new Groq({ apiKey, timeout: timeoutMs });
   }
 
   async parseTranscript(

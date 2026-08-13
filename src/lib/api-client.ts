@@ -1,10 +1,29 @@
 import { auth } from "./firebase";
+import { DEFAULT_AI_TIMEOUT_MS, resolveAiTimeout } from "./ai-timeout";
 
-const DEFAULT_TIMEOUT_MS = 45_000;
+const TIMEOUT_STORAGE_KEY = "narada.aiTimeoutMs";
+
+/** Mirror the user's configured timeout locally so authedFetch can read it synchronously. */
+export function cacheRequestTimeout(ms: number): void {
+  try {
+    localStorage.setItem(TIMEOUT_STORAGE_KEY, String(resolveAiTimeout(ms)));
+  } catch {
+    // localStorage unavailable — fall back to the default
+  }
+}
+
+function requestTimeoutMs(): number {
+  try {
+    return resolveAiTimeout(localStorage.getItem(TIMEOUT_STORAGE_KEY));
+  } catch {
+    return DEFAULT_AI_TIMEOUT_MS;
+  }
+}
 
 /**
  * Wrapper around fetch that injects the Firebase ID token as a Bearer token.
- * Includes a 45s default timeout — callers can override via their own signal.
+ * Times out after the configured oracle patience (default 2 min) — callers can
+ * override via their own signal.
  */
 export async function authedFetch(
   url: string,
@@ -28,11 +47,12 @@ export async function authedFetch(
   headers.set("Authorization", `Bearer ${token}`);
 
   // Add timeout if caller didn't provide their own signal
+  const timeoutMs = requestTimeoutMs();
   let controller: AbortController | undefined;
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   if (!options.signal) {
     controller = new AbortController();
-    timeoutId = setTimeout(() => controller!.abort(), DEFAULT_TIMEOUT_MS);
+    timeoutId = setTimeout(() => controller!.abort(), timeoutMs);
   }
 
   try {
@@ -43,7 +63,7 @@ export async function authedFetch(
     });
   } catch (err) {
     if (controller?.signal.aborted) {
-      throw new Error(`Request to ${url} timed out after ${DEFAULT_TIMEOUT_MS / 1000}s`);
+      throw new Error(`Request to ${url} timed out after ${Math.round(timeoutMs / 1000)}s`);
     }
     console.error("[Narada] authedFetch: network error for", url, err);
     throw err;

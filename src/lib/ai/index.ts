@@ -2,6 +2,7 @@ import type { AIParseProvider } from "./types";
 import type { AIProvider, KeyProvider } from "@/types";
 import { getGlobalAIConfig, type GlobalAIProviderConfig } from "@/lib/global-ai-config";
 import { DEFAULT_AZURE_API_VERSION } from "./openai-provider";
+import { resolveAiTimeout } from "@/lib/ai-timeout";
 
 export interface UseGlobalFor {
   "claude-api"?: boolean;
@@ -22,6 +23,7 @@ export interface AppSettings {
   azureOpenaiDeployment?: string | null;
   azureOpenaiApiVersion?: string | null;
   useGlobalFor?: UseGlobalFor;
+  aiTimeoutMs?: number;
 }
 
 interface ClaudeResolved { kind: "claude-api"; apiKey: string }
@@ -158,18 +160,19 @@ function missingConfigMessage(provider: KeyProvider): string {
 
 export async function getAIProvider(settings?: AppSettings | null): Promise<AIParseProvider> {
   const provider = (settings?.aiProvider ?? "local-claude") as AIProvider;
+  const timeoutMs = resolveAiTimeout(settings?.aiTimeoutMs);
 
-  console.log(`[AI] Using provider: ${provider}`);
+  console.log(`[AI] Using provider: ${provider} (timeout ${Math.round(timeoutMs / 1000)}s)`);
 
   switch (provider) {
     case "local-claude": {
       const { LocalClaudeProvider } = await import("./local-claude-provider");
-      return new LocalClaudeProvider();
+      return new LocalClaudeProvider(timeoutMs);
     }
 
     case "local-cursor": {
       const { LocalCursorProvider } = await import("./local-cursor-provider");
-      return new LocalCursorProvider();
+      return new LocalCursorProvider(timeoutMs);
     }
 
     case "gemini":
@@ -190,7 +193,7 @@ export async function getAIProvider(settings?: AppSettings | null): Promise<AIPa
       }
       if (resolved.kind === "groq") {
         const { GroqProvider } = await import("./groq-provider");
-        return new GroqProvider(resolved.apiKey);
+        return new GroqProvider(resolved.apiKey, timeoutMs);
       }
       if (resolved.kind === "openai") {
         const { OpenAIProvider } = await import("./openai-provider");
@@ -198,6 +201,7 @@ export async function getAIProvider(settings?: AppSettings | null): Promise<AIPa
           apiKey: resolved.apiKey,
           model: resolved.model,
           baseUrl: resolved.baseUrl,
+          timeoutMs,
         });
       }
       const { AzureOpenAIProvider } = await import("./openai-provider");
@@ -206,6 +210,7 @@ export async function getAIProvider(settings?: AppSettings | null): Promise<AIPa
         endpoint: resolved.endpoint,
         deployment: resolved.deployment,
         apiVersion: resolved.apiVersion,
+        timeoutMs,
       });
     }
 

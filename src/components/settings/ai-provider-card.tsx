@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
+import { MIN_AI_TIMEOUT_MS, MAX_AI_TIMEOUT_MS, resolveAiTimeout } from "@/lib/ai-timeout";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, RefreshCw, X, Sparkles } from "lucide-react";
 import type { AIProvider, KeyProvider } from "@/types";
@@ -108,6 +109,7 @@ export function AIProviderCard() {
   const [azureApiVersion, setAzureApiVersion] = useState(aiSettings.azureOpenaiApiVersion);
   const [useGlobalFor, setUseGlobalFor] = useState<Partial<Record<KeyProvider, boolean>>>(aiSettings.useGlobalFor);
   const [deepgramKey, setDeepgramKey] = useState(aiSettings.deepgramApiKey);
+  const [timeoutSecs, setTimeoutSecs] = useState(String(aiSettings.aiTimeoutMs / 1000));
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -154,6 +156,7 @@ export function AIProviderCard() {
     setAzureApiVersion(aiSettings.azureOpenaiApiVersion);
     setUseGlobalFor(aiSettings.useGlobalFor);
     setDeepgramKey(aiSettings.deepgramApiKey);
+    setTimeoutSecs(String(aiSettings.aiTimeoutMs / 1000));
   }, [aiSettings]);
 
   const busy = saving || testing;
@@ -277,6 +280,7 @@ export function AIProviderCard() {
         }
       }
       saveData.deepgramApiKey = deepgramKey || undefined;
+      saveData.aiTimeoutMs = resolveAiTimeout(Number(timeoutSecs) * 1000);
 
       await saveAIProviderSettings(saveData as unknown as Parameters<typeof saveAIProviderSettings>[0]);
       addToast("Narayan Narayan! Your oracle of choice is set", "success");
@@ -526,6 +530,28 @@ export function AIProviderCard() {
         )}
         <p className="text-xs text-narada-text-secondary mt-1.5">
           I need this mantra to hear your voice
+        </p>
+      </div>
+
+      <div className="mt-4 pt-4 border-t border-white/[0.06]">
+        <label className="block text-xs font-semibold text-narada-text-secondary uppercase tracking-wider mb-2">
+          Oracle Patience
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            className="glass-input font-mono text-[13px] w-28"
+            type="number"
+            min={MIN_AI_TIMEOUT_MS / 1000}
+            max={MAX_AI_TIMEOUT_MS / 1000}
+            step={15}
+            value={timeoutSecs}
+            onChange={(e) => setTimeoutSecs(e.target.value)}
+            onBlur={() => setTimeoutSecs(String(resolveAiTimeout(Number(timeoutSecs) * 1000) / 1000))}
+          />
+          <span className="text-xs text-narada-text-secondary">seconds</span>
+        </div>
+        <p className="text-xs text-narada-text-secondary mt-1.5">
+          How long I shall await the oracle before I despair ({MIN_AI_TIMEOUT_MS / 1000}–{MAX_AI_TIMEOUT_MS / 1000}s)
         </p>
       </div>
 
