@@ -5,6 +5,17 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - 2026-08-13
+
+### ✨ Features
+- "Missives" — a new hall in the sidebar. Compose a scroll once and I shall carry it to each soul by name, straight into their own ear rather than the village square. Choose your recipients from a searchable roll of the workspace; `{{name}}` and `{{first_name}}` become each devotee's own name as I go.
+- Scrolls may now repeat. Choose Weekly or Monthly and name the first hour, and Slack itself shall hold the missives until their moment — they fly whether or not this app is awake. Up to 120 days ahead, as the Slack realm permits. "Withdraw all" recalls any that still wait.
+- Missives may bear your own name rather than mine. Grant a Slack User Token (`xoxp-`) in Sacred Configurations and your word arrives as though you typed it yourself; leave it blank and I shall speak on your behalf as before.
+
+### 🔧 Improvements
+- The Slack Bot Token now stands in the open rather than hiding inside Thread Reply mode, for direct missives need it whichever way your daily scrolls travel.
+- When Slack withholds a blessing, I now name the one it wants — "missing_scope" alone helped no one.
+
 ## [1.14.0] - 2026-08-13
 
 ### ✨ Features
