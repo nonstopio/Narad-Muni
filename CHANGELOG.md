@@ -5,6 +5,11 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.1] - 2026-09-03
+
+### 🐛 Bug Fixes
+- "Alas! The oracle is silent: 404" — I had been calling the Claude oracle by a name it has outgrown. I now speak to `claude-sonnet-5`, and it answers. This struck both the daily parsing of your word and the Test Connection rite in Sacred Configurations.
+
 ## [1.15.0] - 2026-08-13
 
 ### ✨ Features
