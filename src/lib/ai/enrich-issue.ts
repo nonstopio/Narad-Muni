@@ -5,6 +5,7 @@ import { resolveProviderConfig, type AppSettings } from "./index";
 import { getGlobalAIConfig } from "@/lib/global-ai-config";
 import { DEFAULT_OPENAI_MODEL } from "./openai-provider";
 import { GROQ_MODEL } from "./groq-provider";
+import { DEFAULT_CLAUDE_MODEL } from "./claude-api-provider";
 
 export interface EnrichedIssue {
   title: string;
@@ -55,7 +56,7 @@ export async function enrichIssueDescription(
           const Anthropic = (await import("@anthropic-ai/sdk")).default;
           const client = new Anthropic({ apiKey: resolved.apiKey });
           const response = await client.messages.create({
-            model: "claude-sonnet-4-5-20250514",
+            model: DEFAULT_CLAUDE_MODEL,
             max_tokens: 2048,
             system: systemPrompt,
             messages: [{ role: "user", content: userMessage }],

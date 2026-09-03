@@ -5,6 +5,7 @@ import { settingsDoc } from "@/lib/firestore-helpers";
 import { resolveProviderConfig, type AppSettings } from "@/lib/ai";
 import { getGlobalAIConfig } from "@/lib/global-ai-config";
 import type { AIProvider, KeyProvider } from "@/types";
+import { DEFAULT_CLAUDE_MODEL } from "@/lib/ai/claude-api-provider";
 
 const VALID_PROVIDERS: AIProvider[] = [
   "gemini",
@@ -129,7 +130,7 @@ export async function POST(request: NextRequest) {
         const { default: Anthropic } = await import("@anthropic-ai/sdk");
         const client = new Anthropic({ apiKey: resolved.apiKey });
         await client.messages.create({
-          model: "claude-sonnet-4-20250514",
+          model: DEFAULT_CLAUDE_MODEL,
           max_tokens: 10,
           messages: [{ role: "user", content: "Say hello in one word" }],
         });

@@ -3,6 +3,8 @@ import type { ClaudeParseResult } from "@/types/claude";
 import type { AIParseProvider, RepeatEntryInput } from "./types";
 import { buildSystemPrompt, buildUserMessage, PARSE_RESULT_JSON_SCHEMA } from "./prompt";
 
+export const DEFAULT_CLAUDE_MODEL = "claude-sonnet-5";
+
 export class ClaudeAPIProvider implements AIParseProvider {
   name = "Claude API (Sonnet)";
   private apiKey: string;
@@ -20,12 +22,12 @@ export class ClaudeAPIProvider implements AIParseProvider {
     const systemPrompt = buildSystemPrompt(date, repeatEntries);
 
     const userMessage = buildUserMessage(transcript);
-    console.log(`[Narada → Claude API] Sending request — model=claude-sonnet-4-5-20250514, max_tokens=4096, system_prompt=${systemPrompt.length} chars, user_message=${userMessage.length} chars`);
+    console.log(`[Narada → Claude API] Sending request — model=${DEFAULT_CLAUDE_MODEL}, max_tokens=4096, system_prompt=${systemPrompt.length} chars, user_message=${userMessage.length} chars`);
 
     let response;
     try {
       response = await client.messages.create({
-        model: "claude-sonnet-4-5-20250514",
+        model: DEFAULT_CLAUDE_MODEL,
         max_tokens: 4096,
         system: systemPrompt,
         tools: [
