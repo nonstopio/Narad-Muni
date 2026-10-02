@@ -12,6 +12,7 @@ import {
   type OpenAIGlobalConfig,
   type SingleKeyGlobalConfig,
 } from "@/lib/global-ai-config";
+import { DEFAULT_AZURE_API_VERSION } from "@/lib/ai/openai-provider";
 
 function isString(v: unknown): v is string {
   return typeof v === "string" && v.length > 0;
@@ -93,9 +94,10 @@ export async function PUT(request: NextRequest) {
       const deployment = isString(body.azureOpenai.deployment)
         ? body.azureOpenai.deployment
         : prev?.deployment;
-      const apiVersion = isString(body.azureOpenai.apiVersion)
-        ? body.azureOpenai.apiVersion
-        : prev?.apiVersion ?? "2024-08-01-preview";
+      const apiVersion =
+        (isString(body.azureOpenai.apiVersion) && body.azureOpenai.apiVersion.trim()) ||
+        prev?.apiVersion ||
+        DEFAULT_AZURE_API_VERSION;
       if (apiKey && endpoint && deployment && apiVersion) {
         next.azureOpenai = {
           apiKey,

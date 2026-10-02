@@ -76,7 +76,7 @@ export function GlobalAIOracleCard() {
         setOpenaiBaseUrl(d.openai?.baseUrl ?? "");
         setAzureEndpoint(d.azureOpenai?.endpoint ?? "");
         setAzureDeployment(d.azureOpenai?.deployment ?? "");
-        setAzureApiVersion(d.azureOpenai?.apiVersion ?? "2024-08-01-preview");
+        setAzureApiVersion(d.azureOpenai?.apiVersion ?? "");
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -96,7 +96,7 @@ export function GlobalAIOracleCard() {
     setOpenaiBaseUrl(d.openai?.baseUrl ?? "");
     setAzureEndpoint(d.azureOpenai?.endpoint ?? "");
     setAzureDeployment(d.azureOpenai?.deployment ?? "");
-    setAzureApiVersion(d.azureOpenai?.apiVersion ?? "2024-08-01-preview");
+    setAzureApiVersion(d.azureOpenai?.apiVersion ?? "");
   };
 
   const saveSection = async (provider: ProviderKey, payload: Record<string, unknown>) => {
@@ -328,7 +328,7 @@ export function GlobalAIOracleCard() {
             <input
               className="glass-input font-mono text-[13px]"
               type="text"
-              placeholder="2024-08-01-preview"
+              placeholder="2025-01-01-preview"
               value={azureApiVersion}
               onChange={(e) => setAzureApiVersion(e.target.value)}
             />
