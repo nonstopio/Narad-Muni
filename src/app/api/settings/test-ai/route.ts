@@ -163,21 +163,14 @@ export async function POST(request: NextRequest) {
         break;
       }
       case "azure-openai": {
-        const { AzureOpenAI } = await import("openai");
-        const client = new AzureOpenAI({
-          apiKey: resolved.apiKey,
-          endpoint: resolved.endpoint,
-          deployment: resolved.deployment,
-          apiVersion: resolved.apiVersion,
-          timeout: 15_000,
-        });
+        const { createAzureClient } = await import("@/lib/ai/openai-provider");
+        const client = createAzureClient({ ...resolved, timeoutMs: 15_000 });
         console.log(
-          `[Test AI → Azure] endpoint=${resolved.endpoint} deployment=${resolved.deployment} apiVersion=${resolved.apiVersion}`
+          `[Test AI → Azure] baseURL=${client.baseURL} apiVersion=${client.apiVersion}`
         );
         await client.chat.completions.create({
-          model: resolved.deployment,
+          model: resolved.deployment.trim(),
           messages: [{ role: "user", content: "Say hello in one word" }],
-          max_completion_tokens: 16,
         });
         break;
       }

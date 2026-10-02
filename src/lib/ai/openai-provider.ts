@@ -5,7 +5,29 @@ import { buildSystemPrompt, buildUserMessage, PARSE_RESULT_JSON_SCHEMA } from ".
 import { DEFAULT_AI_TIMEOUT_MS } from "@/lib/ai-timeout";
 
 export const DEFAULT_OPENAI_MODEL = "gpt-4o";
-export const DEFAULT_AZURE_API_VERSION = "2024-08-01-preview";
+// Matches Morph, which talks to the same Azure resource. 2024-08-01-preview predates
+// max_completion_tokens and newer (gpt-5) deployments, so it is treated as unset: it was
+// this app's old default and got persisted into saved configs verbatim.
+export const DEFAULT_AZURE_API_VERSION = "2025-01-01-preview";
+const LEGACY_AZURE_API_VERSION = "2024-08-01-preview";
+
+export function createAzureClient(opts: {
+  apiKey: string;
+  endpoint: string;
+  deployment: string;
+  apiVersion?: string | null;
+  timeoutMs?: number;
+}): AzureOpenAI {
+  const version = (opts.apiVersion ?? "").trim();
+  return new AzureOpenAI({
+    apiKey: opts.apiKey.trim(),
+    // Pasted endpoints often carry a trailing slash; the SDK appends "/openai" itself.
+    endpoint: opts.endpoint.trim().replace(/\/+$/, ""),
+    deployment: opts.deployment.trim(),
+    apiVersion: !version || version === LEGACY_AZURE_API_VERSION ? DEFAULT_AZURE_API_VERSION : version,
+    timeout: opts.timeoutMs ?? DEFAULT_AI_TIMEOUT_MS,
+  });
+}
 
 const JSON_INSTRUCTION = `\n\nRespond with ONLY a valid JSON object matching this schema:\n${JSON.stringify(PARSE_RESULT_JSON_SCHEMA, null, 2)}`;
 
@@ -79,14 +101,8 @@ export class AzureOpenAIProvider implements AIParseProvider {
     apiVersion: string;
     timeoutMs?: number;
   }) {
-    this.client = new AzureOpenAI({
-      apiKey: opts.apiKey,
-      endpoint: opts.endpoint,
-      deployment: opts.deployment,
-      apiVersion: opts.apiVersion,
-      timeout: opts.timeoutMs ?? DEFAULT_AI_TIMEOUT_MS,
-    });
-    this.deployment = opts.deployment;
+    this.client = createAzureClient(opts);
+    this.deployment = opts.deployment.trim();
     this.name = `Azure OpenAI (${opts.deployment})`;
   }
 
@@ -108,8 +124,9 @@ export class AzureOpenAIProvider implements AIParseProvider {
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
         ],
+        // No token cap, as in Morph: reasoning deployments spend the cap on hidden reasoning
+        // and come back empty, and older api-versions reject max_completion_tokens outright.
         response_format: { type: "json_object" },
-        max_completion_tokens: 4096,
       });
     } catch (err) {
       console.error("[Narada → Azure OpenAI] API call failed:", err);

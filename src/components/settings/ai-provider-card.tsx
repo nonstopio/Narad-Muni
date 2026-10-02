@@ -466,7 +466,7 @@ export function AIProviderCard() {
                       <input
                         className="glass-input font-mono text-[13px]"
                         type="text"
-                        placeholder="2024-08-01-preview"
+                        placeholder="2025-01-01-preview"
                         value={azureApiVersion}
                         onChange={(e) => setAzureApiVersion(e.target.value)}
                       />
