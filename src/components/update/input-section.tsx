@@ -8,7 +8,8 @@ import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { AudioVisualizer } from "./audio-visualizer";
-import { Mic, Square, Loader2, Zap, RotateCcw, History } from "lucide-react";
+import { Mic, Square, Loader2, Zap, RotateCcw, History, Bug } from "lucide-react";
+import { seekAid } from "@/lib/seek-aid";
 
 interface InputSectionProps {
   onProcess: () => void;
@@ -243,8 +244,17 @@ export function InputSection({ onProcess }: InputSectionProps) {
 
       {/* Error display */}
       {processingError && (
-        <div className="mt-3 px-3 py-2 rounded-lg bg-narada-rose/10 border border-narada-rose/20 text-narada-rose text-[13px]">
-          {processingError}
+        <div className="mt-3 px-3 py-2 rounded-lg bg-narada-rose/10 border border-narada-rose/20 text-narada-rose text-[13px] flex items-center gap-3">
+          <span className="flex-1">{processingError}</span>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => seekAid(processingError)}
+            className="flex-shrink-0"
+          >
+            <Bug className="w-3.5 h-3.5" />
+            Seek Aid
+          </Button>
         </div>
       )}
     </div>

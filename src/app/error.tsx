@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { AlertTriangle, RotateCcw, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { seekAid } from "@/lib/seek-aid";
 
 export default function Error({
   error,
@@ -68,20 +69,7 @@ export default function Error({
             <Button
               variant="secondary"
               size="lg"
-              onClick={() => {
-                try {
-                  sessionStorage.setItem(
-                    "narada-error-context",
-                    JSON.stringify({
-                      title: error.message || "Unknown error",
-                      description: error.stack || "",
-                    })
-                  );
-                } catch {
-                  // sessionStorage may be unavailable
-                }
-                window.location.href = "/report";
-              }}
+              onClick={() => seekAid(error.message || "Unknown error", error.stack)}
             >
               <Bug className="w-4 h-4" />
               Seek Aid

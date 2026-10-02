@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import Lottie from "lottie-react";
 import muniAnimation from "@/../public/muni.json";
 import { Button } from "@/components/ui/button";
+import { Bug } from "lucide-react";
+import { seekAid } from "@/lib/seek-aid";
 
 type ToastType = "success" | "error" | "warning";
 
@@ -43,7 +45,7 @@ const TOAST_STYLES = {
 
 const AUTO_DISMISS_MS: Record<ToastType, number> = {
   success: 4000,
-  error: 5000,
+  error: 8000,
   warning: 6000,
 };
 
@@ -103,6 +105,20 @@ export function ToastContainer() {
               <span className="text-sm leading-relaxed text-narada-text flex-1">
                 {toast.message}
               </span>
+              {toast.type !== "success" && (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => {
+                    removeToast(toast.id);
+                    seekAid(toast.message);
+                  }}
+                  className="flex-shrink-0"
+                >
+                  <Bug className="w-3.5 h-3.5" />
+                  Seek Aid
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon-xs"

@@ -3,6 +3,7 @@ import { enrichIssueDescription } from "@/lib/ai/enrich-issue";
 import { getLogContents } from "@/lib/logger";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
 import { settingsDoc } from "@/lib/firestore-helpers";
+import { redact } from "@/lib/redact";
 
 const GITHUB_REPO = "nonstopio/Narad-Muni";
 const MAX_URL_LENGTH = 8000;
@@ -66,6 +67,6 @@ function appendLogs(body: string, maxEntries: number): string {
 }
 
 function buildGitHubUrl(title: string, body: string): string {
-  const params = new URLSearchParams({ title, body, labels: "bug" });
+  const params = new URLSearchParams({ title: redact(title), body: redact(body), labels: "bug" });
   return `https://github.com/${GITHUB_REPO}/issues/new?${params.toString()}`;
 }
