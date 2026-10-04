@@ -5,6 +5,7 @@ import { useUpdateStore } from "@/stores/update-store";
 import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
 import { trackEvent } from "@/lib/analytics";
+import { shouldSave } from "./draft-save-rule";
 
 const DEBOUNCE_MS = 1500;
 
@@ -12,6 +13,9 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef<string>("");
   const latestTextRef = useRef<string>("");
+  // False until this date's draft has loaded; nothing is saved before that.
+  const loadedRef = useRef(false);
+  const pendingRef = useRef<Promise<void> | null>(null);
   const enabledRef = useRef(enabled);
   const dateRef = useRef(dateStr);
   const saveErrorShownRef = useRef(false);
@@ -21,8 +25,34 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
     dateRef.current = dateStr;
   });
 
-  // Load draft on mount
+  const save = useCallback((text: string, date: string, keepalive = false) => {
+    lastSavedRef.current = text;
+    trackEvent("draft_save");
+    const request = authedFetch("/api/drafts", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, rawTranscript: text }),
+      keepalive,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        saveErrorShownRef.current = false;
+      })
+      .catch((err) => {
+        console.error("[Narada] Failed to save draft:", err);
+        if (!saveErrorShownRef.current) {
+          saveErrorShownRef.current = true;
+          useToastStore.getState().addToast("Alas! Your draft could not be saved", "error");
+        }
+      });
+    pendingRef.current = request;
+    return request;
+  }, []);
+
+  // Load the draft for this date
   useEffect(() => {
+    loadedRef.current = false;
+    lastSavedRef.current = "";
     if (!enabled || !dateStr) return;
 
     let cancelled = false;
@@ -31,21 +61,20 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
       .then((res) => res.json())
       .then((data) => {
         if (cancelled) return;
-        if (data.draft?.rawTranscript) {
-          const current = useUpdateStore.getState().rawTranscript;
-          // Only restore if the textarea is still empty (resetForNewUpdate already ran)
-          if (!current.trim()) {
-            useUpdateStore.getState().setRawTranscript(data.draft.rawTranscript);
-            lastSavedRef.current = data.draft.rawTranscript;
-            latestTextRef.current = data.draft.rawTranscript;
-          }
+        const saved: string = data.draft?.rawTranscript ?? "";
+        lastSavedRef.current = saved;
+        loadedRef.current = true;
+        // Only restore if the textarea is still empty (resetForNewUpdate already ran)
+        if (saved && !useUpdateStore.getState().rawTranscript.trim()) {
+          latestTextRef.current = saved;
+          useUpdateStore.getState().setRawTranscript(saved);
         }
       })
       .catch((err) => {
-        if (!cancelled) {
-          console.error("[Narada] Failed to load draft:", err);
-          useToastStore.getState().addToast("Alas! Could not retrieve your saved draft", "error");
-        }
+        if (cancelled) return;
+        loadedRef.current = true;
+        console.error("[Narada] Failed to load draft:", err);
+        useToastStore.getState().addToast("Alas! Could not retrieve your saved draft", "error");
       });
 
     return () => {
@@ -66,7 +95,7 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
       latestTextRef.current = text;
 
       if (!enabledRef.current || !dateRef.current) return;
-      if (text === lastSavedRef.current) return;
+      if (!shouldSave({ loaded: loadedRef.current, text, lastSaved: lastSavedRef.current })) return;
 
       if (timerRef.current) clearTimeout(timerRef.current);
 
@@ -75,47 +104,38 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
         if (!enabledRef.current || !dateRef.current) return;
 
         const current = latestTextRef.current;
-        if (current === lastSavedRef.current) return;
-
-        lastSavedRef.current = current;
-        trackEvent("draft_save");
-        authedFetch("/api/drafts", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: dateRef.current, rawTranscript: current }),
-        })
-          .then(() => {
-            saveErrorShownRef.current = false;
-          })
-          .catch((err) => {
-            console.error("[Narada] Failed to save draft:", err);
-            if (!saveErrorShownRef.current) {
-              saveErrorShownRef.current = true;
-              useToastStore.getState().addToast("Alas! Your draft could not be saved", "error");
-            }
-          });
+        if (!shouldSave({ loaded: loadedRef.current, text: current, lastSaved: lastSavedRef.current })) return;
+        save(current, dateRef.current);
       }, DEBOUNCE_MS);
     });
 
     return () => {
       unsub();
-      // Flush pending save on unmount
+      // Flush pending save on unmount or date change (dateRef still holds the old date here)
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
 
         const text = latestTextRef.current;
-        if (text !== lastSavedRef.current && dateRef.current) {
-          authedFetch("/api/drafts", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ date: dateRef.current, rawTranscript: text }),
-            keepalive: true,
-          }).catch(() => {});
+        if (dateRef.current && shouldSave({ loaded: loadedRef.current, text, lastSaved: lastSavedRef.current })) {
+          save(text, dateRef.current, true);
         }
       }
     };
-  }, [dateStr, enabled]);
+  }, [dateStr, enabled, save]);
+
+  /** Send any debounced change now and wait until the last save has landed. */
+  const flush = useCallback(async () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+      const text = latestTextRef.current;
+      if (dateRef.current && shouldSave({ loaded: loadedRef.current, text, lastSaved: lastSavedRef.current })) {
+        save(text, dateRef.current);
+      }
+    }
+    await pendingRef.current;
+  }, [save]);
 
   const deleteDraft = useCallback(async () => {
     if (!dateStr) return;
@@ -131,5 +151,5 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
     }
   }, [dateStr]);
 
-  return { deleteDraft };
+  return { deleteDraft, flush };
 }
