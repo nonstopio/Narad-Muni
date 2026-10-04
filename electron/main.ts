@@ -373,7 +373,11 @@ async function startApp(): Promise<void> {
     await createWindow(port);
   }
 
-  initAutoUpdater();
+  // quitAndInstall must get past close-to-hide; reset if the install fails and the app keeps running
+  initAutoUpdater({
+    onBeforeRestart: () => { isQuitting = true; },
+    onRestartAborted: () => { isQuitting = false; },
+  });
 
   // Prevent macOS App Nap from throttling timers when window is hidden.
   const blockerId = powerSaveBlocker.start("prevent-app-suspension");
@@ -419,6 +423,11 @@ async function startApp(): Promise<void> {
 app.on("before-quit", () => {
   isQuitting = true;
 });
+
+// macOS quitAndInstall closes windows before app 'before-quit'; this fires first
+if (process.platform === "darwin") {
+  require("electron").autoUpdater.on("before-quit-for-update", () => { isQuitting = true; });
+}
 
 app.on("window-all-closed", () => {
   // Standard macOS: app stays alive when window is closed (reopen via dock icon)
