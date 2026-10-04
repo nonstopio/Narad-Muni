@@ -298,8 +298,6 @@ export function AnalyticsClient() {
   const [range, setRange] = useState(30);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
     authedFetch(`/api/admin/analytics?range=${range}`)
       .then((res) => {
         if (res.status === 403) throw new Error("forbidden");
@@ -357,7 +355,12 @@ export function AnalyticsClient() {
           {RANGE_OPTIONS.map((opt) => (
             <button
               key={opt.value}
-              onClick={() => setRange(opt.value)}
+              onClick={() => {
+                if (opt.value === range) return;
+                setLoading(true);
+                setError(null);
+                setRange(opt.value);
+              }}
               className={`px-3 py-1.5 text-xs rounded-md transition-colors cursor-pointer ${
                 range === opt.value
                   ? "bg-narada-primary/20 text-narada-primary"

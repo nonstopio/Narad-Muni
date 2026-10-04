@@ -41,9 +41,11 @@ export function UpdatesPageClient({
   monthUpdates: initialMonthUpdates,
 }: Props) {
   const { currentMonth, monthTitle, calendarDays, prevMonth, nextMonth, goToToday } = useCalendar();
-  const addToast = useToastStore((s) => s.addToast);
-  const [monthUpdates, setMonthUpdates] = useState(initialMonthUpdates);
-  const [monthLoading, setMonthLoading] = useState(false);
+  const monthKey = formatMonth(currentMonth);
+  // Loading is derived: the shown month is loading until its data has landed.
+  const [loaded, setLoaded] = useState({ month: monthKey, updates: initialMonthUpdates });
+  const monthLoading = loaded.month !== monthKey;
+  const monthUpdates = useMemo(() => (monthLoading ? [] : loaded.updates), [monthLoading, loaded]);
   const hasNavigated = useRef(false);
 
   useEffect(() => {
@@ -53,30 +55,23 @@ export function UpdatesPageClient({
     }
 
     const controller = new AbortController();
-    setMonthLoading(true);
-    setMonthUpdates([]);
-    const monthStr = formatMonth(currentMonth);
-    authedFetch(`/api/updates?month=${monthStr}`, { signal: controller.signal })
+    authedFetch(`/api/updates?month=${monthKey}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((data) => {
         if (!controller.signal.aborted) {
-          setMonthUpdates(data.updates || []);
+          setLoaded({ month: monthKey, updates: data.updates || [] });
         }
       })
       .catch((err) => {
         if (!controller.signal.aborted) {
           console.error("[Narada] Failed to fetch month updates:", err);
-          addToast("Alas! Could not retrieve this month's chronicles", "error");
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setMonthLoading(false);
+          useToastStore.getState().addToast("Alas! Could not retrieve this month's chronicles", "error");
+          setLoaded({ month: monthKey, updates: [] });
         }
       });
 
     return () => controller.abort();
-  }, [currentMonth]);
+  }, [monthKey]);
 
   const updateStatusMap = useMemo(() => {
     const map = new Map<string, CombinedStatus>();
@@ -133,7 +128,7 @@ export function UpdatesPageClient({
   };
 
   function handleDelete(id: string) {
-    setMonthUpdates((prev) => prev.filter((u) => u.id !== id));
+    setLoaded((prev) => ({ ...prev, updates: prev.updates.filter((u) => u.id !== id) }));
     setSelectedUpdate(null);
     router.refresh();
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useSettingsStore } from "@/stores/settings-store";
 import { PlatformConfigCard } from "./platform-config-card";
 import { JiraConfigCard } from "./jira-config-card";
@@ -25,6 +25,8 @@ interface NavItem {
   electronOnly?: boolean;
 }
 
+const noopSubscribe = () => () => {};
+
 const navItems: NavItem[] = [
   { key: "slack", label: "Slack Portal", icon: MessageSquare },
   { key: "teams", label: "Teams Portal", icon: Users },
@@ -41,15 +43,16 @@ interface Props {
 export function SettingsClient({ initialConfigs }: Props) {
   const { configs, setConfigs, saveConfig } = useSettingsStore();
   const [activeSection, setActiveSection] = useState("slack");
-  const [isElectron, setIsElectron] = useState(false);
+  // Server render and first paint are web; Electron is read from the window after hydration.
+  const isElectron = useSyncExternalStore(
+    noopSubscribe,
+    () => !!window.narada?.isElectron,
+    () => false
+  );
 
   useEffect(() => {
     setConfigs(initialConfigs);
   }, [initialConfigs, setConfigs]);
-
-  useEffect(() => {
-    setIsElectron(!!window.narada?.isElectron);
-  }, []);
 
   const displayConfigs = configs.length > 0 ? configs : initialConfigs;
 

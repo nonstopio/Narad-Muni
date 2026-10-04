@@ -15,8 +15,6 @@ export default function UpdatesPage() {
   const [error, setError] = useState(false);
 
   const loadUpdates = useCallback(() => {
-    setLoading(true);
-    setError(false);
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
@@ -84,7 +82,11 @@ export default function UpdatesPage() {
       <PageError
         title="Alas! The chronicles could not be summoned"
         message="The sacred records elude me. This may be a fleeting disturbance."
-        onRetry={loadUpdates}
+        onRetry={() => {
+          setLoading(true);
+          setError(false);
+          loadUpdates();
+        }}
       />
     );
   }

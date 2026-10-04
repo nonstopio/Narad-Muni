@@ -68,7 +68,7 @@ jobs:
         run: npm run build
 
       - name: Fix Turbopack hashed module names
-        run: node scripts/fix-turbopack-hashes.js
+        run: node scripts/fix-turbopack-hashes.mjs
 
       - name: Copy static assets into standalone
         shell: bash

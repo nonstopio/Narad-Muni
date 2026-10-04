@@ -14,8 +14,6 @@ export default function HistoryPage() {
   const [error, setError] = useState(false);
 
   const loadHistory = useCallback(() => {
-    setLoading(true);
-    setError(false);
     authedFetch("/api/updates")
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -46,7 +44,11 @@ export default function HistoryPage() {
       <PageError
         title="Alas! The ancient scrolls remain sealed"
         message="Your chronicles could not be retrieved. This may be a fleeting disturbance."
-        onRetry={loadHistory}
+        onRetry={() => {
+          setLoading(true);
+          setError(false);
+          loadHistory();
+        }}
       />
     );
   }

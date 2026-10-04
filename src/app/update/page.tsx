@@ -13,8 +13,6 @@ export default function UpdatePage() {
   const [error, setError] = useState(false);
 
   const loadConfigs = useCallback(() => {
-    setLoading(true);
-    setError(false);
     authedFetch("/api/settings")
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -44,7 +42,11 @@ export default function UpdatePage() {
       <PageError
         title="Alas! The sacred scrolls could not be prepared"
         message="Your platform configurations elude me. This may be a fleeting disturbance."
-        onRetry={loadConfigs}
+        onRetry={() => {
+          setLoading(true);
+          setError(false);
+          loadConfigs();
+        }}
       />
     );
   }
