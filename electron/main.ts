@@ -449,6 +449,8 @@ async function startApp(): Promise<void> {
   handle("projects:update", (_e, patch) => projects.update(patch));
   handle("projects:remove", (_e, args) => projects.remove(args?.id));
   handle("projects:setTimeZone", (_e, tz) => projects.setTimeZone(tz));
+  // Only ever runs git in roots from the signed-in user's list; one collect at a time.
+  handle("projects:collect", (_e, args) => projects.collect(args));
 }
 
 // macOS lifecycle

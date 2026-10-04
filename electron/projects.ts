@@ -17,10 +17,43 @@ export interface LocalProject {
   authorEmails: string[];
 }
 
+export interface ProjectCommit {
+  projectId: string;
+  projectName: string;
+  hash: string;
+  shortHash: string;
+  subject: string;
+  body: string;
+  authorEmail: string;
+  authorName: string;
+  authorEpochMs: number;
+}
+
+export type ProjectSkipReason =
+  | "missing-folder"
+  | "not-a-repo"
+  | "unreadable"
+  | "timed-out"
+  | "too-large"
+  | "no-author-email";
+
+export type ProjectCollectResult =
+  | {
+      ok: true;
+      date: string;
+      timeZone: string;
+      projects: { id: string; name: string; commits: ProjectCommit[]; truncated: boolean }[];
+      skipped: { id: string; name: string; reason: ProjectSkipReason }[];
+    }
+  | { ok: false; error: "signed-out" | "git-missing" | "no-projects" | "none-enabled" | "all-failed" | "busy" };
+
 type GitFailure = "git-missing" | "missing-folder" | "unreadable" | "timed-out" | "too-large";
 type GitResult = { ok: true; stdout: string } | { ok: false; reason: GitFailure };
 
+const PER_PROJECT_CAP = 50;
+const PER_COLLECT_CAP = 150;
 const EMAIL = /^[^\s@]+@[^\s@]+$/;
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Read-only git: argument arrays, no shell, no hooks, no fsmonitor, no optional index writes. */
 export function runGit(cwd: string, args: string[]): Promise<GitResult> {
@@ -64,6 +97,12 @@ export async function resolveRepo(
   return { root, commonDir, email: EMAIL.test(email) ? email : null };
 }
 
+/** Strip C0/C1 control characters except newline, then cap the length. */
+export function sanitize(s: string, max: number): string {
+  const clean = s.replace(/[\u0000-\u0009\u000B-\u001F\u007F-\u009F]/g, "").trim();
+  return clean.length > max ? clean.slice(0, max - 1) + "…" : clean;
+}
+
 function isTimeZone(tz: unknown): tz is string {
   if (typeof tz !== "string" || !tz) return false;
   try {
@@ -72,6 +111,10 @@ function isTimeZone(tz: unknown): tz is string {
   } catch {
     return false;
   }
+}
+
+function isDateKey(s: unknown): s is string {
+  return typeof s === "string" && DATE_KEY.test(s) && new Date(`${s}T00:00:00Z`).toISOString().startsWith(s);
 }
 
 interface UserProjects {
@@ -85,6 +128,8 @@ interface StoreFile {
 }
 
 export function createProjectStore({ filePath, getUid }: { filePath: string; getUid: () => string | undefined }) {
+  let busy = false;
+
   function readFile(): StoreFile {
     try {
       const parsed = JSON.parse(fs.readFileSync(filePath, "utf-8"));
@@ -186,5 +231,109 @@ export function createProjectStore({ filePath, getUid }: { filePath: string; get
       return { workdayTimeZone: s.mine.workdayTimeZone };
     },
 
+    async collect(args: { date: unknown; timeZone: unknown }): Promise<ProjectCollectResult> {
+      const { date, timeZone } = args ?? {};
+      if (!isDateKey(date) || !isTimeZone(timeZone)) throw new Error("Invalid collect arguments");
+      const s = load();
+      if (!s) return { ok: false, error: "signed-out" };
+      if (s.mine.projects.length === 0) return { ok: false, error: "no-projects" };
+      const enabled = s.mine.projects.filter((p) => p.enabled);
+      if (enabled.length === 0) return { ok: false, error: "none-enabled" };
+      if (busy) return { ok: false, error: "busy" };
+      busy = true;
+      try {
+        return await collectFor(enabled, date, timeZone);
+      } finally {
+        busy = false;
+      }
+    },
   };
+}
+
+async function collectFor(projects: LocalProject[], date: string, timeZone: string): Promise<ProjectCollectResult> {
+  // A commit belongs to `date` iff its author time, read in `timeZone`, falls on that
+  // calendar day. No offset arithmetic, so 23h/25h DST days come out right.
+  const dayOf = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+
+  const firstPass = await Promise.all(
+    projects.map(async (p) => {
+      if (p.authorEmails.length === 0) return { p, reason: "no-author-email" as const };
+      // No --since/--until: those filter by committer date. Filter on author time (%at) below instead.
+      // ponytail: full-history walk per fetch (~1s per 100k commits), bounded by the 15s timeout;
+      // add a --since=<date-90d> guard with a full-walk fallback if a monorepo times out.
+      const res = await runGit(p.root, [
+        "log", "--branches", "--remotes", "HEAD", "--no-merges", "-F", "-i",
+        ...p.authorEmails.map((e) => `--author=${e}`),
+        "--format=%H%x1f%ae%x1f%at", "-z",
+      ]);
+      if (!res.ok) return { p, reason: res.reason };
+      const seen = new Set<string>();
+      const hits: { hash: string; at: number }[] = [];
+      for (const rec of res.stdout.split("\0")) {
+        const [hash, ae, at] = rec.trim().split("\x1f");
+        if (!hash || seen.has(hash)) continue;
+        seen.add(hash);
+        if (!p.authorEmails.includes((ae ?? "").toLowerCase())) continue;
+        if (dayOf.format(Number(at) * 1000) !== date) continue;
+        hits.push({ hash, at: Number(at) });
+      }
+      hits.sort((a, b) => b.at - a.at);
+      return { p, hits };
+    })
+  );
+
+  if (firstPass.some((r) => "reason" in r && r.reason === "git-missing")) return { ok: false, error: "git-missing" };
+
+  const skipped: { id: string; name: string; reason: ProjectSkipReason }[] = [];
+  const read: { p: LocalProject; hits: { hash: string; at: number }[]; truncated: boolean }[] = [];
+  for (const r of firstPass) {
+    if ("reason" in r) skipped.push({ id: r.p.id, name: r.p.name, reason: r.reason as ProjectSkipReason });
+    else read.push({ p: r.p, hits: r.hits.slice(0, PER_PROJECT_CAP), truncated: r.hits.length > PER_PROJECT_CAP });
+  }
+  if (read.length === 0 && skipped.every((x) => x.reason !== "no-author-email")) return { ok: false, error: "all-failed" };
+
+  // Overall cap: keep the newest across projects.
+  const keep = new Set(
+    read.flatMap((r) => r.hits).sort((a, b) => b.at - a.at).slice(0, PER_COLLECT_CAP).map((h) => h.hash)
+  );
+
+  const results = await Promise.all(
+    read.map(async ({ p, hits, truncated }): Promise<
+      { p: LocalProject; reason: ProjectSkipReason } | { p: LocalProject; commits: ProjectCommit[]; truncated: boolean }
+    > => {
+      const wanted = hits.filter((h) => keep.has(h.hash));
+      const commits: ProjectCommit[] = [];
+      if (wanted.length > 0) {
+        const res = await runGit(p.root, [
+          "show", "-s", "--no-notes", "--format=%H%x1f%an%x1f%ae%x1f%at%x1f%s%x1f%b%x1e",
+          ...wanted.map((h) => h.hash),
+        ]);
+        if (!res.ok) return { p, reason: res.reason as ProjectSkipReason };
+        for (const rec of res.stdout.split("\x1e")) {
+          const [hash, an, ae, at, subject, body] = rec.replace(/^\n/, "").split("\x1f");
+          if (!hash || !at) continue;
+          commits.push({
+            projectId: p.id,
+            projectName: p.name,
+            hash,
+            shortHash: hash.slice(0, 7),
+            subject: sanitize(subject ?? "", 200),
+            body: sanitize(body ?? "", 1000),
+            authorEmail: (ae ?? "").toLowerCase(),
+            authorName: sanitize(an ?? "", 200),
+            authorEpochMs: Number(at) * 1000,
+          });
+        }
+        commits.sort((a, b) => b.authorEpochMs - a.authorEpochMs);
+      }
+      return { p, commits, truncated: truncated || wanted.length < hits.length };
+    })
+  );
+
+  const out: { id: string; name: string; commits: ProjectCommit[]; truncated: boolean }[] = [];
+  for (const r of results) {
+    if ("reason" in r) skipped.push({ id: r.p.id, name: r.p.name, reason: r.reason });
+    else out.push({ id: r.p.id, name: r.p.name, commits: r.commits, truncated: r.truncated });
+  }
+  return { ok: true, date, timeZone, projects: out, skipped };
 }

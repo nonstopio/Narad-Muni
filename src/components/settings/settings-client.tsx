@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSettingsStore } from "@/stores/settings-store";
 import { PlatformConfigCard } from "./platform-config-card";
 import { JiraConfigCard } from "./jira-config-card";
@@ -45,7 +46,8 @@ interface Props {
 
 export function SettingsClient({ initialConfigs }: Props) {
   const { configs, setConfigs, saveConfig } = useSettingsStore();
-  const [activeSection, setActiveSection] = useState("slack");
+  const searchParams = useSearchParams();
+  const [activeSection, setActiveSection] = useState(() => searchParams.get("section") ?? "slack");
   // Server render and first paint are web; Electron is read from the window after hydration.
   const isElectron = useSyncExternalStore(
     noopSubscribe,

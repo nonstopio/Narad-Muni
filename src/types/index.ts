@@ -164,3 +164,33 @@ export interface LocalProject {
   enabled: boolean;
   authorEmails: string[];
 }
+
+export interface ProjectCommit {
+  projectId: string;
+  projectName: string;
+  hash: string;
+  shortHash: string;
+  subject: string;
+  body: string;
+  authorEmail: string;
+  authorName: string;
+  authorEpochMs: number;
+}
+
+export type ProjectSkipReason =
+  | "missing-folder"
+  | "not-a-repo"
+  | "unreadable"
+  | "timed-out"
+  | "too-large"
+  | "no-author-email";
+
+export type ProjectCollectResult =
+  | {
+      ok: true;
+      date: string;
+      timeZone: string;
+      projects: { id: string; name: string; commits: ProjectCommit[]; truncated: boolean }[];
+      skipped: { id: string; name: string; reason: ProjectSkipReason }[];
+    }
+  | { ok: false; error: "signed-out" | "git-missing" | "no-projects" | "none-enabled" | "all-failed" | "busy" };

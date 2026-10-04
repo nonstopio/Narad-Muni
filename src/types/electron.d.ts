@@ -1,4 +1,4 @@
-import type { LocalProject } from "./index";
+import type { LocalProject, ProjectCollectResult } from "./index";
 
 type ProjectsError = { error: "signed-out" };
 
@@ -29,6 +29,7 @@ declare global {
         }) => Promise<{ project: LocalProject } | ProjectsError>;
         remove: (id: string) => Promise<{ ok: true } | ProjectsError>;
         setTimeZone: (tz: string | null) => Promise<{ workdayTimeZone: string | null } | ProjectsError>;
+        collect: (args: { date: string; timeZone: string }) => Promise<ProjectCollectResult>;
       };
     };
   }

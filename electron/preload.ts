@@ -19,5 +19,6 @@ contextBridge.exposeInMainWorld("narada", {
     update: (patch: unknown) => ipcRenderer.invoke("projects:update", patch),
     remove: (id: string) => ipcRenderer.invoke("projects:remove", { id }),
     setTimeZone: (tz: string | null) => ipcRenderer.invoke("projects:setTimeZone", tz),
+    collect: (args: { date: string; timeZone: string }) => ipcRenderer.invoke("projects:collect", args),
   },
 });
