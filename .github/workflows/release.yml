@@ -39,6 +39,16 @@ jobs:
           node-version: 20
           cache: npm
 
+      # The updater manifests carry package.json's version; the tag must match.
+      - name: Check tag matches package.json version
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${version}"
+            exit 1
+          fi
+
       - name: Install dependencies
         run: npm ci
 
@@ -69,12 +79,75 @@ jobs:
       - name: Compile Electron TypeScript
         run: npm run electron:compile
 
-      - name: Disable macOS code signing
+      # Signed + notarized macOS build. Apple credentials are scoped to this step
+      # only; forceCodeSigning makes electron-builder fail instead of producing
+      # an unsigned app if the certificate can't be used.
+      - name: Check macOS signing secrets
         if: matrix.platform == 'mac'
-        run: echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> $GITHUB_ENV
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=0
+          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing repository secret $name — refusing to build an unsigned macOS release"
+              missing=1
+            fi
+          done
+          exit $missing
 
-      - name: Build Electron app
+      - name: Build Electron app (macOS, signed + notarized)
+        if: matrix.platform == 'mac'
+        run: npx electron-builder ${{ matrix.build_args }} --publish never -c.forceCodeSigning=true
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # electron-builder only warns when notarization is skipped, so prove the
+      # shipped apps (and the copies inside the updater ZIPs) are signed,
+      # notarized and stapled before anything is uploaded.
+      - name: Verify macOS signature, notarization and stapling
+        if: matrix.platform == 'mac'
+        shell: bash
+        run: |
+          set -euo pipefail
+          verify() {
+            codesign --verify --deep --strict --verbose=2 "$1"
+            spctl --assess --type execute --verbose=4 "$1"
+            xcrun stapler validate "$1"
+          }
+          for app in dist/mac*/"Narad Muni.app"; do
+            echo "== $app"; verify "$app"
+          done
+          for zip in dist/*.zip; do
+            tmp=$(mktemp -d)
+            ditto -x -k "$zip" "$tmp"
+            echo "== $zip"; verify "$tmp/Narad Muni.app"
+            rm -rf "$tmp"
+          done
+          version=$(node -p "require('./package.json').version")
+          grep -q "^version: $version$" dist/latest-mac.yml
+          grep -q -- "-$version-arm64.zip" dist/latest-mac.yml
+          grep -q -- "-$version-x64.zip" dist/latest-mac.yml
+
+      - name: Build Electron app (Windows)
+        if: matrix.platform == 'win'
         run: npx electron-builder ${{ matrix.build_args }} --publish never
+
+      - name: Verify Windows update manifest
+        if: matrix.platform == 'win'
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          grep -q "^version: $version$" dist/latest.yml
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
@@ -84,7 +157,7 @@ jobs:
             dist/*.dmg
             dist/*.zip
             dist/*.exe
-            dist/*.yml
+            dist/latest*.yml
             dist/*.blockmap
           if-no-files-found: error
 
@@ -103,15 +176,28 @@ jobs:
       - name: List artifacts
         run: find artifacts -type f | head -30
 
-      - name: Create GitHub Release
+      - name: Check update manifests are present
+        run: test -f artifacts/latest-mac.yml && test -f artifacts/latest.yml
+
+      # Upload everything to a draft first, then publish, so installed apps never
+      # see a release whose updater manifests or ZIPs are still uploading.
+      - name: Create GitHub Release (draft)
+        id: release
         uses: softprops/action-gh-release@v3
         with:
+          draft: true
           generate_release_notes: true
+          fail_on_unmatched_files: true
           files: |
             artifacts/**/*.dmg
             artifacts/**/*.zip
             artifacts/**/*.exe
-            artifacts/**/*.yml
+            artifacts/**/latest*.yml
             artifacts/**/*.blockmap
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish release
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
