@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldPath } from "firebase-admin/firestore";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
-import { leavesCol, updatesCol, isOnLeave } from "@/lib/firestore-helpers";
+import { leavesCol, updatesCol } from "@/lib/firestore-helpers";
 import { isDateKey, updateDateIso } from "@/lib/date-key";
+
+// A rest day is personal leave or a holiday. Docs written before holidays existed have no kind.
+const kindOf = (kind: unknown) => (kind === "holiday" ? "holiday" : "leave");
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,7 +16,8 @@ export async function GET(request: NextRequest) {
     const date = params.get("date");
     if (date !== null) {
       if (!isDateKey(date)) return NextResponse.json({ error: "invalid date" }, { status: 400 });
-      return NextResponse.json({ onLeave: await isOnLeave(user.uid, date) });
+      const doc = await leavesCol(user.uid).doc(date).get();
+      return NextResponse.json({ onLeave: doc.exists, kind: doc.exists ? kindOf(doc.get("kind")) : null });
     }
 
     // ?month=YYYY-MM → that month; no params → all (the streak walks every leave).
@@ -24,7 +28,11 @@ export async function GET(request: NextRequest) {
       query = query.where(FieldPath.documentId(), ">=", `${month}-01`).where(FieldPath.documentId(), "<=", `${month}-31`);
     }
     const snap = await query.get();
-    return NextResponse.json({ leaves: snap.docs.map((d) => d.id) });
+    // `leaves` holds every rest day; `holidays` is the subset marked as a holiday.
+    return NextResponse.json({
+      leaves: snap.docs.map((d) => d.id),
+      holidays: snap.docs.filter((d) => kindOf(d.get("kind")) === "holiday").map((d) => d.id),
+    });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada API Leaves] GET failed:", error);
@@ -36,16 +44,19 @@ export async function PUT(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     console.log(`[Narada] PUT /api/leaves uid=${user.uid}`);
-    const { date } = await request.json();
+    const { date, kind } = await request.json();
     if (!isDateKey(date)) return NextResponse.json({ error: "invalid date" }, { status: 400 });
+    if (kind !== undefined && kind !== "leave" && kind !== "holiday") {
+      return NextResponse.json({ error: "invalid kind" }, { status: 400 });
+    }
 
     // ponytail: check-then-write, not a transaction. Two same-millisecond requests
     // from one user could both pass; use runTransaction here and in POST /api/updates if that ever matters.
     const existing = await updatesCol(user.uid).where("date", "==", updateDateIso(date)).limit(1).get();
     if (!existing.empty) return NextResponse.json({ error: "update-exists" }, { status: 409 });
 
-    await leavesCol(user.uid).doc(date).set({ date, createdAt: new Date().toISOString() });
-    return NextResponse.json({ onLeave: true });
+    await leavesCol(user.uid).doc(date).set({ date, kind: kindOf(kind), createdAt: new Date().toISOString() });
+    return NextResponse.json({ onLeave: true, kind: kindOf(kind) });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada API Leaves] PUT failed:", error);

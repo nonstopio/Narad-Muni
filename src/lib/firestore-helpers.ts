@@ -13,8 +13,8 @@ export async function isOnLeave(uid: string, dateKey: string): Promise<boolean> 
   return (await leavesCol(uid).doc(dateKey).get()).exists;
 }
 
-/** Copy for the 409 every write path returns while a day is on leave. */
-export const LEAVE_BLOCKED = "Alas! This day rests in leave — undo the leave first.";
+/** Copy for the 409 every write path returns while a day is on leave or a holiday. */
+export const LEAVE_BLOCKED = "Alas! This day is set aside for rest — undo the leave or holiday first.";
 
 /** Slack config fields needed to talk to the Web API. */
 export async function getSlackCreds(

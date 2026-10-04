@@ -21,20 +21,23 @@ interface Props {
   streak: number;
   monthUpdates: UpdateData[];
   monthLeaves: string[];
+  monthHolidays: string[];
 }
 
 export function UpdatesPageClient({
   streak,
   monthUpdates: initialMonthUpdates,
   monthLeaves: initialMonthLeaves,
+  monthHolidays: initialMonthHolidays,
 }: Props) {
   const { currentMonth, monthTitle, calendarDays, prevMonth, nextMonth, goToToday } = useCalendar();
   const monthKey = formatMonth(currentMonth);
   // Loading is derived: the shown month is loading until its data has landed.
-  const [loaded, setLoaded] = useState({ month: monthKey, updates: initialMonthUpdates, leaves: initialMonthLeaves });
+  const [loaded, setLoaded] = useState({ month: monthKey, updates: initialMonthUpdates, leaves: initialMonthLeaves, holidays: initialMonthHolidays });
   const monthLoading = loaded.month !== monthKey;
   const monthUpdates = useMemo(() => (monthLoading ? [] : loaded.updates), [monthLoading, loaded]);
   const leaveSet = useMemo(() => new Set<string>(monthLoading ? [] : loaded.leaves), [monthLoading, loaded]);
+  const holidaySet = useMemo(() => new Set<string>(monthLoading ? [] : loaded.holidays), [monthLoading, loaded]);
   const hasNavigated = useRef(false);
 
   useEffect(() => {
@@ -52,14 +55,14 @@ export function UpdatesPageClient({
     Promise.all([getJson(`/api/updates?month=${monthKey}`), getJson(`/api/leaves?month=${monthKey}`)])
       .then(([updateData, leaveData]) => {
         if (!controller.signal.aborted) {
-          setLoaded({ month: monthKey, updates: updateData.updates || [], leaves: leaveData.leaves || [] });
+          setLoaded({ month: monthKey, updates: updateData.updates || [], leaves: leaveData.leaves || [], holidays: leaveData.holidays || [] });
         }
       })
       .catch((err) => {
         if (!controller.signal.aborted) {
           console.error("[Narada] Failed to fetch month updates:", err);
           useToastStore.getState().addToast("Alas! Could not retrieve this month's chronicles", "error");
-          setLoaded({ month: monthKey, updates: [], leaves: [] });
+          setLoaded({ month: monthKey, updates: [], leaves: [], holidays: [] });
         }
       });
 
@@ -139,6 +142,7 @@ export function UpdatesPageClient({
       <Calendar
         updateStatusMap={updateStatusMap}
         leaveDates={leaveSet}
+        holidayDates={holidaySet}
         onDayClick={handleDayClick}
         monthTitle={monthTitle}
         calendarDays={calendarDays}

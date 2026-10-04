@@ -12,7 +12,7 @@ import { LEAVE_BLOCKED_COPY } from "@/components/history/history-detail-modal";
 import { RetryInputSection } from "./retry-input-section";
 import { PlatformOutputs } from "./platform-outputs";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Palmtree } from "lucide-react";
+import { ArrowLeft, Palmtree, PartyPopper } from "lucide-react";
 import { computeCombinedStatus } from "@/types";
 import type { PlatformConfigData, PublishStatus } from "@/types";
 import { authedFetch } from "@/lib/api-client";
@@ -36,10 +36,11 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
   const retryParam = searchParams.get("retry");
 
   // Leave state for this date; null while unknown. Keyed by date so a stale
-  // answer for the previous date is never shown for this one.
-  const [leave, setLeave] = useState<{ date: string; onLeave: boolean } | null>(null);
+  // answer for the previous date is never shown for this one. A holiday is a leave of kind "holiday".
+  const [leave, setLeave] = useState<{ date: string; onLeave: boolean; holiday?: boolean } | null>(null);
   const [leaveBusy, setLeaveBusy] = useState(false);
   const onLeave = leave && leave.date === dateParam ? leave.onLeave : null;
+  const isHoliday = onLeave === true && leave?.holiday === true;
   const onLeaveRef = useRef(onLeave);
   useEffect(() => { onLeaveRef.current = onLeave; }, [onLeave]);
 
@@ -49,7 +50,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
     authedFetch(`/api/leaves?date=${dateParam}`)
       .then((res) => res.json())
       .then((data) => {
-        if (!cancelled) setLeave({ date: dateParam, onLeave: data.onLeave === true });
+        if (!cancelled) setLeave({ date: dateParam, onLeave: data.onLeave === true, holiday: data.kind === "holiday" });
       })
       .catch((err) => {
         console.error("[Narada] Failed to load leave:", err);
@@ -64,7 +65,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
   // Auto-save draft text per date (off in retry mode, on leave, and until leave is known)
   const { deleteDraft, flush } = useDraftAutoSave(dateParam, !retryParam && !!dateParam && onLeave === false);
 
-  const markLeave = useCallback(async () => {
+  const markLeave = useCallback(async (kind: "leave" | "holiday") => {
     if (!dateParam) return;
     const date = dateParam;
     setLeaveBusy(true);
@@ -74,7 +75,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
       const res = await authedFetch("/api/leaves", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date }),
+        body: JSON.stringify({ date, kind }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 409 && data.error === "update-exists") {
@@ -82,8 +83,11 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
         return;
       }
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      setLeave({ date, onLeave: true });
-      useToastStore.getState().addToast("Narayan Narayan! This day is marked for rest.", "success");
+      setLeave({ date, onLeave: true, holiday: kind === "holiday" });
+      useToastStore.getState().addToast(
+        kind === "holiday" ? "Narayan Narayan! A holiday — even the gods feast today." : "Narayan Narayan! This day is marked for rest.",
+        "success",
+      );
     } catch (err) {
       console.error("[Narada] Failed to mark leave:", err);
       useToastStore.getState().addToast("Alas! I could not mark this day for rest.", "error");
@@ -103,7 +107,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
       useToastStore.getState().addToast("Narayan Narayan! The day is yours again — your draft awaits.", "success");
     } catch (err) {
       console.error("[Narada] Failed to undo leave:", err);
-      useToastStore.getState().addToast("Alas! I could not undo the leave.", "error");
+      useToastStore.getState().addToast("Alas! I could not return this day to you.", "error");
     } finally {
       setLeaveBusy(false);
     }
@@ -355,15 +359,21 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
           </span>
         )}
         {!isRetryMode && onLeave === false && (
-          <Button variant="secondary" size="sm" className="ml-auto" onClick={markLeave} disabled={leaveBusy}>
-            <Palmtree className="w-4 h-4" />
-            Mark as on leave
-          </Button>
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => markLeave("leave")} disabled={leaveBusy}>
+              <Palmtree className="w-4 h-4" />
+              Mark as on leave
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => markLeave("holiday")} disabled={leaveBusy}>
+              <PartyPopper className="w-4 h-4" />
+              Mark as holiday
+            </Button>
+          </div>
         )}
         {!isRetryMode && onLeave === true && (
           <div className="ml-auto flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-lg text-xs font-medium bg-violet-500/10 border border-violet-500/30 text-narada-secondary">
-              On leave
+              {isHoliday ? "Holiday" : "On leave"}
             </span>
             <Button variant="ghost" size="sm" onClick={undoLeave} disabled={leaveBusy}>
               Undo
@@ -375,12 +385,18 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
       {!isRetryMode && onLeave === true ? (
         <div className="flex flex-1 min-h-0 items-center justify-center p-6">
           <div className="glass-card p-8 max-w-md text-center flex flex-col items-center gap-3">
-            <Palmtree className="w-10 h-10 text-narada-secondary" />
+            {isHoliday ? (
+              <PartyPopper className="w-10 h-10 text-narada-secondary" />
+            ) : (
+              <Palmtree className="w-10 h-10 text-narada-secondary" />
+            )}
             <p className="text-base font-semibold text-narada-text">
-              Narayan Narayan! You rest today — the three worlds can wait.
+              {isHoliday
+                ? "Narayan Narayan! A holiday — the three worlds celebrate with you."
+                : "Narayan Narayan! You rest today — the three worlds can wait."}
             </p>
             <p className="text-sm text-narada-text-secondary">
-              Your draft is kept safe. Undo the leave to return to it.
+              Your draft is kept safe. Undo the {isHoliday ? "holiday" : "leave"} to return to it.
             </p>
           </div>
         </div>

@@ -54,7 +54,7 @@ All user data is scoped under `users/{userId}/`:
 - **`configs/{platform}`** — SLACK, TEAMS, or JIRA config with embedded `repeatEntries[]` array
 - **`settings/app`** — AI provider selection + API keys + Deepgram key + notification settings (singleton doc)
 - **`drafts/{YYYY-MM-DD}`** — Draft text keyed by date string, plus `source` (`"manual"` | `"projects"`; missing = manual). Updates store the same `source`, and `workLogEntries[].needsConfirmation` marks AI estimates from commits
-- **`leaves/{YYYY-MM-DD}`** — `{ date, createdAt }`; the doc ID is the day key. A day on leave refuses update publishes and draft writes, and a day with an update cannot go on leave
+- **`leaves/{YYYY-MM-DD}`** — `{ date, kind, createdAt }` (`kind`: `"leave"` | `"holiday"`; missing = leave); the doc ID is the day key. A holiday behaves exactly like leave, only labelled differently. A day on leave refuses update publishes and draft writes, and a day with an update cannot go on leave
 - **`broadcasts/{templateId}`** — Missive template: name, body (with `{{name}}`/`{{first_name}}` placeholders), `recipients[]`, and `scheduled[]` refs for queued Slack sends
 
 ## API Routes
@@ -75,7 +75,7 @@ All routes require `Authorization: Bearer <firebaseIdToken>` header.
 | PUT | `/api/settings/ai-provider` | Update AI provider + API keys |
 | GET/PUT | `/api/drafts` | Read/write draft text and source for a date (409 while the day is on leave) |
 | GET | `/api/leaves?month=YYYY-MM` / `?date=YYYY-MM-DD` | Leave day keys for a month (all with no params) / whether one day is on leave |
-| PUT | `/api/leaves` | Mark `{ date }` as leave (409 `update-exists` if the day has an update) |
+| PUT | `/api/leaves` | Mark `{ date, kind? }` as leave or holiday (409 `update-exists` if the day has an update) |
 | DELETE | `/api/leaves?date=YYYY-MM-DD` | Undo leave |
 | POST | `/api/auth/seed` | Seed default configs for new user (idempotent) |
 | GET/POST/DELETE | `/api/broadcast` | Missive template CRUD |
