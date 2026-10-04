@@ -3,6 +3,7 @@
 //   node scripts/changelog.mjs <version> [lastTag]
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const SECTIONS = [
   ["breaking", "⚠️ Breaking Changes"],
@@ -37,7 +38,7 @@ export function prepend(changelog, entry) {
     : `${changelog.slice(0, i + 1)}${entry}\n${changelog.slice(i + 1)}`;
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [version, last] = process.argv.slice(2);
   const range = last ? [`${last}..HEAD`] : ["HEAD"];
   const raw = execFileSync(
