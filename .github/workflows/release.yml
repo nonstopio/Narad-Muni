@@ -2,14 +2,53 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches:
+      - main
 
 permissions:
   contents: write
 
+# Queue pushes to main so two releases can't race on the same tag.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    name: Next version
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # Conventional-commit bump off the last tag. Tags are the source of
+      # truth for the version; package.json in git is only a dev placeholder.
+      - id: v
+        run: |
+          LAST=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          LOG=$(git log ${LAST:+$LAST..}HEAD --no-merges --format='%s%n%b')
+          if echo "$LOG" | grep -qE '^(BREAKING CHANGE:|[a-z]+(\(.+\))?!:)'; then
+            BUMP=major
+          elif echo "$LOG" | grep -qE '^feat(\(.+\))?:'; then
+            BUMP=minor
+          else
+            BUMP=patch
+          fi
+          BASE=${LAST#v}
+          IFS=. read -r MA MI PA <<< "${BASE:-0.0.0}"
+          case $BUMP in
+            major) MA=$((MA + 1)); MI=0; PA=0 ;;
+            minor) MI=$((MI + 1)); PA=0 ;;
+            patch) PA=$((PA + 1)) ;;
+          esac
+          echo "version=v$MA.$MI.$PA" >> $GITHUB_OUTPUT
+          echo "::notice::${LAST:-no tags} -> v$MA.$MI.$PA ($BUMP)"
+
   build:
+    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -39,15 +78,11 @@ jobs:
           node-version: 20
           cache: npm
 
-      # The updater manifests carry package.json's version; the tag must match.
-      - name: Check tag matches package.json version
+      # Stamps the computed version into the build (app version + updater
+      # manifests). Never committed back to the repo.
+      - name: Stamp version
         shell: bash
-        run: |
-          version=$(node -p "require('./package.json').version")
-          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${version}"
-            exit 1
-          fi
+        run: npm version "${{ needs.version.outputs.version }}" --no-git-tag-version --allow-same-version
 
       - name: Install dependencies
         run: npm ci
@@ -162,7 +197,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: build
+    needs: [version, build]
     runs-on: ubuntu-latest
     name: Create Release
 
@@ -185,6 +220,9 @@ jobs:
         id: release
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ needs.version.outputs.version }}
+          name: ${{ needs.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
           draft: true
           generate_release_notes: true
           fail_on_unmatched_files: true
@@ -198,6 +236,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release
-        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+        run: gh release edit "${{ needs.version.outputs.version }}" --repo "$GITHUB_REPOSITORY" --draft=false --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
