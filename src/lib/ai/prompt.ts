@@ -7,7 +7,7 @@ const PROJECT_SOURCE_RULES = `Project activity rules (this draft was built from 
 - Only use an issueKey that appears verbatim in the text or in the repeat entries; otherwise use "".
 - timeSpentSecs is your rough estimate only, in 30-minute steps (minimum 1800). Do NOT scale entries to fill 8h.
 - blockers and tomorrowTasks come only from text the user wrote outside the activity block; otherwise use []. In that case write "NA" under TOMORROW and BLOCKER.
-- slackFormat and teamsFormat must not state hours or durations.`;
+- slackFormat and teamsFormat must not state hours or durations. When a line has no ticket key, drop the "TICKET-KEY : " prefix instead of leaving it empty.`;
 
 export function buildSystemPrompt(
   date: string,

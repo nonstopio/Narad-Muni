@@ -246,7 +246,7 @@ export function JiraOutputCard() {
                       </div>
                     </td>
                     <td className="p-1.5 border-b border-white/[0.06]">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-col items-start gap-1">
                       <input
                         type="text"
                         value={
@@ -288,7 +288,7 @@ export function JiraOutputCard() {
                         placeholder="1h 30m"
                       />
                       {entry.needsConfirmation && (
-                        <>
+                        <div className="flex items-center gap-1">
                           <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-amber-500/10 border border-amber-500/30 text-narada-amber">
                             Estimate
                           </span>
@@ -300,7 +300,7 @@ export function JiraOutputCard() {
                           >
                             Confirm
                           </Button>
-                        </>
+                        </div>
                       )}
                       </div>
                     </td>
