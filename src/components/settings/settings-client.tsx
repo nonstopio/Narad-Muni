@@ -7,6 +7,7 @@ import { JiraConfigCard } from "./jira-config-card";
 import { AIProviderCard } from "./ai-provider-card";
 import { NotificationCard } from "./notification-card";
 import { KeyboardShortcutsCard } from "./keyboard-shortcuts-card";
+import { ProjectsCard } from "./projects-card";
 import {
   MessageSquare,
   Users,
@@ -14,6 +15,7 @@ import {
   Sparkles,
   Bell,
   Keyboard,
+  FolderGit2,
 } from "lucide-react";
 import type { PlatformConfigData } from "@/types";
 import type { LucideIcon } from "lucide-react";
@@ -32,6 +34,7 @@ const navItems: NavItem[] = [
   { key: "teams", label: "Teams Portal", icon: Users },
   { key: "jira", label: "Jira Chronicle", icon: BookOpen },
   { key: "ai", label: "Divine Oracle", icon: Sparkles },
+  { key: "projects", label: "Sacred Repositories", icon: FolderGit2, electronOnly: true },
   { key: "notifications", label: "Sacred Bell", icon: Bell, electronOnly: true },
   { key: "shortcuts", label: "Sacred Gestures", icon: Keyboard },
 ];
@@ -100,6 +103,8 @@ export function SettingsClient({ initialConfigs }: Props) {
         ));
       case "ai":
         return <AIProviderCard />;
+      case "projects":
+        return <ProjectsCard />;
       case "notifications":
         return <NotificationCard />;
       case "shortcuts":

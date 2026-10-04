@@ -13,4 +13,11 @@ contextBridge.exposeInMainWorld("narada", {
     notificationDays: string;
   }): Promise<void> => ipcRenderer.invoke("reload-notification-schedule", config),
   testNotification: (): Promise<void> => ipcRenderer.invoke("test-notification"),
+  projects: {
+    list: () => ipcRenderer.invoke("projects:list"),
+    add: () => ipcRenderer.invoke("projects:add"),
+    update: (patch: unknown) => ipcRenderer.invoke("projects:update", patch),
+    remove: (id: string) => ipcRenderer.invoke("projects:remove", { id }),
+    setTimeZone: (tz: string | null) => ipcRenderer.invoke("projects:setTimeZone", tz),
+  },
 });

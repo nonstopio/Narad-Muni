@@ -154,3 +154,13 @@ export function computeCombinedStatus(
   if (failedCount === enabled.length) return "all-failed";
   return "partial";
 }
+
+// Local git projects (desktop only). Twin interfaces live in electron/projects.ts.
+export interface LocalProject {
+  id: string;
+  name: string;
+  root: string;
+  commonDir: string;
+  enabled: boolean;
+  authorEmails: string[];
+}

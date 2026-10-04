@@ -1,10 +1,11 @@
-import { app, BrowserWindow, shell, ipcMain, Menu, powerSaveBlocker, screen } from "electron";
+import { app, BrowserWindow, shell, ipcMain, Menu, powerSaveBlocker, screen, dialog } from "electron";
 import * as fs from "fs";
 import * as path from "path";
 import { readConfig, saveWindowBounds, writeConfig } from "./config";
 import { findAvailablePort } from "./port";
 import { initAutoUpdater, checkForUpdatesManual } from "./updater";
 import { setupScheduler, reloadSchedule, fireTestNotification, NotificationSettings } from "./scheduler";
+import { createProjectStore } from "./projects";
 
 process.on("uncaughtException", (err) => console.error("[Narada] Uncaught exception:", err));
 process.on("unhandledRejection", (reason) => console.error("[Narada] Unhandled rejection:", reason));
@@ -391,8 +392,22 @@ async function startApp(): Promise<void> {
     console.error("[Main] Failed to setup notification scheduler:", err);
   }
 
+  // Every IPC call must come from our own window showing our own local app.
+  const trusted = (e: Electron.IpcMainInvokeEvent): boolean => {
+    try {
+      return e.sender === mainWindow?.webContents && new URL(e.senderFrame?.url ?? "").origin === `http://localhost:${appPort}`;
+    } catch {
+      return false;
+    }
+  };
+  const handle = (channel: string, fn: (e: Electron.IpcMainInvokeEvent, ...args: any[]) => unknown) =>
+    ipcMain.handle(channel, (e, ...args) => {
+      if (!trusted(e)) throw new Error(`Untrusted IPC sender for ${channel}`);
+      return fn(e, ...args);
+    });
+
   // IPC: renderer passes config directly
-  ipcMain.handle("reload-notification-schedule", (_event, config: NotificationSettings) => {
+  handle("reload-notification-schedule", (_event, config: NotificationSettings) => {
     console.log("[Main] IPC: reload-notification-schedule received, config:", JSON.stringify(config));
     try {
       reloadSchedule(config, getMainWindow, appPort);
@@ -402,7 +417,7 @@ async function startApp(): Promise<void> {
   });
 
   // IPC: renderer asks to fire a test notification
-  ipcMain.handle("test-notification", () => {
+  handle("test-notification", () => {
     try {
       fireTestNotification(getMainWindow, appPort);
     } catch (err) {
@@ -411,12 +426,29 @@ async function startApp(): Promise<void> {
   });
 
   // IPC: renderer writes Firebase user ID to config on login/logout
-  ipcMain.handle("set-firebase-user", (_event, uid: string | null) => {
+  handle("set-firebase-user", (_event, uid: string | null) => {
     console.log(`[Main] IPC: set-firebase-user uid=${uid}`);
     const config = readConfig();
     config.firebaseUserId = uid ?? undefined;
     writeConfig(config);
   });
+
+  // Local git projects. The uid is read from config (set on login), never from IPC args,
+  // and folders only ever come from the dialog below.
+  const projects = createProjectStore({
+    filePath: path.join(app.getPath("userData"), "projects.json"),
+    getUid: () => readConfig().firebaseUserId,
+  });
+  handle("projects:list", () => projects.list());
+  handle("projects:add", async () => {
+    if (!mainWindow) return { error: "cancelled" };
+    const picked = await dialog.showOpenDialog(mainWindow, { properties: ["openDirectory"] });
+    if (picked.canceled || !picked.filePaths[0]) return { error: "cancelled" };
+    return projects.add(picked.filePaths[0]);
+  });
+  handle("projects:update", (_e, patch) => projects.update(patch));
+  handle("projects:remove", (_e, args) => projects.remove(args?.id));
+  handle("projects:setTimeZone", (_e, tz) => projects.setTimeZone(tz));
 }
 
 // macOS lifecycle
