@@ -45,6 +45,17 @@
 
 Download and install Narad Muni from the [landing page](https://nonstopio.github.io/Narad-Muni/), then follow the steps below to configure each service.
 
+**macOS** (signed and notarized by Apple):
+
+1. Open the `.dmg` and drag **Narad Muni** into **Applications**.
+2. Open the app and confirm macOS's normal first-launch prompt if it appears.
+
+**Windows:** run `Narad-Muni-Setup-<version>.exe`. The installer is not code-signed, so SmartScreen may warn — click **More info → Run anyway**.
+
+**Updates:** the app checks for new releases at startup and every six hours, downloads them in the background, and asks before restarting (**Restart and Install** or **Later**). You can also use **Narad Muni → Check for Updates…** in the menu bar. Settings, data and history are kept.
+
+> **Coming from an older version?** Releases before in-app updates (including the earlier unsigned macOS builds) can't update themselves. Download and install the latest release by hand once; every release after that updates through the app.
+
 All configuration happens inside the app on the **Settings** page. No `.env` files or config files to edit manually.
 
 ### Step 1 — Sign In
@@ -281,6 +292,20 @@ base64 < firebase-service-account.json | pbcopy   # macOS
 ```
 
 Add it as a GitHub Actions secret under **Settings → Secrets and variables → Actions**.
+
+macOS releases are signed with a Developer ID certificate and notarized, which needs these secrets too: `CSC_LINK` (base64 `.p12` with private key), `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`. The macOS job fails if any is missing or if signing, notarization or stapling fails — it never publishes an unsigned build. They're only exposed to the macOS packaging step.
+
+### Releasing
+
+Push a `vX.Y.Z` tag matching `package.json`'s version. The workflow builds macOS (arm64 + x64, DMG + ZIP) and Windows (NSIS), then publishes one GitHub release containing the installers, blockmaps and the updater manifests (`latest-mac.yml`, `latest.yml`) together.
+
+To verify an installed macOS release:
+
+```bash
+codesign --verify --deep --strict --verbose=2 "/Applications/Narad Muni.app"
+spctl --assess --type execute --verbose=4 "/Applications/Narad Muni.app"   # expect: source=Notarized Developer ID
+xcrun stapler validate "/Applications/Narad Muni.app"
+```
 
 ---
 

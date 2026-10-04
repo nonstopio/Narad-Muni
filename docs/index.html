@@ -878,7 +878,7 @@
       <!-- macOS instructions -->
       <div id="modal-mac" style="display:none;">
         <p class="modal-title">Install on macOS</p>
-        <p class="modal-subtitle">The sage's scroll is unsigned. Follow these steps after downloading:</p>
+        <p class="modal-subtitle">The sage's scroll is signed and notarized by Apple. After downloading:</p>
         <div class="install-steps">
           <div class="install-step">
             <span class="install-step-num blue">1</span>
@@ -886,17 +886,11 @@
           </div>
           <div class="install-step">
             <span class="install-step-num violet">2</span>
-            <div class="install-step-text">
-              <strong>Remove the quarantine flag</strong> by running this in Terminal:
-              <div class="install-cmd">
-                <code>xattr -cr "/Applications/Narad Muni.app"</code>
-                <button class="install-cmd-copy" onclick="navigator.clipboard.writeText('xattr -cr &quot;/Applications/Narad Muni.app&quot;');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
-              </div>
-            </div>
+            <div class="install-step-text"><strong>Open the app</strong> and confirm macOS's first-launch prompt if it appears. Narayan Narayan!</div>
           </div>
           <div class="install-step">
             <span class="install-step-num emerald">3</span>
-            <div class="install-step-text"><strong>Open the app</strong> normally. Narayan Narayan!</div>
+            <div class="install-step-text"><strong>Updates arrive on their own.</strong> The sage fetches new scrolls in the background and asks before restarting. On an older version? Install this one by hand once; after that, updates flow through the app.</div>
           </div>
         </div>
         <div class="modal-footer">
