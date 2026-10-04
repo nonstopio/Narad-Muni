@@ -254,6 +254,9 @@ Set up daily reminders so you never miss logging your standup.
 6. Click **Share All** to publish everywhere at once
 7. Check the results — green checkmarks confirm delivery
 
+- **Leave days** — on a day's page, click **Mark as on leave**. The calendar shows it, your draft is kept for later, nothing can be published that day, and the devotion streak skips it without breaking. **Undo** brings the day back.
+- **Fetch from Projects** (desktop) — add local git folders in **Settings → Sacred Repositories**, then click **Projects** on a day's page to pull that day's commits into your words. Nothing is published until you review it, and Jira hours drawn from commits stay estimates until you confirm each one.
+
 ---
 
 ## Developer Setup
