@@ -25,6 +25,7 @@ export function useUpdateFlow() {
   const processWithAI = useCallback(async () => {
     const {
       rawTranscript,
+      draftSource,
       audioBlob,
       slackEnabled,
       teamsEnabled,
@@ -121,7 +122,7 @@ export function useUpdateFlow() {
         const parseRes = await authedFetch("/api/parse", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transcript, date: dateStr }),
+          body: JSON.stringify({ transcript, date: dateStr, source: draftSource }),
         });
         return parseRes.json();
       });
@@ -158,12 +159,13 @@ export function useUpdateFlow() {
       setSlackOutput(data.slackFormat);
       setTeamsOutput(data.teamsFormat);
       setWorkLogEntries(
-        data.timeEntries.map((entry: { issueKey: string; timeSpentSecs: number; started: string; comment: string; isRepeat: boolean }) => ({
+        data.timeEntries.map((entry: { issueKey: string; timeSpentSecs: number; started: string; comment: string; isRepeat: boolean; needsConfirmation?: boolean }) => ({
           issueKey: entry.issueKey,
           timeSpentSecs: entry.timeSpentSecs,
           started: entry.started,
           comment: entry.comment,
           isRepeat: entry.isRepeat,
+          needsConfirmation: entry.needsConfirmation === true,
         }))
       );
 
@@ -187,6 +189,7 @@ export function useUpdateFlow() {
   const shareAll = useCallback(async (): Promise<ShareResult> => {
     const {
       rawTranscript,
+      draftSource,
       slackOutput,
       teamsOutput,
       workLogEntries,
@@ -226,6 +229,7 @@ export function useUpdateFlow() {
             teamsEnabled,
             jiraEnabled,
             metricsHints,
+            source: draftSource,
           }),
         });
         return res.json();

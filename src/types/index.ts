@@ -12,6 +12,9 @@ export type ModalStep = "editing" | "sharing";
 
 export type ProcessingStage = "transcribing" | "analyzing" | "formatting";
 
+/** Where a draft's words came from. Missing means "manual". */
+export type DraftSource = "manual" | "projects";
+
 export interface UpdateData {
   id: string;
   createdAt: string;
@@ -25,6 +28,7 @@ export interface UpdateData {
   jiraStatus: PublishStatus;
   workLogEntries: WorkLogEntryData[];
   metrics?: UpdateMetrics;
+  source?: DraftSource;
 }
 
 export interface UpdateMetricsTimings {
@@ -76,6 +80,7 @@ export interface WorkLogEntryData {
   comment?: string;
   isRepeat: boolean;
   jiraWorklogId?: string | null;
+  needsConfirmation?: boolean;
 }
 
 export interface PlatformConfigData {
@@ -154,3 +159,43 @@ export function computeCombinedStatus(
   if (failedCount === enabled.length) return "all-failed";
   return "partial";
 }
+
+// Local git projects (desktop only). Twin interfaces live in electron/projects.ts.
+export interface LocalProject {
+  id: string;
+  name: string;
+  root: string;
+  commonDir: string;
+  enabled: boolean;
+  authorEmails: string[];
+}
+
+export interface ProjectCommit {
+  projectId: string;
+  projectName: string;
+  hash: string;
+  shortHash: string;
+  subject: string;
+  body: string;
+  authorEmail: string;
+  authorName: string;
+  authorEpochMs: number;
+}
+
+export type ProjectSkipReason =
+  | "missing-folder"
+  | "not-a-repo"
+  | "unreadable"
+  | "timed-out"
+  | "too-large"
+  | "no-author-email";
+
+export type ProjectCollectResult =
+  | {
+      ok: true;
+      date: string;
+      timeZone: string;
+      projects: { id: string; name: string; commits: ProjectCommit[]; truncated: boolean }[];
+      skipped: { id: string; name: string; reason: ProjectSkipReason }[];
+    }
+  | { ok: false; error: "signed-out" | "git-missing" | "no-projects" | "none-enabled" | "all-failed" | "busy" };

@@ -55,18 +55,17 @@ export function Sidebar() {
 
   useEffect(() => {
     const cached = sessionStorage.getItem("narada_is_admin");
-    if (cached !== null) {
-      setIsAdmin(cached === "1");
-      return;
-    }
-    authedFetch("/api/admin/check")
-      .then((r) => r.json())
-      .then((d) => {
-        const admin = !!d.isAdmin;
-        setIsAdmin(admin);
-        sessionStorage.setItem("narada_is_admin", admin ? "1" : "0");
-      })
-      .catch(() => {});
+    const check: Promise<boolean> =
+      cached !== null
+        ? Promise.resolve(cached === "1")
+        : authedFetch("/api/admin/check")
+            .then((r) => r.json())
+            .then((d) => {
+              const admin = !!d.isAdmin;
+              sessionStorage.setItem("narada_is_admin", admin ? "1" : "0");
+              return admin;
+            });
+    check.then(setIsAdmin).catch(() => {});
   }, []);
 
   const allNavItems = isAdmin

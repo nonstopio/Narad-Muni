@@ -10,15 +10,21 @@ import { seekAid } from "@/lib/seek-aid";
 
 type ToastType = "success" | "error" | "warning";
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface Toast {
   id: string;
   message: string;
   type: ToastType;
+  action?: ToastAction;
 }
 
 interface ToastStore {
   toasts: Toast[];
-  addToast: (message: string, type: ToastType) => void;
+  addToast: (message: string, type: ToastType, action?: ToastAction) => void;
   removeToast: (id: string) => void;
 }
 
@@ -51,9 +57,9 @@ const AUTO_DISMISS_MS: Record<ToastType, number> = {
 
 export const useToastStore = create<ToastStore>((set) => ({
   toasts: [],
-  addToast: (message, type) => {
+  addToast: (message, type, action) => {
     const id = crypto.randomUUID();
-    set((state) => ({ toasts: [...state.toasts, { id, message, type }] }));
+    set((state) => ({ toasts: [...state.toasts, { id, message, type, action }] }));
     setTimeout(() => {
       set((state) => ({
         toasts: state.toasts.filter((t) => t.id !== id),
@@ -105,7 +111,20 @@ export function ToastContainer() {
               <span className="text-sm leading-relaxed text-narada-text flex-1">
                 {toast.message}
               </span>
-              {toast.type !== "success" && (
+              {toast.action && (
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => {
+                    removeToast(toast.id);
+                    toast.action?.onClick();
+                  }}
+                  className="flex-shrink-0"
+                >
+                  {toast.action.label}
+                </Button>
+              )}
+              {toast.type !== "success" && !toast.action && (
                 <Button
                   variant="ghost"
                   size="xs"

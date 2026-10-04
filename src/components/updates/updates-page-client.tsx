@@ -10,40 +10,31 @@ import { useCalendar } from "@/hooks/use-calendar";
 import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
 import { computeCombinedStatus } from "@/types";
+import { monthStats } from "@/lib/month-stats";
 import type { CombinedStatus, StatData, UpdateData } from "@/types";
 
 function formatMonth(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-// Fallback used for updates missing `metrics` (i.e. published before analytics v2).
-const FALLBACK_TIME_SAVED_SECS = 12 * 60;
-
-function formatTimeReclaimed(updates: UpdateData[]): string {
-  const totalSecs = updates.reduce((sum, u) => {
-    const v = u.metrics?.estTimeSavedSecs;
-    return sum + (typeof v === "number" ? v : FALLBACK_TIME_SAVED_SECS);
-  }, 0);
-  const totalMins = Math.round(totalSecs / 60);
-  if (totalMins < 60) return `${totalMins}m`;
-  const hours = Math.floor(totalMins / 60);
-  const mins = totalMins % 60;
-  return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
-}
-
 interface Props {
   streak: number;
   monthUpdates: UpdateData[];
+  monthLeaves: string[];
 }
 
 export function UpdatesPageClient({
   streak,
   monthUpdates: initialMonthUpdates,
+  monthLeaves: initialMonthLeaves,
 }: Props) {
   const { currentMonth, monthTitle, calendarDays, prevMonth, nextMonth, goToToday } = useCalendar();
-  const addToast = useToastStore((s) => s.addToast);
-  const [monthUpdates, setMonthUpdates] = useState(initialMonthUpdates);
-  const [monthLoading, setMonthLoading] = useState(false);
+  const monthKey = formatMonth(currentMonth);
+  // Loading is derived: the shown month is loading until its data has landed.
+  const [loaded, setLoaded] = useState({ month: monthKey, updates: initialMonthUpdates, leaves: initialMonthLeaves });
+  const monthLoading = loaded.month !== monthKey;
+  const monthUpdates = useMemo(() => (monthLoading ? [] : loaded.updates), [monthLoading, loaded]);
+  const leaveSet = useMemo(() => new Set<string>(monthLoading ? [] : loaded.leaves), [monthLoading, loaded]);
   const hasNavigated = useRef(false);
 
   useEffect(() => {
@@ -53,30 +44,27 @@ export function UpdatesPageClient({
     }
 
     const controller = new AbortController();
-    setMonthLoading(true);
-    setMonthUpdates([]);
-    const monthStr = formatMonth(currentMonth);
-    authedFetch(`/api/updates?month=${monthStr}`, { signal: controller.signal })
-      .then((r) => r.json())
-      .then((data) => {
+    const getJson = (url: string) =>
+      authedFetch(url, { signal: controller.signal }).then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      });
+    Promise.all([getJson(`/api/updates?month=${monthKey}`), getJson(`/api/leaves?month=${monthKey}`)])
+      .then(([updateData, leaveData]) => {
         if (!controller.signal.aborted) {
-          setMonthUpdates(data.updates || []);
+          setLoaded({ month: monthKey, updates: updateData.updates || [], leaves: leaveData.leaves || [] });
         }
       })
       .catch((err) => {
         if (!controller.signal.aborted) {
           console.error("[Narada] Failed to fetch month updates:", err);
-          addToast("Alas! Could not retrieve this month's chronicles", "error");
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setMonthLoading(false);
+          useToastStore.getState().addToast("Alas! Could not retrieve this month's chronicles", "error");
+          setLoaded({ month: monthKey, updates: [], leaves: [] });
         }
       });
 
     return () => controller.abort();
-  }, [currentMonth]);
+  }, [monthKey]);
 
   const updateStatusMap = useMemo(() => {
     const map = new Map<string, CombinedStatus>();
@@ -97,10 +85,11 @@ export function UpdatesPageClient({
     updatesByDate.set(key, u);
   }
 
+  const { messages, timeReclaimed } = monthStats(monthUpdates);
   const stats: StatData[] = [
     {
       label: "Messages This Month",
-      value: monthUpdates.length,
+      value: messages,
       icon: "\u{1F4CA}",
       color: "blue",
     },
@@ -112,7 +101,7 @@ export function UpdatesPageClient({
     },
     {
       label: "Time Reclaimed",
-      value: formatTimeReclaimed(monthUpdates),
+      value: timeReclaimed,
       icon: "\u23F1\uFE0F",
       color: "emerald",
     },
@@ -133,7 +122,7 @@ export function UpdatesPageClient({
   };
 
   function handleDelete(id: string) {
-    setMonthUpdates((prev) => prev.filter((u) => u.id !== id));
+    setLoaded((prev) => ({ ...prev, updates: prev.updates.filter((u) => u.id !== id) }));
     setSelectedUpdate(null);
     router.refresh();
   }
@@ -149,6 +138,7 @@ export function UpdatesPageClient({
       <div className="flex-shrink-0"><StatsBar stats={stats} /></div>
       <Calendar
         updateStatusMap={updateStatusMap}
+        leaveDates={leaveSet}
         onDayClick={handleDayClick}
         monthTitle={monthTitle}
         calendarDays={calendarDays}

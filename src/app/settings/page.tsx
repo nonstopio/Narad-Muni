@@ -14,8 +14,6 @@ export default function SettingsPage() {
   const [error, setError] = useState(false);
 
   const loadSettings = useCallback(() => {
-    setLoading(true);
-    setError(false);
     authedFetch("/api/settings")
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -46,7 +44,11 @@ export default function SettingsPage() {
       <PageError
         title="Alas! The sacred scrolls could not be retrieved"
         message="The configurations elude me. This may be a fleeting disturbance."
-        onRetry={loadSettings}
+        onRetry={() => {
+          setLoading(true);
+          setError(false);
+          loadSettings();
+        }}
       />
     );
   }

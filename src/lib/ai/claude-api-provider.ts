@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ClaudeParseResult } from "@/types/claude";
-import type { AIParseProvider, RepeatEntryInput } from "./types";
+import type { AIParseProvider, PromptOptions, RepeatEntryInput } from "./types";
 import { buildSystemPrompt, buildUserMessage, PARSE_RESULT_JSON_SCHEMA } from "./prompt";
 
 export const DEFAULT_CLAUDE_MODEL = "claude-sonnet-5";
@@ -16,10 +16,11 @@ export class ClaudeAPIProvider implements AIParseProvider {
   async parseTranscript(
     transcript: string,
     date: string,
-    repeatEntries: RepeatEntryInput[]
+    repeatEntries: RepeatEntryInput[],
+    opts?: PromptOptions
   ): Promise<ClaudeParseResult> {
     const client = new Anthropic({ apiKey: this.apiKey });
-    const systemPrompt = buildSystemPrompt(date, repeatEntries);
+    const systemPrompt = buildSystemPrompt(date, repeatEntries, opts);
 
     const userMessage = buildUserMessage(transcript);
     console.log(`[Narada → Claude API] Sending request — model=${DEFAULT_CLAUDE_MODEL}, max_tokens=4096, system_prompt=${systemPrompt.length} chars, user_message=${userMessage.length} chars`);

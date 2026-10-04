@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI, SchemaType, type Schema } from "@google/generative-ai";
 import type { ClaudeParseResult } from "@/types/claude";
-import type { AIParseProvider, RepeatEntryInput } from "./types";
+import type { AIParseProvider, PromptOptions, RepeatEntryInput } from "./types";
 import { buildSystemPrompt, buildUserMessage } from "./prompt";
 
 const RESPONSE_SCHEMA: Schema = {
@@ -64,10 +64,11 @@ export class GeminiProvider implements AIParseProvider {
   async parseTranscript(
     transcript: string,
     date: string,
-    repeatEntries: RepeatEntryInput[]
+    repeatEntries: RepeatEntryInput[],
+    opts?: PromptOptions
   ): Promise<ClaudeParseResult> {
     const genAI = new GoogleGenerativeAI(this.apiKey);
-    const systemPrompt = buildSystemPrompt(date, repeatEntries);
+    const systemPrompt = buildSystemPrompt(date, repeatEntries, opts);
 
     const model = genAI.getGenerativeModel({
       model: "gemini-2.0-flash",

@@ -4,6 +4,7 @@ export interface ClaudeTimeEntry {
   started: string;
   comment: string;
   isRepeat: boolean;
+  needsConfirmation?: boolean;
 }
 
 export interface ClaudeParseResult {

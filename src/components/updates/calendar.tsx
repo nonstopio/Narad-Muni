@@ -13,6 +13,7 @@ const STATUS_STYLES: Record<CombinedStatus, string> = {
 
 interface CalendarProps {
   updateStatusMap: Map<string, CombinedStatus>;
+  leaveDates: Set<string>;
   onDayClick: (date: Date) => void;
   monthTitle: string;
   calendarDays: Array<{ day: number; isCurrentMonth: boolean; isToday: boolean; date: Date }>;
@@ -22,7 +23,7 @@ interface CalendarProps {
   loading?: boolean;
 }
 
-export function Calendar({ updateStatusMap, onDayClick, monthTitle, calendarDays, prevMonth, nextMonth, goToToday, loading }: CalendarProps) {
+export function Calendar({ updateStatusMap, leaveDates, onDayClick, monthTitle, calendarDays, prevMonth, nextMonth, goToToday, loading }: CalendarProps) {
 
   const getUpdateStatus = (date: Date): CombinedStatus | null => {
     const key = date.toLocaleDateString("sv-SE");
@@ -63,16 +64,20 @@ export function Calendar({ updateStatusMap, onDayClick, monthTitle, calendarDays
         {calendarDays.map((day, i) => {
           const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6;
           const status = day.isCurrentMonth ? getUpdateStatus(day.date) : null;
+          // Precedence: update status > leave > today > weekend > default
+          const onLeave = day.isCurrentMonth && !status && leaveDates.has(day.date.toLocaleDateString("sv-SE"));
           return (
             <button
               key={i}
               onClick={() => day.isCurrentMonth && onDayClick(day.date)}
-              className={`min-h-[2.25rem] rounded-lg flex items-center justify-center text-sm font-medium transition-all duration-300 ${
+              className={`min-h-[2.25rem] rounded-lg flex flex-col items-center justify-center text-sm font-medium transition-all duration-300 ${
                 !day.isCurrentMonth
                   ? "text-narada-text-muted opacity-30"
                   : status
                     ? STATUS_STYLES[status]
-                    : day.isToday
+                    : onLeave
+                      ? "bg-violet-500/10 border border-dashed border-violet-500/40 text-narada-secondary"
+                      : day.isToday
                       ? "border border-narada-primary bg-blue-500/10 text-narada-text shadow-[0_0_20px_rgba(59,130,246,0.3)]"
                       : isWeekend
                         ? "bg-white/[0.01] border border-transparent text-narada-text-muted"
@@ -80,6 +85,7 @@ export function Calendar({ updateStatusMap, onDayClick, monthTitle, calendarDays
               }`}
             >
               {day.day}
+              {onLeave && <span className="text-[9px] uppercase leading-none tracking-wide mt-0.5">Leave</span>}
             </button>
           );
         })}

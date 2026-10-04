@@ -4,8 +4,9 @@
 // electron-builder strips nested node_modules. This script patches them
 // back to the real package name after `next build`.
 
-const fs = require("fs");
-const path = require("path");
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const HASH_PATTERN = /firebase-admin-[a-f0-9]{16}/g;
 const REPLACEMENT = "firebase-admin";
@@ -27,7 +28,7 @@ function walk(dir) {
   }
 }
 
-const nextDir = path.resolve(__dirname, "..", ".next");
+const nextDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".next");
 if (fs.existsSync(nextDir)) {
   walk(nextDir);
   console.log(`[fix-turbopack-hashes] Patched ${patchedFiles} file(s)`);

@@ -8,10 +8,11 @@ import { useUpdateFlow } from "@/hooks/use-update-flow";
 import { useDraftAutoSave } from "@/hooks/use-draft-auto-save";
 import { useToastStore } from "@/components/ui/toast";
 import { InputSection } from "./input-section";
+import { LEAVE_BLOCKED_COPY } from "@/components/history/history-detail-modal";
 import { RetryInputSection } from "./retry-input-section";
 import { PlatformOutputs } from "./platform-outputs";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Palmtree } from "lucide-react";
 import { computeCombinedStatus } from "@/types";
 import type { PlatformConfigData, PublishStatus } from "@/types";
 import { authedFetch } from "@/lib/api-client";
@@ -34,8 +35,79 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
   const dateParam = searchParams.get("date");
   const retryParam = searchParams.get("retry");
 
-  // Auto-save draft text per date (disabled in retry mode)
-  const { deleteDraft } = useDraftAutoSave(dateParam, !retryParam && !!dateParam);
+  // Leave state for this date; null while unknown. Keyed by date so a stale
+  // answer for the previous date is never shown for this one.
+  const [leave, setLeave] = useState<{ date: string; onLeave: boolean } | null>(null);
+  const [leaveBusy, setLeaveBusy] = useState(false);
+  const onLeave = leave && leave.date === dateParam ? leave.onLeave : null;
+  const onLeaveRef = useRef(onLeave);
+  useEffect(() => { onLeaveRef.current = onLeave; }, [onLeave]);
+
+  useEffect(() => {
+    if (retryParam || !dateParam) return;
+    let cancelled = false;
+    authedFetch(`/api/leaves?date=${dateParam}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setLeave({ date: dateParam, onLeave: data.onLeave === true });
+      })
+      .catch((err) => {
+        console.error("[Narada] Failed to load leave:", err);
+        // The server still refuses writes on a leave day, so drafting can proceed.
+        if (!cancelled) setLeave({ date: dateParam, onLeave: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dateParam, retryParam]);
+
+  // Auto-save draft text per date (off in retry mode, on leave, and until leave is known)
+  const { deleteDraft, flush } = useDraftAutoSave(dateParam, !retryParam && !!dateParam && onLeave === false);
+
+  const markLeave = useCallback(async () => {
+    if (!dateParam) return;
+    const date = dateParam;
+    setLeaveBusy(true);
+    try {
+      // Save the last keystrokes under this date before the server freezes its draft.
+      await flush();
+      const res = await authedFetch("/api/leaves", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409 && data.error === "update-exists") {
+        useToastStore.getState().addToast(LEAVE_BLOCKED_COPY, "error");
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setLeave({ date, onLeave: true });
+      useToastStore.getState().addToast("Narayan Narayan! This day is marked for rest.", "success");
+    } catch (err) {
+      console.error("[Narada] Failed to mark leave:", err);
+      useToastStore.getState().addToast("Alas! I could not mark this day for rest.", "error");
+    } finally {
+      setLeaveBusy(false);
+    }
+  }, [dateParam, flush]);
+
+  const undoLeave = useCallback(async () => {
+    if (!dateParam) return;
+    const date = dateParam;
+    setLeaveBusy(true);
+    try {
+      const res = await authedFetch(`/api/leaves?date=${date}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setLeave({ date, onLeave: false });
+      useToastStore.getState().addToast("Narayan Narayan! The day is yours again — your draft awaits.", "success");
+    } catch (err) {
+      console.error("[Narada] Failed to undo leave:", err);
+      useToastStore.getState().addToast("Alas! I could not undo the leave.", "error");
+    } finally {
+      setLeaveBusy(false);
+    }
+  }, [dateParam]);
 
   // Derive which platforms are globally active from DB configs
   const activePlatforms = useMemo(
@@ -237,12 +309,14 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
   useEffect(() => {
     const { setOnInvokeSage, setOnDispatch } = useUpdateStore.getState();
     setOnInvokeSage(() => {
+      if (onLeaveRef.current) return;
       const { rawTranscript, isProcessing, retryMode } = useUpdateStore.getState();
       if (!retryMode && rawTranscript.trim() && !isProcessing) {
         processRef.current();
       }
     });
     setOnDispatch(() => {
+      if (onLeaveRef.current) return;
       const { previewReady, step } = useUpdateStore.getState();
       if (previewReady && step !== "sharing") {
         shareRef.current();
@@ -280,9 +354,38 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
             Retry Mode
           </span>
         )}
+        {!isRetryMode && onLeave === false && (
+          <Button variant="secondary" size="sm" className="ml-auto" onClick={markLeave} disabled={leaveBusy}>
+            <Palmtree className="w-4 h-4" />
+            Mark as on leave
+          </Button>
+        )}
+        {!isRetryMode && onLeave === true && (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-lg text-xs font-medium bg-violet-500/10 border border-violet-500/30 text-narada-secondary">
+              On leave
+            </span>
+            <Button variant="ghost" size="sm" onClick={undoLeave} disabled={leaveBusy}>
+              Undo
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Two-column body */}
+      {!isRetryMode && onLeave === true ? (
+        <div className="flex flex-1 min-h-0 items-center justify-center p-6">
+          <div className="glass-card p-8 max-w-md text-center flex flex-col items-center gap-3">
+            <Palmtree className="w-10 h-10 text-narada-secondary" />
+            <p className="text-base font-semibold text-narada-text">
+              Narayan Narayan! You rest today — the three worlds can wait.
+            </p>
+            <p className="text-sm text-narada-text-secondary">
+              Your draft is kept safe. Undo the leave to return to it.
+            </p>
+          </div>
+        </div>
+      ) : (
+      /* Two-column body */
       <div className="flex flex-1 min-h-0">
         {/* Left column — Input or Retry info */}
         <div className="w-[420px] min-w-[420px] p-6 border-r border-white/[0.06] overflow-y-auto">
@@ -301,6 +404,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
           />
         </div>
       </div>
+      )}
     </div>
   );
 }

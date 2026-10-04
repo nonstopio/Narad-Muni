@@ -1,9 +1,12 @@
 import { create } from "zustand";
-import type { ModalStep, ProcessingStage, WorkLogEntryData, PlatformConfigData, PublishStatus, UpdateMetricsHints } from "@/types";
+import type { DraftSource, ModalStep, ProcessingStage, WorkLogEntryData, PlatformConfigData, PublishStatus, UpdateMetricsHints } from "@/types";
 
 interface UpdateStore {
   step: ModalStep;
   rawTranscript: string;
+  // Where the words came from; "projects" once commit activity is inserted.
+  draftSource: DraftSource;
+  setDraftSource: (source: DraftSource) => void;
   isRecording: boolean;
   recordingSeconds: number;
   audioBlob: Blob | null;
@@ -73,6 +76,7 @@ interface UpdateStore {
 const initialState = {
   step: "editing" as ModalStep,
   rawTranscript: "",
+  draftSource: "manual" as DraftSource,
   isRecording: false,
   recordingSeconds: 0,
   audioBlob: null as Blob | null,
@@ -104,7 +108,9 @@ const initialState = {
 export const useUpdateStore = create<UpdateStore>((set) => ({
   ...initialState,
   setStep: (step) => set({ step }),
-  setRawTranscript: (text) => set({ rawTranscript: text }),
+  // Emptying the words forgets where they came from.
+  setRawTranscript: (text) => set(text ? { rawTranscript: text } : { rawTranscript: text, draftSource: "manual" }),
+  setDraftSource: (source) => set({ draftSource: source }),
   setIsRecording: (recording) => set({ isRecording: recording }),
   setRecordingSeconds: (seconds) => set({ recordingSeconds: seconds }),
   setAudioBlob: (blob) => set({ audioBlob: blob }),
@@ -163,6 +169,7 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
     set({
       step: "editing",
       rawTranscript: "",
+      draftSource: "manual",
       isRecording: false,
       recordingSeconds: 0,
       audioBlob: null,

@@ -6,6 +6,7 @@ import { useUpdateStore } from "@/stores/update-store";
 import { useAppStore } from "@/stores/app-store";
 import { Button } from "@/components/ui/button";
 import { ClipboardList, Check, Plus, X, Lock, CheckCircle2 } from "lucide-react";
+import { isValidIssueKey } from "@/lib/jira-guard";
 import type { WorkLogEntryData } from "@/types";
 
 function formatTime(secs: number) {
@@ -137,6 +138,12 @@ export function JiraOutputCard() {
         )}
       </div>
 
+      {!isLocked && workLogEntries.some((e) => e.needsConfirmation) && (
+        <p className="mb-3 px-3 py-2 rounded-lg text-xs bg-amber-500/10 border border-amber-500/30 text-narada-amber">
+          These hours are my estimates from your commits — confirm or edit each before Jira receives them.
+        </p>
+      )}
+
       {/* Body — work log table */}
       {workLogEntries.length === 0 ? (
         <p className="text-xs text-narada-text-muted">
@@ -226,15 +233,20 @@ export function JiraOutputCard() {
                           onChange={(e) =>
                             updateWorkLogEntry(idx, {
                               issueKey: e.target.value.toUpperCase(),
+                              needsConfirmation: false,
                             })
                           }
                           disabled={isPosted}
-                          className="glass-input w-full px-2 py-1 text-xs font-mono text-narada-text-secondary bg-transparent disabled:opacity-50"
+                          aria-invalid={!entry.isRepeat && !isValidIssueKey(entry.issueKey)}
+                          className={`glass-input w-full px-2 py-1 text-xs font-mono text-narada-text-secondary bg-transparent disabled:opacity-50 ${
+                            !entry.isRepeat && !isPosted && !isValidIssueKey(entry.issueKey) ? "!border-rose-500/60" : ""
+                          }`}
                           placeholder="PROJ-123"
                         />
                       </div>
                     </td>
                     <td className="p-1.5 border-b border-white/[0.06]">
+                      <div className="flex flex-col items-start gap-1">
                       <input
                         type="text"
                         value={
@@ -258,9 +270,10 @@ export function JiraOutputCard() {
                           const draft = timeDrafts[idx];
                           if (draft !== undefined) {
                             const parsed = parseTimeInput(draft);
-                            if (parsed !== null) {
+                            if (parsed !== null && draft !== formatTime(entry.timeSpentSecs)) {
                               updateWorkLogEntry(idx, {
                                 timeSpentSecs: parsed,
+                                needsConfirmation: false,
                               });
                             }
                           }
@@ -274,6 +287,22 @@ export function JiraOutputCard() {
                         className="glass-input w-24 px-2 py-1 text-xs text-narada-text-secondary bg-transparent disabled:opacity-50"
                         placeholder="1h 30m"
                       />
+                      {entry.needsConfirmation && (
+                        <div className="flex items-center gap-1">
+                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-amber-500/10 border border-amber-500/30 text-narada-amber">
+                            Estimate
+                          </span>
+                          <Button
+                            variant="success-soft"
+                            size="xs"
+                            className="h-6 px-2"
+                            onClick={() => updateWorkLogEntry(idx, { needsConfirmation: false })}
+                          >
+                            Confirm
+                          </Button>
+                        </div>
+                      )}
+                      </div>
                     </td>
                     <td className="p-1.5 border-b border-white/[0.06]">
                       <input

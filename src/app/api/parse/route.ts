@@ -3,6 +3,7 @@ import { getAIProvider } from "@/lib/ai";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
 import { configsCol, settingsDoc } from "@/lib/firestore-helpers";
 import { time } from "@/lib/timing";
+import { applyProjectSourceRules } from "@/lib/ai/project-rules";
 import type { ClaudeTimeEntry } from "@/types/claude";
 
 const MIN_TOTAL_SECS = 28800; // 8 hours
@@ -53,7 +54,8 @@ export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     console.log(`[Narada] POST /api/parse uid=${user.uid}`);
-    const { transcript, date, repeatEntries } = await request.json();
+    const { transcript, date, repeatEntries, source: rawSource } = await request.json();
+    const source = rawSource === "projects" ? "projects" : "manual";
 
     if (!transcript) {
       return NextResponse.json({ success: false, error: "No transcript provided" }, { status: 400 });
@@ -72,9 +74,9 @@ export async function POST(request: NextRequest) {
     const providerName = (settings?.aiProvider ?? "local-claude") as string;
 
     const provider = await getAIProvider(settings);
-    console.log(`[Narada] POST /api/parse provider=${provider.name} date=${date}`);
+    console.log(`[Narada] POST /api/parse provider=${provider.name} date=${date} source=${source}`);
     const { result, ms: providerMs } = await time(() =>
-      provider.parseTranscript(transcript, date, repeats)
+      provider.parseTranscript(transcript, date, repeats, { source })
     );
 
     // Merge repeat entries into time entries
@@ -89,7 +91,9 @@ export async function POST(request: NextRequest) {
     );
 
     const merged = [...repeatTimeEntries, ...result.timeEntries];
-    const allTimeEntries = enforceTimeRules(merged);
+    // Commit-sourced drafts are estimates to confirm, never scaled to 8h.
+    const allTimeEntries =
+      source === "projects" ? applyProjectSourceRules(merged, transcript, repeats || []) : enforceTimeRules(merged);
     const totalSecs = allTimeEntries.reduce((s, e) => s + e.timeSpentSecs, 0);
     console.log(`[Narada] POST /api/parse success: tasks=${result.tasks?.length ?? 0} entries=${allTimeEntries.length} totalSecs=${totalSecs} provider_ms=${providerMs}`);
 

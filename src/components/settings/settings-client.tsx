@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSettingsStore } from "@/stores/settings-store";
 import { PlatformConfigCard } from "./platform-config-card";
 import { JiraConfigCard } from "./jira-config-card";
 import { AIProviderCard } from "./ai-provider-card";
 import { NotificationCard } from "./notification-card";
 import { KeyboardShortcutsCard } from "./keyboard-shortcuts-card";
+import { ProjectsCard } from "./projects-card";
 import {
   MessageSquare,
   Users,
@@ -14,6 +16,7 @@ import {
   Sparkles,
   Bell,
   Keyboard,
+  FolderGit2,
 } from "lucide-react";
 import type { PlatformConfigData } from "@/types";
 import type { LucideIcon } from "lucide-react";
@@ -25,11 +28,14 @@ interface NavItem {
   electronOnly?: boolean;
 }
 
+const noopSubscribe = () => () => {};
+
 const navItems: NavItem[] = [
   { key: "slack", label: "Slack Portal", icon: MessageSquare },
   { key: "teams", label: "Teams Portal", icon: Users },
   { key: "jira", label: "Jira Chronicle", icon: BookOpen },
   { key: "ai", label: "Divine Oracle", icon: Sparkles },
+  { key: "projects", label: "Sacred Repositories", icon: FolderGit2, electronOnly: true },
   { key: "notifications", label: "Sacred Bell", icon: Bell, electronOnly: true },
   { key: "shortcuts", label: "Sacred Gestures", icon: Keyboard },
 ];
@@ -40,16 +46,18 @@ interface Props {
 
 export function SettingsClient({ initialConfigs }: Props) {
   const { configs, setConfigs, saveConfig } = useSettingsStore();
-  const [activeSection, setActiveSection] = useState("slack");
-  const [isElectron, setIsElectron] = useState(false);
+  const searchParams = useSearchParams();
+  const [activeSection, setActiveSection] = useState(() => searchParams.get("section") ?? "slack");
+  // Server render and first paint are web; Electron is read from the window after hydration.
+  const isElectron = useSyncExternalStore(
+    noopSubscribe,
+    () => !!window.narada?.isElectron,
+    () => false
+  );
 
   useEffect(() => {
     setConfigs(initialConfigs);
   }, [initialConfigs, setConfigs]);
-
-  useEffect(() => {
-    setIsElectron(!!window.narada?.isElectron);
-  }, []);
 
   const displayConfigs = configs.length > 0 ? configs : initialConfigs;
 
@@ -97,6 +105,8 @@ export function SettingsClient({ initialConfigs }: Props) {
         ));
       case "ai":
         return <AIProviderCard />;
+      case "projects":
+        return <ProjectsCard />;
       case "notifications":
         return <NotificationCard />;
       case "shortcuts":
