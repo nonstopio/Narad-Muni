@@ -5,6 +5,18 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0] - 2026-10-04
+
+### ✨ Features
+- I now arrive on your Mac signed and notarized by Apple. No more right-click-to-open rites or Gatekeeper warnings; drag me into Applications and open me like any other app.
+- I keep myself current. At startup and every six hours I look for a newer release, fetch it quietly in the background, then ask before I restart — **Restart and Install** or **Later**. Prefer to ask me yourself? **Narad Muni → Check for Updates…** in the menu bar. Your settings, data, and chronicles are kept.
+
+### 📝 Documentation
+- Install steps in the README and on the landing page now describe the signed macOS install and in-app updates.
+
+### ⚠️ Upgrading
+- If you are on 1.15.1 or earlier, install this release by hand once from the [landing page](https://nonstopio.github.io/Narad-Muni/). Those older builds cannot update themselves; from 1.16.0 onward, every release reaches you through the app.
+
 ## [1.15.1] - 2026-09-03
 
 ### 🐛 Bug Fixes
