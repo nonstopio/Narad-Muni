@@ -31,3 +31,6 @@ jobs:
 
       - name: Updater tests
         run: npx tsx electron/updater.test.ts
+
+      - name: Changelog tests
+        run: node scripts/changelog.test.mjs

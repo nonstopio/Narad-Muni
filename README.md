@@ -300,7 +300,7 @@ macOS releases are signed with a Developer ID certificate and notarized, which n
 
 ### Releasing
 
-Push a `vX.Y.Z` tag matching `package.json`'s version. The workflow builds macOS (arm64 + x64, DMG + ZIP) and Windows (NSIS), then publishes one GitHub release containing the installers, blockmaps and the updater manifests (`latest-mac.yml`, `latest.yml`) together.
+Every push to `main` cuts a release. The version is bumped from the last `vX.Y.Z` tag by the conventional commits since it — `feat:` → minor, `type!:` / `BREAKING CHANGE:` → major, anything else → patch. CI prepends a `CHANGELOG.md` section grouped from those commits, bumps `package.json` and commits `chore(release): vX.Y.Z` to `main`, then builds and tags that commit. It builds macOS (arm64 + x64, DMG + ZIP) and Windows (NSIS), then publishes one GitHub release containing the installers, blockmaps and the updater manifests (`latest-mac.yml`, `latest.yml`) together.
 
 To verify an installed macOS release:
 
