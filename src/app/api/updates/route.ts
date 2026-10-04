@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
-import { updatesCol, configsCol } from "@/lib/firestore-helpers";
+import { updatesCol, configsCol, isOnLeave, LEAVE_BLOCKED } from "@/lib/firestore-helpers";
+import { isDateKey, updateDateIso } from "@/lib/date-key";
 import { linkifyTickets } from "@/lib/linkify-tickets";
 import { findWorkflowThread, postThreadReply } from "@/lib/slack-thread";
 import { time } from "@/lib/timing";
@@ -455,6 +456,13 @@ export async function POST(request: NextRequest) {
       metricsHints?: UpdateMetricsHints;
     } = body;
 
+    if (!isDateKey(date)) {
+      return NextResponse.json({ success: false, error: "Alas! That day is not one I recognise." }, { status: 400 });
+    }
+    if (await isOnLeave(user.uid, date)) {
+      return NextResponse.json({ success: false, error: LEAVE_BLOCKED }, { status: 409 });
+    }
+
     // Build work log entries with IDs
     const entries: WorkLogEntryDoc[] = (workLogEntries || []).map(
       (entry) => ({
@@ -470,7 +478,7 @@ export async function POST(request: NextRequest) {
 
     const updateData = {
       createdAt: new Date().toISOString(),
-      date: new Date(date).toISOString(),
+      date: updateDateIso(date),
       rawTranscript,
       slackOutput: slackOutput || "",
       teamsOutput: teamsOutput || "",

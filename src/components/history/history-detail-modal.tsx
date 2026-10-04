@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, ClipboardList, RefreshCw } from "lucide-react";
+import { X, ClipboardList, RefreshCw, Palmtree } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authedFetch } from "@/lib/api-client";
 import { useToastStore } from "@/components/ui/toast";
 import { trackEvent } from "@/lib/analytics";
 import type { UpdateData } from "@/types";
+
+export const LEAVE_BLOCKED_COPY =
+  "Alas! This day already holds a published scroll. Erase it below first — that removes my record only; posts already in Slack, Teams or Jira stay.";
 
 function StatusBadge({
   platform,
@@ -247,8 +250,17 @@ export function HistoryDetailModal({ update, onClose, onDelete, onRetry }: Props
           )}
         </div>
 
+        {/* Leave is not possible while this scroll exists */}
+        <div className="px-5 pt-4 border-t border-white/[0.06] shrink-0">
+          <Button variant="secondary" size="sm" disabled>
+            <Palmtree className="w-4 h-4" />
+            Mark as on leave
+          </Button>
+          <p className="mt-2 text-xs text-narada-text-muted">{LEAVE_BLOCKED_COPY}</p>
+        </div>
+
         {/* Footer */}
-        <div className="flex items-center justify-between p-5 border-t border-white/[0.06] shrink-0">
+        <div className="flex items-center justify-between p-5 shrink-0">
           <Button
             variant={confirmDelete ? "danger" : "danger-soft"}
             size="default"

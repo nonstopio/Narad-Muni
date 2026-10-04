@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
-import { draftsCol } from "@/lib/firestore-helpers";
+import { draftsCol, isOnLeave, LEAVE_BLOCKED } from "@/lib/firestore-helpers";
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,6 +31,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "date is required" }, { status: 400 });
     }
 
+    // A day on leave keeps its draft frozen: no overwrite, and no delete from a stray empty autosave.
+    if (await isOnLeave(user.uid, dateStr)) {
+      return NextResponse.json({ error: LEAVE_BLOCKED }, { status: 409 });
+    }
+
     // Empty transcript = delete the draft
     if (!rawTranscript || !rawTranscript.trim()) {
       await draftsCol(user.uid).doc(dateStr).delete();
@@ -59,6 +64,10 @@ export async function DELETE(request: NextRequest) {
     const dateStr = request.nextUrl.searchParams.get("date");
     if (!dateStr) {
       return NextResponse.json({ error: "date is required" }, { status: 400 });
+    }
+
+    if (await isOnLeave(user.uid, dateStr)) {
+      return NextResponse.json({ error: LEAVE_BLOCKED }, { status: 409 });
     }
 
     await draftsCol(user.uid).doc(dateStr).delete();

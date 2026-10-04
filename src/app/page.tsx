@@ -6,11 +6,13 @@ import { trackEvent } from "@/lib/analytics";
 import { UpdatesPageClient } from "@/components/updates/updates-page-client";
 import { PageSpinner } from "@/components/ui/page-spinner";
 import { PageError } from "@/components/ui/page-error";
+import { computeStreak, updateKeysOf } from "@/lib/streak";
 import type { UpdateData } from "@/types";
 
 export default function UpdatesPage() {
   const [streak, setStreak] = useState(0);
   const [monthUpdates, setMonthUpdates] = useState<UpdateData[]>([]);
+  const [monthLeaves, setMonthLeaves] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -27,38 +29,20 @@ export default function UpdatesPage() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       }),
+      authedFetch("/api/leaves").then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }),
     ])
-      .then(([monthData, allData]) => {
+      .then(([monthData, allData, leaveData]) => {
 
         const mUpdates: UpdateData[] = monthData.updates || [];
         setMonthUpdates(mUpdates);
 
-        // Calculate streak client-side
         const allUpdates: UpdateData[] = allData.updates || [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const sortedDates = allUpdates
-          .map((u) => {
-            const d = new Date(u.date);
-            d.setHours(0, 0, 0, 0);
-            return d.getTime();
-          })
-          .filter((v, i, a) => a.indexOf(v) === i)
-          .sort((a, b) => b - a);
-
-        let s = 0;
-        if (sortedDates.length > 0) {
-          let checkDate = today.getTime();
-          for (const dateTs of sortedDates) {
-            if (dateTs === checkDate) {
-              s++;
-              checkDate -= 86400000;
-            } else if (dateTs < checkDate) {
-              break;
-            }
-          }
-        }
-        setStreak(s);
+        const leaves: string[] = leaveData.leaves || [];
+        setMonthLeaves(leaves.filter((k) => k.startsWith(month)));
+        setStreak(computeStreak(updateKeysOf(allUpdates), new Set(leaves), new Date().toLocaleDateString("sv-SE")));
         setLoading(false);
       })
       .catch((err) => {
@@ -95,6 +79,7 @@ export default function UpdatesPage() {
     <UpdatesPageClient
       streak={streak}
       monthUpdates={monthUpdates}
+      monthLeaves={monthLeaves}
     />
   );
 }
