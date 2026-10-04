@@ -5,6 +5,22 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] - 2026-10-04
+
+### ✨ Features
+- **projects:** insert commit activity and confirm estimates
+- **projects:** fetch a day's commits into a preview
+- **projects:** desktop Sacred Repositories settings
+- **leave:** mark a day as on leave
+
+### 🐛 Bug Fixes
+- **projects:** tidy estimate chips and keyless lines
+- **drafts:** never autosave before a date's draft has loaded
+
+### 📝 Documentation
+- leave days and fetch from projects
+- leave and project fetch handoff
+
 ## [1.16.0] - 2026-10-04
 
 ### ✨ Features
