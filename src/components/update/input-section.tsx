@@ -12,6 +12,7 @@ import { AudioVisualizer } from "./audio-visualizer";
 import { Mic, Square, Loader2, Zap, RotateCcw, History, Bug, FolderGit2 } from "lucide-react";
 import { seekAid } from "@/lib/seek-aid";
 import { ProjectFetchDialog, SKIP_TEXT } from "./project-fetch-dialog";
+import { buildActivityBlock, insertActivity } from "@/lib/project-activity";
 import type { ProjectCollectResult } from "@/types";
 
 const noopSubscribe = () => () => {};
@@ -190,6 +191,20 @@ export function InputSection({ onProcess }: InputSectionProps) {
     }
   };
 
+  const handleInsertProjects = (mode: "replace" | "append") => {
+    const preview = projectPreview;
+    setProjectPreview(null);
+    // Never let one day's deeds land in another day's words.
+    if (!preview || dayKey(useAppStore.getState().selectedDate) !== preview.date) return;
+    const { rawTranscript: current, setRawTranscript: setText, setDraftSource } = useUpdateStore.getState();
+    const { text, refreshed } = insertActivity(current, buildActivityBlock(preview), mode);
+    setText(text);
+    setDraftSource("projects");
+    if (refreshed) {
+      useToastStore.getState().addToast("Narayan Narayan! I refreshed this day's deeds instead of repeating them.", "success");
+    }
+  };
+
   const hasText = rawTranscript.trim().length > 0;
 
   return (
@@ -240,6 +255,7 @@ export function InputSection({ onProcess }: InputSectionProps) {
           result={projectPreview}
           hasDraft={hasText}
           onCancel={() => setProjectPreview(null)}
+          onInsert={handleInsertProjects}
         />
       )}
 

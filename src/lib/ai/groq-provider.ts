@@ -1,6 +1,6 @@
 import Groq from "groq-sdk";
 import type { ClaudeParseResult } from "@/types/claude";
-import type { AIParseProvider, RepeatEntryInput } from "./types";
+import type { AIParseProvider, PromptOptions, RepeatEntryInput } from "./types";
 import { buildSystemPrompt, buildUserMessage, PARSE_RESULT_JSON_SCHEMA } from "./prompt";
 import { DEFAULT_AI_TIMEOUT_MS } from "@/lib/ai-timeout";
 
@@ -17,9 +17,10 @@ export class GroqProvider implements AIParseProvider {
   async parseTranscript(
     transcript: string,
     date: string,
-    repeatEntries: RepeatEntryInput[]
+    repeatEntries: RepeatEntryInput[],
+    opts?: PromptOptions
   ): Promise<ClaudeParseResult> {
-    const systemPrompt = buildSystemPrompt(date, repeatEntries);
+    const systemPrompt = buildSystemPrompt(date, repeatEntries, opts);
     const userMessage = buildUserMessage(transcript);
 
     // Groq requires the word "json" in messages when using response_format: json_object

@@ -1,6 +1,6 @@
 import { spawn } from "child_process";
 import type { ClaudeParseResult } from "@/types/claude";
-import type { AIParseProvider, RepeatEntryInput } from "./types";
+import type { AIParseProvider, PromptOptions, RepeatEntryInput } from "./types";
 import { buildSystemPrompt, buildUserMessage, PARSE_RESULT_JSON_SCHEMA } from "./prompt";
 import { DEFAULT_AI_TIMEOUT_MS } from "@/lib/ai-timeout";
 
@@ -11,9 +11,10 @@ import { DEFAULT_AI_TIMEOUT_MS } from "@/lib/ai-timeout";
 function buildCliPrompt(
   transcript: string,
   date: string,
-  repeatEntries: RepeatEntryInput[]
+  repeatEntries: RepeatEntryInput[],
+  opts?: PromptOptions
 ): string {
-  const systemPrompt = buildSystemPrompt(date, repeatEntries);
+  const systemPrompt = buildSystemPrompt(date, repeatEntries, opts);
   const userMessage = buildUserMessage(transcript);
 
   return `${systemPrompt}
@@ -32,9 +33,10 @@ export class LocalClaudeProvider implements AIParseProvider {
   async parseTranscript(
     transcript: string,
     date: string,
-    repeatEntries: RepeatEntryInput[]
+    repeatEntries: RepeatEntryInput[],
+    opts?: PromptOptions
   ): Promise<ClaudeParseResult> {
-    const stdinContent = buildCliPrompt(transcript, date, repeatEntries);
+    const stdinContent = buildCliPrompt(transcript, date, repeatEntries, opts);
 
     const appendPrompt =
       "You are a JSON-only output machine. You MUST respond with ONLY a raw JSON object. " +

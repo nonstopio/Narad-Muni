@@ -6,13 +6,14 @@ import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
 import { trackEvent } from "@/lib/analytics";
 import { shouldSave } from "./draft-save-rule";
+import type { DraftSource } from "@/types";
 
 const DEBOUNCE_MS = 1500;
 
 export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef<string>("");
-  const latestTextRef = useRef<string>("");
+  const lastSourceRef = useRef<DraftSource>("manual");
   // False until this date's draft has loaded; nothing is saved before that.
   const loadedRef = useRef(false);
   const pendingRef = useRef<Promise<void> | null>(null);
@@ -25,13 +26,27 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
     dateRef.current = dateStr;
   });
 
-  const save = useCallback((text: string, date: string, keepalive = false) => {
+  // The save decision for the store's current text and source.
+  const due = useCallback(() => {
+    const { rawTranscript, draftSource } = useUpdateStore.getState();
+    return shouldSave({
+      loaded: loadedRef.current,
+      text: rawTranscript,
+      lastSaved: lastSavedRef.current,
+      source: draftSource,
+      lastSource: lastSourceRef.current,
+    });
+  }, []);
+
+  const save = useCallback((date: string, keepalive = false) => {
+    const { rawTranscript: text, draftSource: source } = useUpdateStore.getState();
     lastSavedRef.current = text;
+    lastSourceRef.current = source;
     trackEvent("draft_save");
     const request = authedFetch("/api/drafts", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date, rawTranscript: text }),
+      body: JSON.stringify({ date, rawTranscript: text, source }),
       keepalive,
     })
       .then((res) => {
@@ -53,6 +68,7 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
   useEffect(() => {
     loadedRef.current = false;
     lastSavedRef.current = "";
+    lastSourceRef.current = "manual";
     if (!enabled || !dateStr) return;
 
     let cancelled = false;
@@ -62,12 +78,13 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
       .then((data) => {
         if (cancelled) return;
         const saved: string = data.draft?.rawTranscript ?? "";
+        const savedSource: DraftSource = data.draft?.source === "projects" ? "projects" : "manual";
         lastSavedRef.current = saved;
+        lastSourceRef.current = savedSource;
         loadedRef.current = true;
         // Only restore if the textarea is still empty (resetForNewUpdate already ran)
         if (saved && !useUpdateStore.getState().rawTranscript.trim()) {
-          latestTextRef.current = saved;
-          useUpdateStore.getState().setRawTranscript(saved);
+          useUpdateStore.setState({ rawTranscript: saved, draftSource: savedSource });
         }
       })
       .catch((err) => {
@@ -86,26 +103,21 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
   useEffect(() => {
     if (!enabled || !dateStr) return;
 
-    let prevTranscript = useUpdateStore.getState().rawTranscript;
+    let prev = useUpdateStore.getState();
 
     const unsub = useUpdateStore.subscribe((state) => {
-      const text = state.rawTranscript;
-      if (text === prevTranscript) return;
-      prevTranscript = text;
-      latestTextRef.current = text;
+      if (state.rawTranscript === prev.rawTranscript && state.draftSource === prev.draftSource) return;
+      prev = state;
 
       if (!enabledRef.current || !dateRef.current) return;
-      if (!shouldSave({ loaded: loadedRef.current, text, lastSaved: lastSavedRef.current })) return;
+      if (!due()) return;
 
       if (timerRef.current) clearTimeout(timerRef.current);
 
       timerRef.current = setTimeout(() => {
         timerRef.current = null;
         if (!enabledRef.current || !dateRef.current) return;
-
-        const current = latestTextRef.current;
-        if (!shouldSave({ loaded: loadedRef.current, text: current, lastSaved: lastSavedRef.current })) return;
-        save(current, dateRef.current);
+        if (due()) save(dateRef.current);
       }, DEBOUNCE_MS);
     });
 
@@ -116,26 +128,20 @@ export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
 
-        const text = latestTextRef.current;
-        if (dateRef.current && shouldSave({ loaded: loadedRef.current, text, lastSaved: lastSavedRef.current })) {
-          save(text, dateRef.current, true);
-        }
+        if (dateRef.current && due()) save(dateRef.current, true);
       }
     };
-  }, [dateStr, enabled, save]);
+  }, [dateStr, enabled, save, due]);
 
   /** Send any debounced change now and wait until the last save has landed. */
   const flush = useCallback(async () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
-      const text = latestTextRef.current;
-      if (dateRef.current && shouldSave({ loaded: loadedRef.current, text, lastSaved: lastSavedRef.current })) {
-        save(text, dateRef.current);
-      }
+      if (dateRef.current && due()) save(dateRef.current);
     }
     await pendingRef.current;
-  }, [save]);
+  }, [save, due]);
 
   const deleteDraft = useCallback(async () => {
     if (!dateStr) return;

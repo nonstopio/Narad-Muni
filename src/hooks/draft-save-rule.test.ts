@@ -24,4 +24,9 @@ assert.strictEqual(shouldSave({ loaded: true, text: "", lastSaved: "" }), false)
 // The user clearing a loaded draft is a real delete.
 assert.strictEqual(shouldSave({ loaded: true, text: "", lastSaved: "old text" }), true);
 
+// A source change alone (manual → projects) must be saved, so a reload restores it.
+assert.strictEqual(shouldSave({ loaded: true, text: "same", lastSaved: "same", source: "projects", lastSource: "manual" }), true);
+assert.strictEqual(shouldSave({ loaded: true, text: "same", lastSaved: "same", source: "projects", lastSource: "projects" }), false);
+assert.strictEqual(shouldSave({ loaded: false, text: "same", lastSaved: "same", source: "projects", lastSource: "manual" }), false);
+
 console.log("draft-save-rule: all assertions passed");

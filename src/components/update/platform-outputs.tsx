@@ -7,6 +7,7 @@ import { TeamsOutputCard } from "./teams-output-card";
 import { JiraOutputCard } from "./jira-output-card";
 import { Button } from "@/components/ui/button";
 import { Send, Loader2, RefreshCw } from "lucide-react";
+import { jiraPublishBlocker } from "@/lib/jira-guard";
 
 interface PlatformOutputsProps {
   activePlatforms: {
@@ -21,7 +22,7 @@ export function PlatformOutputs({
   activePlatforms,
   onShareAll,
 }: PlatformOutputsProps) {
-  const { previewReady, isProcessing, step, retryMode, retrySlackStatus, retryTeamsStatus, retryJiraStatus } = useUpdateStore();
+  const { previewReady, isProcessing, step, retryMode, retrySlackStatus, retryTeamsStatus, retryJiraStatus, jiraEnabled, workLogEntries } = useUpdateStore();
 
   const hasAnyPlatform =
     activePlatforms.slack || activePlatforms.teams || activePlatforms.jira;
@@ -78,6 +79,9 @@ export function PlatformOutputs({
   const buttonText = retryMode ? "Retry Failed Worlds" : "Dispatch to All Worlds";
   const loadingText = retryMode ? "Re-dispatching..." : "Dispatching...";
   const buttonVariant = retryMode ? "warning-soft" as const : "success" as const;
+  // Same rule the server enforces; with Jira off, Slack and Teams are never blocked.
+  const sendsJira = jiraEnabled && !(retryMode && retryJiraStatus === "SENT");
+  const jiraBlocker = sendsJira ? jiraPublishBlocker(workLogEntries.filter((e) => !e.jiraWorklogId)) : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -85,12 +89,13 @@ export function PlatformOutputs({
       {showTeams && <TeamsOutputCard />}
       {showJira && <JiraOutputCard />}
 
-      {/* Share / Retry button */}
+      {/* Share / Retry button (wrapped so the reason shows even while disabled) */}
+      <div title={jiraBlocker ?? undefined}>
       <Button
         variant={buttonVariant}
         size="lg"
         onClick={onShareAll}
-        disabled={isSharing}
+        disabled={isSharing || !!jiraBlocker}
         className="w-full"
       >
         {isSharing ? (
@@ -105,6 +110,7 @@ export function PlatformOutputs({
           </>
         )}
       </Button>
+      </div>
     </div>
   );
 }

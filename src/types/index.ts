@@ -12,6 +12,9 @@ export type ModalStep = "editing" | "sharing";
 
 export type ProcessingStage = "transcribing" | "analyzing" | "formatting";
 
+/** Where a draft's words came from. Missing means "manual". */
+export type DraftSource = "manual" | "projects";
+
 export interface UpdateData {
   id: string;
   createdAt: string;
@@ -25,6 +28,7 @@ export interface UpdateData {
   jiraStatus: PublishStatus;
   workLogEntries: WorkLogEntryData[];
   metrics?: UpdateMetrics;
+  source?: DraftSource;
 }
 
 export interface UpdateMetricsTimings {
@@ -76,6 +80,7 @@ export interface WorkLogEntryData {
   comment?: string;
   isRepeat: boolean;
   jiraWorklogId?: string | null;
+  needsConfirmation?: boolean;
 }
 
 export interface PlatformConfigData {

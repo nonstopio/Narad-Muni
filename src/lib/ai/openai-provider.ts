@@ -1,6 +1,6 @@
 import OpenAI, { AzureOpenAI } from "openai";
 import type { ClaudeParseResult } from "@/types/claude";
-import type { AIParseProvider, RepeatEntryInput } from "./types";
+import type { AIParseProvider, PromptOptions, RepeatEntryInput } from "./types";
 import { buildSystemPrompt, buildUserMessage, PARSE_RESULT_JSON_SCHEMA } from "./prompt";
 import { DEFAULT_AI_TIMEOUT_MS } from "@/lib/ai-timeout";
 
@@ -61,9 +61,10 @@ export class OpenAIProvider implements AIParseProvider {
   async parseTranscript(
     transcript: string,
     date: string,
-    repeatEntries: RepeatEntryInput[]
+    repeatEntries: RepeatEntryInput[],
+    opts?: PromptOptions
   ): Promise<ClaudeParseResult> {
-    const systemPrompt = buildSystemPrompt(date, repeatEntries) + JSON_INSTRUCTION;
+    const systemPrompt = buildSystemPrompt(date, repeatEntries, opts) + JSON_INSTRUCTION;
     const userMessage = buildUserMessage(transcript);
 
     console.log(`[Narada → OpenAI] Sending request — model=${this.model}, system_prompt=${systemPrompt.length} chars, user_message=${userMessage.length} chars`);
@@ -109,9 +110,10 @@ export class AzureOpenAIProvider implements AIParseProvider {
   async parseTranscript(
     transcript: string,
     date: string,
-    repeatEntries: RepeatEntryInput[]
+    repeatEntries: RepeatEntryInput[],
+    opts?: PromptOptions
   ): Promise<ClaudeParseResult> {
-    const systemPrompt = buildSystemPrompt(date, repeatEntries) + JSON_INSTRUCTION;
+    const systemPrompt = buildSystemPrompt(date, repeatEntries, opts) + JSON_INSTRUCTION;
     const userMessage = buildUserMessage(transcript);
 
     console.log(`[Narada → Azure OpenAI] Sending request — deployment=${this.deployment}, system_prompt=${systemPrompt.length} chars, user_message=${userMessage.length} chars`);

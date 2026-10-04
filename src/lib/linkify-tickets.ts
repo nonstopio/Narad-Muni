@@ -1,5 +1,10 @@
 const TICKET_REGEX = /\b([A-Z][A-Z0-9_]+-\d+)\b/g;
 
+/** All distinct ticket IDs (PROJ-123) in `text`, in order of appearance. */
+export function findTickets(text: string): string[] {
+  return [...new Set(text.match(TICKET_REGEX) ?? [])];
+}
+
 export function linkifyTickets(
   text: string,
   baseUrl: string,

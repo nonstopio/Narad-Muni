@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
 import { updatesCol, configsCol, isOnLeave, LEAVE_BLOCKED } from "@/lib/firestore-helpers";
 import { isDateKey, updateDateIso } from "@/lib/date-key";
+import { jiraPublishBlocker } from "@/lib/jira-guard";
 import { linkifyTickets } from "@/lib/linkify-tickets";
 import { findWorkflowThread, postThreadReply } from "@/lib/slack-thread";
 import { time } from "@/lib/timing";
@@ -85,6 +86,7 @@ interface WorkLogEntryDoc {
   comment: string | null;
   isRepeat: boolean;
   jiraWorklogId: string | null;
+  needsConfirmation?: boolean;
 }
 
 async function publishJiraWorklogs(
@@ -444,12 +446,14 @@ export async function POST(request: NextRequest) {
       teamsEnabled,
       jiraEnabled,
       metricsHints,
+      source,
     }: {
       date: string;
       rawTranscript: string;
       slackOutput?: string;
       teamsOutput?: string;
-      workLogEntries?: { issueKey: string; timeSpentSecs: number; started: string; comment?: string; isRepeat: boolean }[];
+      workLogEntries?: { issueKey: string; timeSpentSecs: number; started: string; comment?: string; isRepeat: boolean; needsConfirmation?: boolean }[];
+      source?: unknown;
       slackEnabled: boolean;
       teamsEnabled: boolean;
       jiraEnabled: boolean;
@@ -462,6 +466,11 @@ export async function POST(request: NextRequest) {
     if (await isOnLeave(user.uid, date)) {
       return NextResponse.json({ success: false, error: LEAVE_BLOCKED }, { status: 409 });
     }
+    // Refuse before anything is posted, so Slack/Teams never go out ahead of a Jira failure.
+    const jiraBlocker = jiraEnabled ? jiraPublishBlocker(workLogEntries || []) : null;
+    if (jiraBlocker) {
+      return NextResponse.json({ success: false, error: jiraBlocker }, { status: 400 });
+    }
 
     // Build work log entries with IDs
     const entries: WorkLogEntryDoc[] = (workLogEntries || []).map(
@@ -473,6 +482,7 @@ export async function POST(request: NextRequest) {
         comment: entry.comment || "",
         isRepeat: entry.isRepeat || false,
         jiraWorklogId: null,
+        needsConfirmation: entry.needsConfirmation === true,
       })
     );
 
@@ -486,6 +496,7 @@ export async function POST(request: NextRequest) {
       teamsStatus: teamsEnabled ? "PENDING" : "SKIPPED",
       jiraStatus: jiraEnabled ? "PENDING" : "SKIPPED",
       workLogEntries: entries,
+      source: source === "projects" ? "projects" : "manual",
     };
 
     const docRef = await updatesCol(user.uid).add(updateData);
@@ -675,6 +686,11 @@ export async function PUT(request: NextRequest) {
 
     if (!updateId) {
       return NextResponse.json({ success: false, error: "Missing updateId" }, { status: 400 });
+    }
+    if (retryJira && Array.isArray(workLogEntries)) {
+      const unposted = workLogEntries.filter((e: { jiraWorklogId?: string | null }) => !e.jiraWorklogId);
+      const jiraBlocker = jiraPublishBlocker(unposted);
+      if (jiraBlocker) return NextResponse.json({ success: false, error: jiraBlocker }, { status: 400 });
     }
 
     const docRef = updatesCol(user.uid).doc(updateId);

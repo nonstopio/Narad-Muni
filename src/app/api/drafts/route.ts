@@ -26,6 +26,7 @@ export async function PUT(request: NextRequest) {
     console.log(`[Narada] PUT /api/drafts uid=${user.uid}`);
     const body = await request.json();
     const { date: dateStr, rawTranscript } = body;
+    const source = body.source === "projects" ? "projects" : "manual";
 
     if (!dateStr) {
       return NextResponse.json({ error: "date is required" }, { status: 400 });
@@ -45,6 +46,7 @@ export async function PUT(request: NextRequest) {
     const draftData = {
       date: dateStr,
       rawTranscript,
+      source,
       updatedAt: new Date().toISOString(),
     };
 
