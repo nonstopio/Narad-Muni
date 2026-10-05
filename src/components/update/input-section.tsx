@@ -268,7 +268,12 @@ export function InputSection({ onProcess }: InputSectionProps) {
                 const h = Number(e.target.value);
                 if (e.target.value && validHours(h)) setWorkedHours(h);
               }}
-              onBlur={() => setCustomHours(null)}
+              onBlur={() => {
+                // Snap to the nearest half hour like the Jira duration fields (1.25 → 1.5)
+                const h = Number(customHours);
+                if (customHours && Number.isFinite(h)) setWorkedHours(Math.min(24, Math.max(0.5, Math.round(h * 2) / 2)));
+                setCustomHours(null);
+              }}
               className={`w-12 py-0.5 px-1.5 rounded-3xl [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none text-[11px] text-center font-mono bg-white/[0.03] border text-narada-text placeholder:text-narada-text-muted focus:outline-none focus:border-narada-primary transition-all duration-300 disabled:opacity-50 ${
                 customHours === null && !HOUR_CHIPS.includes(workedHours) ? "border-narada-primary" : "border-white/[0.06]"
               }`}
