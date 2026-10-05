@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
+import { FieldValue } from "firebase-admin/firestore";
 import { settingsDoc } from "@/lib/firestore-helpers";
 import type { AIProvider, KeyProvider } from "@/types";
 import type { UseGlobalFor } from "@/lib/ai";
@@ -26,7 +27,6 @@ interface StoredSettings {
   aiProvider?: string;
   geminiApiKey?: string | null;
   claudeApiKey?: string | null;
-  deepgramApiKey?: string | null;
   groqApiKey?: string | null;
   openaiApiKey?: string | null;
   azureOpenaiApiKey?: string | null;
@@ -40,7 +40,6 @@ interface StoredSettings {
 const REMOVABLE_FIELDS = [
   "geminiApiKey",
   "claudeApiKey",
-  "deepgramApiKey",
   "groqApiKey",
   "openaiApiKey",
   "azureOpenaiApiKey",
@@ -66,7 +65,6 @@ function buildSettingsResponse(settings: StoredSettings | undefined) {
     aiProvider: settings?.aiProvider ?? "local-claude",
     geminiApiKey: maskKey(settings?.geminiApiKey),
     claudeApiKey: maskKey(settings?.claudeApiKey),
-    deepgramApiKey: maskKey(settings?.deepgramApiKey),
     groqApiKey: maskKey(settings?.groqApiKey),
     openaiApiKey: maskKey(settings?.openaiApiKey),
     azureOpenaiApiKey: maskKey(settings?.azureOpenaiApiKey),
@@ -75,7 +73,6 @@ function buildSettingsResponse(settings: StoredSettings | undefined) {
     azureOpenaiApiVersion: settings?.azureOpenaiApiVersion ?? "",
     hasGeminiKey: !!settings?.geminiApiKey,
     hasClaudeKey: !!settings?.claudeApiKey,
-    hasDeepgramKey: !!settings?.deepgramApiKey,
     hasGroqKey: !!settings?.groqApiKey,
     hasOpenaiKey: !!settings?.openaiApiKey,
     hasAzureOpenaiKey: !!settings?.azureOpenaiApiKey,
@@ -121,7 +118,6 @@ export async function PUT(request: NextRequest) {
       aiProvider,
       geminiApiKey,
       claudeApiKey,
-      deepgramApiKey,
       groqApiKey,
       openaiApiKey,
       azureOpenaiApiKey,
@@ -146,7 +142,6 @@ export async function PUT(request: NextRequest) {
 
     applyKeyField(updateData, "geminiApiKey", geminiApiKey);
     applyKeyField(updateData, "claudeApiKey", claudeApiKey);
-    applyKeyField(updateData, "deepgramApiKey", deepgramApiKey);
     applyKeyField(updateData, "groqApiKey", groqApiKey);
     applyKeyField(updateData, "openaiApiKey", openaiApiKey);
     applyKeyField(updateData, "azureOpenaiApiKey", azureOpenaiApiKey);
@@ -168,6 +163,9 @@ export async function PUT(request: NextRequest) {
         updateData[key] = null;
       }
     }
+
+    // Deepgram was removed; purge any stored key on next save.
+    updateData.deepgramApiKey = FieldValue.delete();
 
     const ref = settingsDoc(user.uid);
     await ref.set(updateData, { merge: true });
