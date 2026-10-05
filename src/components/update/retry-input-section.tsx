@@ -71,7 +71,7 @@ export function RetryInputSection() {
       {/* Read-only transcript */}
       <div className="flex-1 min-h-0">
         <h3 className="text-xs font-semibold text-narada-text-muted uppercase tracking-wider mb-2">
-          Spoken Word
+          Written Word
         </h3>
         <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 max-h-[300px] overflow-y-auto">
           <p className="text-sm text-narada-text-secondary whitespace-pre-wrap">

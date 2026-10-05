@@ -2,7 +2,7 @@
   "name": "narada-app",
   "version": "1.18.0",
   "productName": "Narad Muni",
-  "description": "Voice-first productivity platform — record once, publish to Slack, Teams, and Jira",
+  "description": "Productivity platform — write your daily update once, publish to Slack, Teams, and Jira",
   "author": {
     "name": "NonStop IO",
     "url": "https://nonstopio.com"

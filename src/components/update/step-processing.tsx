@@ -27,7 +27,7 @@ const STAGE_ORDER: ProcessingStage[] = ["analyzing", "formatting"];
 
 const STAGE_MESSAGES: Record<ProcessingStage, string[]> = {
   analyzing: [
-    "Parsing your narration...",
+    "Reading your words...",
     "Detecting tasks and sacred tickets...",
     "Weighing time across each endeavor...",
     "Ensuring 8 hours of devotion are honored...",

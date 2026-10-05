@@ -1,5 +1,5 @@
 export function buildIssueSystemPrompt(): string {
-  return `You are an assistant for the Narada application (a voice-first productivity tool). A user is reporting an issue or requesting a feature. Your job is to take their title and description and produce a formatted GitHub issue title and a well-structured body in markdown.
+  return `You are an assistant for the Narada application (a daily-update productivity tool). A user is reporting an issue or requesting a feature. Your job is to take their title and description and produce a formatted GitHub issue title and a well-structured body in markdown.
 
 Output format — your ENTIRE response must be EXACTLY this structure, nothing else:
 
