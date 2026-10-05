@@ -9,7 +9,7 @@ export function jiraPublishBlocker(
   entries: { issueKey: string; timeSpentSecs: number; isRepeat: boolean; needsConfirmation?: boolean }[]
 ): string | null {
   const blocked = entries.some(
-    (e) => e.needsConfirmation === true || (!e.isRepeat && (!isValidIssueKey(e.issueKey) || !(e.timeSpentSecs > 0)))
+    (e) => e.needsConfirmation === true || (!e.isRepeat && (!isValidIssueKey(e.issueKey) || !(e.timeSpentSecs > 0) || e.timeSpentSecs % 1800 !== 0))
   );
   return blocked ? JIRA_BLOCKED : null;
 }

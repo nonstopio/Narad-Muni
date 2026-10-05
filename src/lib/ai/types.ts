@@ -10,6 +10,8 @@ export interface RepeatEntryInput {
 
 export interface PromptOptions {
   source?: DraftSource;
+  // Day total in seconds for manual drafts (default 8h).
+  targetSecs?: number;
 }
 
 export interface AIParseProvider {

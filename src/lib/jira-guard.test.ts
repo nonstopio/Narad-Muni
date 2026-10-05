@@ -20,6 +20,7 @@ assert.strictEqual(jiraPublishBlocker([{ ...ok, issueKey: "nm-12" }]), JIRA_BLOC
 assert.strictEqual(jiraPublishBlocker([{ ...ok, issueKey: "NM-12 extra" }]), JIRA_BLOCKED, "not a full match");
 assert.strictEqual(jiraPublishBlocker([{ ...ok, timeSpentSecs: 0 }]), JIRA_BLOCKED, "0 s");
 assert.strictEqual(jiraPublishBlocker([ok, { ...ok, timeSpentSecs: -5 }]), JIRA_BLOCKED, "any bad entry blocks");
+assert.strictEqual(jiraPublishBlocker([{ ...ok, timeSpentSecs: 4500 }]), JIRA_BLOCKED, "1h 15m is not a half-hour step");
 
 assert.ok(isValidIssueKey("ABC_2-1"));
 assert.ok(!isValidIssueKey("A-1"), "project key needs 2+ chars");
