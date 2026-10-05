@@ -121,7 +121,7 @@ Dark glassmorphism theme (inspired by Linear/Raycast/Arc).
 
 ## Key Domain Concepts
 
-- **Repeat/Fixed Entries:** Jira work log entries auto-injected into every day's work log (configured in Settings under Jira). The AI merges these with transcript-derived entries and `/api/parse` scales the rest up or down so the day totals exactly the hours the user picked under Invoke the Sage (`targetHours`, default 8h, 0.5–24h in half-hour steps; see `src/lib/ai/time-rules.ts`).
+- **Repeat/Fixed Entries:** Jira work log entries auto-injected into every day's work log (configured in Settings under Jira). The AI merges these with transcript-derived entries and `/api/parse` treats the hours the user picked as a floor: a shorter day is scaled up to meet it, a longer one keeps its true total. The floor is picked under Invoke the Sage (`targetHours`, default 8h, 0.5–24h in half-hour steps; see `src/lib/ai/time-rules.ts`).
 - **Platform toggles:** Users can enable/disable Slack, Teams, and Jira per update before publishing. Disabled platforms get status `SKIPPED`.
 - **Calendar interaction:** Clicking a date with an existing update opens a detail modal (read-only + delete). Clicking a date without an update opens the creation flow.
 - **Leave:** Marked from the day view, stored in `leaves/`. Never counts as a message, hours or time saved; the streak (`src/lib/streak.ts`) steps over leave days without counting or breaking. Weekends without an update still break it. Server enforces: no publish or draft write on a leave day, no leave on a day with an update (deleting the update does not retract posts).
@@ -134,7 +134,7 @@ Dark glassmorphism theme (inspired by Linear/Raycast/Arc).
 - **Slack:** Incoming Webhook POST with plain text + user mention (`<@userId>`).
 - **Teams:** Incoming Webhook POST with Adaptive Card format + `<at>` mention entity.
 - **Jira:** REST API v3, Basic auth (email + API token), worklog endpoint. Times stored as wall-clock in user's timezone, converted to true UTC before API call. 1 second delay between worklog POSTs to avoid rate limiting.
-- **AI parsing:** System prompt spreads entries to exactly the user-chosen daily total (default 8h), 30-min granularity, 30-min minimum per entry. Output is structured JSON with `tasks[]`, `blockers[]`, `timeEntries[]`, `tomorrowTasks[]`, `slackFormat`, `teamsFormat`.
+- **AI parsing:** System prompt treats the user-chosen daily hours (default 8h) as a minimum, never shrinking a longer day, 30-min granularity, 30-min minimum per entry. Output is structured JSON with `tasks[]`, `blockers[]`, `timeEntries[]`, `tomorrowTasks[]`, `slackFormat`, `teamsFormat`.
 
 ## Environment Variables
 

@@ -33,8 +33,9 @@ function allocateUnits(weights: number[], total: number): number[] {
 }
 
 /**
- * Scale non-repeat entries (up or down) so the day totals `targetSecs`, in 30-min
- * steps of at least 30 min, then lay them back-to-back from the first one's start.
+ * Round non-repeat entries to 30-min steps (at least 30 min) and, if the day falls
+ * short of `targetSecs`, scale them up to meet it. Longer days are kept as they are.
+ * Then lay them back-to-back from the first one's start.
  * Repeat entries are never touched.
  */
 export function enforceTimeRules(allEntries: ClaudeTimeEntry[], targetSecs: number): ClaudeTimeEntry[] {
@@ -45,10 +46,10 @@ export function enforceTimeRules(allEntries: ClaudeTimeEntry[], targetSecs: numb
 
   const repeatTotal = repeatEntries.reduce((sum, e) => sum + e.timeSpentSecs, 0);
   const targetUnits = Math.round(Math.max(0, targetSecs - repeatTotal) / UNIT_SECS);
-  const units = allocateUnits(
-    nonRepeatEntries.map((e) => Math.max(0, e.timeSpentSecs || 0)),
-    targetUnits
-  );
+  const weights = nonRepeatEntries.map((e) => Math.max(0, e.timeSpentSecs || 0));
+  // The chosen hours are a floor: a longer day stays as described, a shorter one grows to fit.
+  const asIs = weights.map((w) => Math.max(1, Math.round(w / UNIT_SECS)));
+  const units = asIs.reduce((s, u) => s + u, 0) >= targetUnits ? asIs : allocateUnits(weights, targetUnits);
 
   let cursor = toMs(nonRepeatEntries[0].started);
   const adjusted = nonRepeatEntries.map((e, i) => {

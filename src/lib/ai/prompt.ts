@@ -56,7 +56,7 @@ ${fromProjects ? "- Extract tomorrow's planned tasks only from the user's own wo
 - Set isRepeat to false for all entries you extract (repeat entries are handled separately)
 
 ${fromProjects ? PROJECT_SOURCE_RULES : `Time distribution rules:
-- The user worked exactly ${targetHours}h today. Non-repeat entries must total EXACTLY ${remainingSecs} seconds (${remainingHours}h); combined with repeat entries that makes ${targetHours}h
+- The user worked at least ${targetHours}h today. Non-repeat entries must total AT LEAST ${remainingSecs} seconds (${remainingHours}h); combined with repeat entries that makes ${targetHours}h
 - Every entry is a multiple of 1800 seconds (30 minutes), minimum 1800 seconds per entry
 - If the user states a time for a task, keep it as stated (rounded to the nearest 30 min)
 - Distribute the time left after stated times across tasks WITHOUT a stated time, by relative weight inferred from each task's description:
@@ -65,8 +65,8 @@ ${fromProjects ? PROJECT_SOURCE_RULES : `Time distribution rules:
   - Low-effort indicators (assign less time): standup, sync, quick fix, typo fix, minor update, status update, email, message, follow-up
   - If a task description mentions multiple sub-tasks or components, weight it higher
   - If the user emphasizes effort with words like "mostly", "spent a lot of time", "deep dive", "major", weight it higher; words like "quick", "small", "brief", "minor" mean lower weight
-- If the stated times alone exceed ${remainingSecs} seconds, scale all entries proportionally to fit
-- After rounding, the non-repeat entries must still sum to exactly ${remainingSecs} seconds; adjust the largest entries by 30 min if needed`}
+- If the stated times alone already reach or exceed ${remainingSecs} seconds, keep them as stated: the true total wins, never shrink it to ${targetHours}h. Tasks without a stated time then get 1800 seconds each
+- Otherwise, after rounding, the non-repeat entries must sum to exactly ${remainingSecs} seconds; adjust the largest entries by 30 min if needed`}
 
 Output format for slackFormat (Slack mrkdwn):
 \`TODAY\`

@@ -1,7 +1,8 @@
 /**
  * Self-check for the day-total rules. Run: npx tsx src/lib/ai/time-rules.test.ts
- * Non-repeat entries must sum to exactly the chosen hours minus repeats, in
- * 30-min steps, laid back-to-back; repeats are never touched.
+ * The chosen hours are a floor: short days scale up to exactly the chosen hours
+ * minus repeats, longer days keep their true total. 30-min steps, laid
+ * back-to-back; repeats are never touched.
  */
 
 import assert from "node:assert";
@@ -22,12 +23,13 @@ assert.strictEqual(sum(nonRepeat(up)), 36000 - 3600, "scale-up sums exactly to 1
 assert.deepStrictEqual(nonRepeat(up).map((x) => x.timeSpentSecs), [21600, 10800], "proportions kept");
 assert.deepStrictEqual(up.find((x) => x.isRepeat), repeat, "repeat untouched");
 
-// Scale down: AI gave 11h, target 9h.
+// Above the floor: AI gave 11h with 9h chosen, so the true 11h is kept.
 const down = enforceTimeRules(
   [e("B-1", 18000, "2026-10-06T10:00:00"), e("B-2", 14400, "2026-10-06T15:00:00"), e("B-3", 7200, "2026-10-06T19:00:00")],
   32400
 );
-assert.strictEqual(sum(down), 32400, "scale-down sums exactly to 9h");
+assert.strictEqual(sum(down), 39600, "longer day is never shrunk");
+assert.deepStrictEqual(down.map((x) => x.timeSpentSecs), [18000, 14400, 7200], "durations kept");
 
 // Largest remainder: three equal-ish entries into 8h (16 units) must not drift.
 const uneven = enforceTimeRules(
@@ -38,12 +40,12 @@ assert.strictEqual(sum(uneven), 28800, "rounded sum hits the target");
 assert.ok(uneven.every((x) => x.timeSpentSecs % 1800 === 0 && x.timeSpentSecs >= 1800), "30-min steps, 30-min minimum");
 assert.deepStrictEqual(uneven.map((x) => x.timeSpentSecs), [9000, 9000, 10800], "largest remainder (C-3) wins the spare unit");
 
-// Infeasible: 1h for three entries gives each the 30-min minimum.
+// Tiny entries over a tiny floor: each still gets the 30-min minimum, and off-step times round.
 const tight = enforceTimeRules(
-  [e("D-1", 3600, "2026-10-06T10:00:00"), e("D-2", 3600, "2026-10-06T11:00:00"), e("D-3", 3600, "2026-10-06T12:00:00")],
+  [e("D-1", 600, "2026-10-06T10:00:00"), e("D-2", 600, "2026-10-06T11:00:00"), e("D-3", 4500, "2026-10-06T12:00:00")],
   3600
 );
-assert.deepStrictEqual(tight.map((x) => x.timeSpentSecs), [1800, 1800, 1800]);
+assert.deepStrictEqual(tight.map((x) => x.timeSpentSecs), [1800, 1800, 5400]);
 
 // All zero: split evenly.
 const zero = enforceTimeRules([e("Z-1", 0, "2026-10-06T10:00:00"), e("Z-2", 0, "2026-10-06T10:00:00")], 14400);
