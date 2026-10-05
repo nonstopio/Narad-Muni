@@ -9,6 +9,7 @@ import { time } from "@/lib/timing";
 import { getTimeSavedConstants, estimateTimeSavedSecs } from "@/lib/time-saved";
 import { type DocumentReference, type Query, type QueryDocumentSnapshot } from "firebase-admin/firestore";
 import type { UpdateMetrics, UpdateMetricsHints } from "@/types";
+import { errorMessage } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Jira worklog helpers
@@ -359,7 +360,7 @@ export async function DELETE(request: NextRequest) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada] DELETE /api/updates error:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to delete update" },
+      { success: false, error: errorMessage(error, "Failed to delete update") },
       { status: 500 }
     );
   }
@@ -664,7 +665,7 @@ export async function POST(request: NextRequest) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada] POST /api/updates error:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to create update" },
+      { success: false, error: errorMessage(error, "Failed to create update") },
       { status: 500 }
     );
   }
@@ -823,7 +824,7 @@ export async function PUT(request: NextRequest) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada] PUT /api/updates error:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to retry update" },
+      { success: false, error: errorMessage(error, "Failed to retry update") },
       { status: 500 }
     );
   }

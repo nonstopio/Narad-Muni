@@ -155,6 +155,7 @@ The app ships as a native macOS desktop app via Electron.
 - **Entry:** `electron/main.ts` — sets Firebase env vars, launches BrowserWindow
 - **Config:** `electron/config.ts` — reads/writes `narada.config.json` in user data dir (window bounds, Firebase user ID)
 - **Projects:** `electron/projects.ts` — per-user local git folders in `<userData>/projects.json` (never synced) and the read-only git runner. IPC channels `projects:list`, `projects:add` (main opens the folder dialog), `projects:update`, `projects:remove`, `projects:setTimeZone`, `projects:collect`. The uid always comes from config, never from IPC args, and every IPC handler rejects senders other than our window on the local app origin
+- **Outbound HTTPS:** in the packaged app, `electron/net-fetch.ts` routes every HTTPS `fetch` (AI SDKs, Slack, Jira) through Chromium's `net.fetch`, which trusts the OS keychain, so TLS-intercepting corporate proxies work. Dev mode runs Next in plain Node and doesn't get this. API routes report errors with `errorMessage()` (`src/lib/utils.ts`), which includes the `cause` chain, so "Connection error." carries its real reason
 - **Dev mode:** `electron/dev-start.js` — loads Firebase service account, starts Next.js dev server + Electron concurrently
 - **Build:** `npm run electron:build` — production build + electron-builder packaging
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
 import { configsCol } from "@/lib/firestore-helpers";
 import { type QueryDocumentSnapshot } from "firebase-admin/firestore";
+import { errorMessage } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada API Settings] GET failed:", error);
-    return NextResponse.json({ configs: [], error: error instanceof Error ? error.message : "Failed to fetch settings" }, { status: 500 });
+    return NextResponse.json({ configs: [], error: errorMessage(error, "Failed to fetch settings") }, { status: 500 });
   }
 }
 
@@ -62,7 +63,7 @@ export async function PUT(request: NextRequest) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada] PUT /api/settings error:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to update settings" },
+      { success: false, error: errorMessage(error, "Failed to update settings") },
       { status: 500 }
     );
   }

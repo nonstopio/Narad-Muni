@@ -5,6 +5,7 @@ import { configsCol, settingsDoc } from "@/lib/firestore-helpers";
 import { time } from "@/lib/timing";
 import { applyProjectSourceRules } from "@/lib/ai/project-rules";
 import type { ClaudeTimeEntry } from "@/types/claude";
+import { errorMessage } from "@/lib/utils";
 
 const MIN_TOTAL_SECS = 28800; // 8 hours
 const MIN_ENTRY_SECS = 1800; // 30 minutes
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada] POST /api/parse error:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Parsing failed" },
+      { success: false, error: errorMessage(error, "Parsing failed") },
       { status: 500 }
     );
   }

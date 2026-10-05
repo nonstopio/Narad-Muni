@@ -1,9 +1,10 @@
-import { app, BrowserWindow, shell, ipcMain, Menu, powerSaveBlocker, screen, dialog } from "electron";
+import { app, BrowserWindow, shell, ipcMain, Menu, powerSaveBlocker, screen, dialog, net } from "electron";
 import * as fs from "fs";
 import * as path from "path";
 import { readConfig, saveWindowBounds, writeConfig } from "./config";
 import { findAvailablePort } from "./port";
 import { initAutoUpdater, checkForUpdatesManual } from "./updater";
+import { routeHttpsVia } from "./net-fetch";
 import { setupScheduler, reloadSchedule, fireTestNotification, NotificationSettings } from "./scheduler";
 import { createProjectStore } from "./projects";
 
@@ -349,6 +350,9 @@ async function startApp(): Promise<void> {
     // The standalone Next.js build lives inside the asar at .next/standalone/
     const standaloneDir = path.join(__dirname, "..", ".next", "standalone");
     console.log(`Standalone dir: ${standaloneDir}`);
+
+    // Before Next loads, so its fetch patching and every SDK pick it up.
+    globalThis.fetch = routeHttpsVia(globalThis.fetch, net.fetch as typeof fetch);
 
     const next = require("next");
     const nextApp = next({
