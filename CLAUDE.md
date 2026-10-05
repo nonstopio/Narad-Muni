@@ -177,6 +177,7 @@ npm run electron:build    # Full production build + package
 | `src/components/auth/auth-provider.tsx` | React context for Firebase Auth state |
 | `src/lib/ai/prompt.ts` | AI system prompt + JSON schema for parsing |
 | `src/lib/ai/index.ts` | AI provider factory (selects active provider) |
+| `src/lib/ai-settings.ts` | AI settings write/response for `/api/settings/ai-provider` (masks keys, purges the old Deepgram key) |
 | `src/hooks/use-update-flow.ts` | Orchestrates parse -> preview |
 | `src/lib/streak.ts` | Devotion streak over day keys, skipping leave days |
 | `src/lib/project-activity.ts` | Builds/inserts the `[Project activity]` block from fetched commits |

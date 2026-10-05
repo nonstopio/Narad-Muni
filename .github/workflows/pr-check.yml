@@ -37,5 +37,8 @@ jobs:
           npx tsx electron/net-fetch.test.ts
           npx tsx src/lib/utils.test.ts
 
+      - name: Settings tests
+        run: npx tsx src/lib/ai-settings.test.ts
+
       - name: Changelog tests
         run: node scripts/changelog.test.mjs
