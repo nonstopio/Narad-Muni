@@ -26,6 +26,7 @@ export function useUpdateFlow() {
     const {
       rawTranscript,
       draftSource,
+      workedHours,
       slackEnabled,
       teamsEnabled,
       jiraEnabled,
@@ -73,7 +74,7 @@ export function useUpdateFlow() {
         const parseRes = await authedFetch("/api/parse", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transcript, date: dateStr, source: draftSource }),
+          body: JSON.stringify({ transcript, date: dateStr, source: draftSource, targetHours: workedHours }),
         });
         return parseRes.json();
       });

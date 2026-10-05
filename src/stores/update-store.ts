@@ -7,6 +7,9 @@ interface UpdateStore {
   // Where the words came from; "projects" once commit activity is inserted.
   draftSource: DraftSource;
   setDraftSource: (source: DraftSource) => void;
+  // Hours worked that day; manual drafts' Jira entries are spread to exactly this total.
+  workedHours: number;
+  setWorkedHours: (hours: number) => void;
   slackOutput: string;
   teamsOutput: string;
   workLogEntries: WorkLogEntryData[];
@@ -63,6 +66,7 @@ const initialState = {
   step: "editing" as ModalStep,
   rawTranscript: "",
   draftSource: "manual" as DraftSource,
+  workedHours: 8,
   slackOutput: "",
   teamsOutput: "",
   workLogEntries: [] as WorkLogEntryData[],
@@ -90,6 +94,7 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
   // Emptying the words forgets where they came from.
   setRawTranscript: (text) => set(text ? { rawTranscript: text } : { rawTranscript: text, draftSource: "manual" }),
   setDraftSource: (source) => set({ draftSource: source }),
+  setWorkedHours: (hours) => set({ workedHours: hours }),
   setSlackOutput: (output) => set({ slackOutput: output }),
   setTeamsOutput: (output) => set({ teamsOutput: output }),
   setWorkLogEntries: (entries) => set({ workLogEntries: entries }),
@@ -142,6 +147,7 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
       step: "editing",
       rawTranscript: "",
       draftSource: "manual",
+      workedHours: 8,
       slackOutput: "",
       teamsOutput: "",
       workLogEntries: [],

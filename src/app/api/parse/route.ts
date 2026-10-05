@@ -4,63 +4,31 @@ import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware"
 import { configsCol, settingsDoc } from "@/lib/firestore-helpers";
 import { time } from "@/lib/timing";
 import { applyProjectSourceRules } from "@/lib/ai/project-rules";
+import { enforceTimeRules, DEFAULT_TARGET_SECS } from "@/lib/ai/time-rules";
 import type { ClaudeTimeEntry } from "@/types/claude";
 import { errorMessage } from "@/lib/utils";
-
-const MIN_TOTAL_SECS = 28800; // 8 hours
-const MIN_ENTRY_SECS = 1800; // 30 minutes
-const GRANULARITY_SECS = 1800; // 30-minute increments
-
-function roundToGranularity(secs: number): number {
-  const rounded = Math.round(secs / GRANULARITY_SECS) * GRANULARITY_SECS;
-  return Math.max(MIN_ENTRY_SECS, rounded);
-}
-
-function enforceTimeRules(allEntries: ClaudeTimeEntry[]): ClaudeTimeEntry[] {
-  const repeatEntries = allEntries.filter((e) => e.isRepeat);
-  const nonRepeatEntries = allEntries.filter((e) => !e.isRepeat);
-
-  if (nonRepeatEntries.length === 0) return allEntries;
-
-  const repeatTotal = repeatEntries.reduce((sum, e) => sum + e.timeSpentSecs, 0);
-  const nonRepeatTotal = nonRepeatEntries.reduce((sum, e) => sum + e.timeSpentSecs, 0);
-  const targetNonRepeat = Math.max(0, MIN_TOTAL_SECS - repeatTotal);
-
-  let adjusted: ClaudeTimeEntry[];
-  if (nonRepeatTotal > 0 && nonRepeatTotal < targetNonRepeat) {
-    const scale = targetNonRepeat / nonRepeatTotal;
-    adjusted = nonRepeatEntries.map((e) => ({
-      ...e,
-      timeSpentSecs: roundToGranularity(e.timeSpentSecs * scale),
-    }));
-  } else {
-    adjusted = nonRepeatEntries.map((e) => ({
-      ...e,
-      timeSpentSecs: roundToGranularity(e.timeSpentSecs),
-    }));
-  }
-
-  adjusted = adjusted.map((e) => ({
-    ...e,
-    timeSpentSecs: Math.max(MIN_ENTRY_SECS, e.timeSpentSecs),
-  }));
-
-  return [...repeatEntries, ...adjusted].sort((a, b) =>
-    a.started.localeCompare(b.started)
-  );
-}
 
 export async function POST(request: NextRequest) {
   const routeStart = Date.now();
   try {
     const user = await verifyAuth(request);
     console.log(`[Narada] POST /api/parse uid=${user.uid}`);
-    const { transcript, date, repeatEntries, source: rawSource } = await request.json();
+    const { transcript, date, repeatEntries, source: rawSource, targetHours } = await request.json();
     const source = rawSource === "projects" ? "projects" : "manual";
 
     if (!transcript) {
       return NextResponse.json({ success: false, error: "No transcript provided" }, { status: 400 });
     }
+    // Hours worked that day: 0.5–24 in half-hour steps; absent means 8.
+    const validHours =
+      typeof targetHours === "number" && targetHours >= 0.5 && targetHours <= 24 && Number.isInteger(targetHours * 2);
+    if (targetHours !== undefined && !validHours) {
+      return NextResponse.json(
+        { success: false, error: "Alas! A day holds between half an hour and 24 hours, in half-hour steps" },
+        { status: 400 }
+      );
+    }
+    const targetSecs = targetHours === undefined ? DEFAULT_TARGET_SECS : targetHours * 3600;
 
     // Fetch repeat entries from Firestore if not provided
     let repeats = repeatEntries;
@@ -77,7 +45,7 @@ export async function POST(request: NextRequest) {
     const provider = await getAIProvider(settings);
     console.log(`[Narada] POST /api/parse provider=${provider.name} date=${date} source=${source}`);
     const { result, ms: providerMs } = await time(() =>
-      provider.parseTranscript(transcript, date, repeats, { source })
+      provider.parseTranscript(transcript, date, repeats, { source, targetSecs })
     );
 
     // Merge repeat entries into time entries
@@ -92,9 +60,11 @@ export async function POST(request: NextRequest) {
     );
 
     const merged = [...repeatTimeEntries, ...result.timeEntries];
-    // Commit-sourced drafts are estimates to confirm, never scaled to 8h.
+    // Commit-sourced drafts are estimates to confirm, never scaled to the day's total.
     const allTimeEntries =
-      source === "projects" ? applyProjectSourceRules(merged, transcript, repeats || []) : enforceTimeRules(merged);
+      source === "projects"
+        ? applyProjectSourceRules(merged, transcript, repeats || [])
+        : enforceTimeRules(merged, targetSecs);
     const totalSecs = allTimeEntries.reduce((s, e) => s + e.timeSpentSecs, 0);
     console.log(`[Narada] POST /api/parse success: tasks=${result.tasks?.length ?? 0} entries=${allTimeEntries.length} totalSecs=${totalSecs} provider_ms=${providerMs}`);
 

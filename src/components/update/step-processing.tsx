@@ -30,7 +30,7 @@ const STAGE_MESSAGES: Record<ProcessingStage, string[]> = {
     "Reading your words...",
     "Detecting tasks and sacred tickets...",
     "Weighing time across each endeavor...",
-    "Ensuring 8 hours of devotion are honored...",
+    "Ensuring {hours} hours of devotion are honored...",
     "Identifying blockers on the path...",
     "The oracle contemplates deeply...",
   ],
@@ -110,7 +110,18 @@ function TypewriterMessage({ text, onDone }: { text: string; onDone: () => void 
 
 export function StepProcessing() {
   const processingStage = useUpdateStore((s) => s.processingStage);
+  const workedHours = useUpdateStore((s) => s.workedHours);
+  const poolFor = useCallback(
+    (stage: ProcessingStage) => STAGE_MESSAGES[stage].map((m) => m.replace("{hours}", String(workedHours))),
+    [workedHours]
+  );
   const aiProvider = useSettingsStore((s) => s.aiSettings.aiProvider);
+  const fetchAIProviderSettings = useSettingsStore((s) => s.fetchAIProviderSettings);
+  // The store only loads on the Settings page; until fetched it holds the default provider
+  const [providerLoaded, setProviderLoaded] = useState(false);
+  useEffect(() => {
+    fetchAIProviderSettings().then(() => setProviderLoaded(true));
+  }, [fetchAIProviderSettings]);
   const label = PROVIDER_LABELS[aiProvider] ?? "AI";
 
   const activeIndex = getStageIndex(processingStage);
@@ -139,7 +150,7 @@ export function StepProcessing() {
 
   const handleMessageDone = useCallback(() => {
     if (!processingStage) return;
-    const pool = STAGE_MESSAGES[processingStage];
+    const pool = poolFor(processingStage);
 
     setMessages((prev) => {
       const msg = pool[currentMsgIndex % pool.length];
@@ -149,9 +160,9 @@ export function StepProcessing() {
 
     setCurrentMsgIndex((prev) => prev + 1);
     setIsTyping(true);
-  }, [processingStage, currentMsgIndex]);
+  }, [processingStage, currentMsgIndex, poolFor]);
 
-  const currentPool = processingStage ? STAGE_MESSAGES[processingStage] : [];
+  const currentPool = processingStage ? poolFor(processingStage) : [];
   const currentText = currentPool[currentMsgIndex % currentPool.length] ?? "";
 
   return (
@@ -168,7 +179,7 @@ export function StepProcessing() {
       >
         <p className="text-sm font-medium text-narada-text">
           {processingStage ? STAGE_LABELS[processingStage] : "Preparing"}
-          {processingStage === "analyzing" && ` (${label})`}...
+          {processingStage === "analyzing" && providerLoaded && ` (${label})`}...
         </p>
       </motion.div>
 
