@@ -76,8 +76,6 @@ function StageLatencyRow({
 }
 
 const STAGE_LABELS: Record<string, string> = {
-  transcribe: "Transcribe (client → server)",
-  deepgram: "Deepgram API",
   aiParse: "AI Parse (client → server)",
   aiProvider: "AI Provider call",
   slack: "Slack webhook",

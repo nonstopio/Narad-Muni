@@ -226,8 +226,6 @@ async function computeAnalytics(rangeDays: number): Promise<AdminAnalyticsData> 
 
   // Performance metrics aggregation (only updates that carry `metrics`)
   const samples = {
-    transcribe: [] as number[],
-    deepgram: [] as number[],
     aiParse: [] as number[],
     aiProvider: [] as number[],
     slack: [] as number[],
@@ -251,8 +249,6 @@ async function computeAnalytics(rangeDays: number): Promise<AdminAnalyticsData> 
       const pushIf = (arr: number[], v: number | undefined) => {
         if (typeof v === "number" && v >= 0) arr.push(v);
       };
-      pushIf(samples.transcribe, t.transcribeMs);
-      pushIf(samples.deepgram, t.deepgramMs);
       pushIf(samples.aiParse, t.aiParseMs);
       pushIf(samples.aiProvider, t.aiProviderMs);
       pushIf(samples.slack, t.slackMs);
@@ -268,7 +264,6 @@ async function computeAnalytics(rangeDays: number): Promise<AdminAnalyticsData> 
 
       // Slowest stage (ignores totalPublish)
       const stageSamples: Array<[string, number | undefined]> = [
-        ["transcribe", t.transcribeMs],
         ["aiParse", t.aiParseMs],
         ["slack", t.slackMs],
         ["teams", t.teamsMs],
@@ -286,7 +281,7 @@ async function computeAnalytics(rangeDays: number): Promise<AdminAnalyticsData> 
   }
 
   const stageLatency: AdminAnalyticsData["stageLatency"] = (
-    ["transcribe", "deepgram", "aiParse", "aiProvider", "slack", "teams", "jira", "totalPublish"] as const
+    ["aiParse", "aiProvider", "slack", "teams", "jira", "totalPublish"] as const
   ).map((stage) => ({ stage, ...percentiles(samples[stage]) }));
 
   const cloudProviderLatency: AdminAnalyticsData["cloudProviderLatency"] = [];

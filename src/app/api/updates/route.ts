@@ -629,7 +629,6 @@ export async function POST(request: NextRequest) {
       aiProvider: metricsHints?.aiProvider ?? "unknown",
       transcriptChars,
       transcriptWords,
-      audioSizeBytes: metricsHints?.audioSizeBytes ?? null,
       taskCount,
       blockerCount,
       timeEntryCount,
@@ -637,8 +636,6 @@ export async function POST(request: NextRequest) {
       platformsSucceeded,
       estTimeSavedSecs,
       timings: {
-        transcribeMs: metricsHints?.transcribeMs,
-        deepgramMs: metricsHints?.deepgramMs,
         aiParseMs: metricsHints?.aiParseMs,
         aiProviderMs: metricsHints?.aiProviderMs,
         slackMs,
