@@ -13,6 +13,7 @@ export default function UpdatesPage() {
   const [streak, setStreak] = useState(0);
   const [monthUpdates, setMonthUpdates] = useState<UpdateData[]>([]);
   const [monthLeaves, setMonthLeaves] = useState<string[]>([]);
+  const [monthHolidays, setMonthHolidays] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -42,6 +43,7 @@ export default function UpdatesPage() {
         const allUpdates: UpdateData[] = allData.updates || [];
         const leaves: string[] = leaveData.leaves || [];
         setMonthLeaves(leaves.filter((k) => k.startsWith(month)));
+        setMonthHolidays((leaveData.holidays || []).filter((k: string) => k.startsWith(month)));
         setStreak(computeStreak(updateKeysOf(allUpdates), new Set(leaves), new Date().toLocaleDateString("sv-SE")));
         setLoading(false);
       })
@@ -80,6 +82,7 @@ export default function UpdatesPage() {
       streak={streak}
       monthUpdates={monthUpdates}
       monthLeaves={monthLeaves}
+      monthHolidays={monthHolidays}
     />
   );
 }

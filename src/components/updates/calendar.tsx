@@ -14,6 +14,8 @@ const STATUS_STYLES: Record<CombinedStatus, string> = {
 interface CalendarProps {
   updateStatusMap: Map<string, CombinedStatus>;
   leaveDates: Set<string>;
+  /** Subset of leaveDates marked as a holiday; only the label differs. */
+  holidayDates: Set<string>;
   onDayClick: (date: Date) => void;
   monthTitle: string;
   calendarDays: Array<{ day: number; isCurrentMonth: boolean; isToday: boolean; date: Date }>;
@@ -23,7 +25,7 @@ interface CalendarProps {
   loading?: boolean;
 }
 
-export function Calendar({ updateStatusMap, leaveDates, onDayClick, monthTitle, calendarDays, prevMonth, nextMonth, goToToday, loading }: CalendarProps) {
+export function Calendar({ updateStatusMap, leaveDates, holidayDates, onDayClick, monthTitle, calendarDays, prevMonth, nextMonth, goToToday, loading }: CalendarProps) {
 
   const getUpdateStatus = (date: Date): CombinedStatus | null => {
     const key = date.toLocaleDateString("sv-SE");
@@ -65,7 +67,8 @@ export function Calendar({ updateStatusMap, leaveDates, onDayClick, monthTitle, 
           const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6;
           const status = day.isCurrentMonth ? getUpdateStatus(day.date) : null;
           // Precedence: update status > leave > today > weekend > default
-          const onLeave = day.isCurrentMonth && !status && leaveDates.has(day.date.toLocaleDateString("sv-SE"));
+          const dayKey = day.date.toLocaleDateString("sv-SE");
+          const onLeave = day.isCurrentMonth && !status && leaveDates.has(dayKey);
           return (
             <button
               key={i}
@@ -85,7 +88,7 @@ export function Calendar({ updateStatusMap, leaveDates, onDayClick, monthTitle, 
               }`}
             >
               {day.day}
-              {onLeave && <span className="text-[9px] uppercase leading-none tracking-wide mt-0.5">Leave</span>}
+              {onLeave && <span className="text-[9px] uppercase leading-none tracking-wide mt-0.5">{holidayDates.has(dayKey) ? "Holiday" : "Leave"}</span>}
             </button>
           );
         })}
