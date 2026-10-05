@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
+import { errorMessage } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada] Test Jira error:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Test failed" },
+      { success: false, error: errorMessage(error, "Test failed") },
       { status: 500 }
     );
   }

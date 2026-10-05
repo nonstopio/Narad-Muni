@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
 import { getSlackCreds } from "@/lib/firestore-helpers";
 import { listMembers } from "@/lib/slack-dm";
+import { errorMessage } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         members: [],
-        error: error instanceof Error ? error.message : "Failed to fetch members",
+        error: errorMessage(error, "Failed to fetch members"),
       },
       { status: 500 }
     );

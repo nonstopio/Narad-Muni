@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
 import { broadcastsCol, getSlackCreds } from "@/lib/firestore-helpers";
+import { errorMessage } from "@/lib/utils";
 import {
   cancelAllScheduled,
   occurrences,
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
             userId: r.id,
             name: r.name,
             ok: false,
-            error: err instanceof Error ? err.message : "Unknown error",
+            error: errorMessage(err, "Unknown error"),
           });
         }
         await sleep(SEND_DELAY_MS);
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
           userId: r.id,
           name: r.name,
           ok: false,
-          error: err instanceof Error ? err.message : "Unknown error",
+          error: errorMessage(err, "Unknown error"),
         });
       }
     }
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada API Broadcast] send failed:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to send" },
+      { success: false, error: errorMessage(error, "Failed to send") },
       { status: 500 }
     );
   }
@@ -205,7 +206,7 @@ export async function DELETE(request: NextRequest) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada API Broadcast] cancel failed:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to cancel" },
+      { success: false, error: errorMessage(error, "Failed to cancel") },
       { status: 500 }
     );
   }

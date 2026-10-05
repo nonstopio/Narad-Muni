@@ -4,6 +4,7 @@ import { broadcastsCol, getSlackCreds } from "@/lib/firestore-helpers";
 import { cancelAllScheduled, type ScheduledRef } from "@/lib/slack-dm";
 import { type QueryDocumentSnapshot } from "firebase-admin/firestore";
 import type { BroadcastRecipient } from "@/types";
+import { errorMessage } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada API Broadcast] GET failed:", error);
     return NextResponse.json(
-      { templates: [], error: error instanceof Error ? error.message : "Failed to fetch templates" },
+      { templates: [], error: errorMessage(error, "Failed to fetch templates") },
       { status: 500 }
     );
   }
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada API Broadcast] POST failed:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to save template" },
+      { success: false, error: errorMessage(error, "Failed to save template") },
       { status: 500 }
     );
   }
@@ -113,7 +114,7 @@ export async function DELETE(request: NextRequest) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada API Broadcast] DELETE failed:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to delete template" },
+      { success: false, error: errorMessage(error, "Failed to delete template") },
       { status: 500 }
     );
   }
