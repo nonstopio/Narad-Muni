@@ -59,7 +59,7 @@ export function PlatformOutputs({
           Narad awaits your words
         </p>
         <p className="text-xs text-narada-text-muted">
-          Speak or write your update, then invoke the sage to prepare your scrolls
+          Write your update, then invoke the sage to prepare your scrolls
         </p>
       </div>
     );

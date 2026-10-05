@@ -396,7 +396,7 @@ export async function GET(request: NextRequest) {
           .orderBy("date", "desc");
       }
       // Scan recent updates newest-first; return the first with reusable
-      // content — either spoken/written words or logged work.
+      // content — either written words or logged work.
       const snap = await latestQuery.limit(60).get();
       const doc = snap.docs.find((d: QueryDocumentSnapshot) => {
         const data = d.data();
@@ -630,7 +630,6 @@ export async function POST(request: NextRequest) {
       aiProvider: metricsHints?.aiProvider ?? "unknown",
       transcriptChars,
       transcriptWords,
-      audioSizeBytes: metricsHints?.audioSizeBytes ?? null,
       taskCount,
       blockerCount,
       timeEntryCount,
@@ -638,8 +637,6 @@ export async function POST(request: NextRequest) {
       platformsSucceeded,
       estTimeSavedSecs,
       timings: {
-        transcribeMs: metricsHints?.transcribeMs,
-        deepgramMs: metricsHints?.deepgramMs,
         aiParseMs: metricsHints?.aiParseMs,
         aiProviderMs: metricsHints?.aiProviderMs,
         slackMs,

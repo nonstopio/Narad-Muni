@@ -10,7 +10,6 @@ interface AIProviderSettings {
   aiProvider: AIProvider;
   geminiApiKey: string;
   claudeApiKey: string;
-  deepgramApiKey: string;
   groqApiKey: string;
   openaiApiKey: string;
   azureOpenaiApiKey: string;
@@ -19,7 +18,6 @@ interface AIProviderSettings {
   azureOpenaiApiVersion: string;
   hasGeminiKey: boolean;
   hasClaudeKey: boolean;
-  hasDeepgramKey: boolean;
   hasGroqKey: boolean;
   hasOpenaiKey: boolean;
   hasAzureOpenaiKey: boolean;
@@ -33,7 +31,6 @@ const EMPTY_AI_SETTINGS: AIProviderSettings = {
   aiProvider: "local-claude",
   geminiApiKey: "",
   claudeApiKey: "",
-  deepgramApiKey: "",
   groqApiKey: "",
   openaiApiKey: "",
   azureOpenaiApiKey: "",
@@ -42,7 +39,6 @@ const EMPTY_AI_SETTINGS: AIProviderSettings = {
   azureOpenaiApiVersion: "",
   hasGeminiKey: false,
   hasClaudeKey: false,
-  hasDeepgramKey: false,
   hasGroqKey: false,
   hasOpenaiKey: false,
   hasAzureOpenaiKey: false,
@@ -57,7 +53,6 @@ function mapApiToSettings(data: Record<string, unknown>): AIProviderSettings {
     aiProvider: (data.aiProvider as AIProvider) ?? "local-claude",
     geminiApiKey: (data.geminiApiKey as string) ?? "",
     claudeApiKey: (data.claudeApiKey as string) ?? "",
-    deepgramApiKey: (data.deepgramApiKey as string) ?? "",
     groqApiKey: (data.groqApiKey as string) ?? "",
     openaiApiKey: (data.openaiApiKey as string) ?? "",
     azureOpenaiApiKey: (data.azureOpenaiApiKey as string) ?? "",
@@ -66,7 +61,6 @@ function mapApiToSettings(data: Record<string, unknown>): AIProviderSettings {
     azureOpenaiApiVersion: (data.azureOpenaiApiVersion as string) ?? "",
     hasGeminiKey: !!data.hasGeminiKey,
     hasClaudeKey: !!data.hasClaudeKey,
-    hasDeepgramKey: !!data.hasDeepgramKey,
     hasGroqKey: !!data.hasGroqKey,
     hasOpenaiKey: !!data.hasOpenaiKey,
     hasAzureOpenaiKey: !!data.hasAzureOpenaiKey,
@@ -81,7 +75,6 @@ export interface SaveAIProviderPayload {
   aiProvider: AIProvider;
   geminiApiKey?: string;
   claudeApiKey?: string;
-  deepgramApiKey?: string;
   groqApiKey?: string;
   openaiApiKey?: string;
   azureOpenaiApiKey?: string;

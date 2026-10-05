@@ -138,7 +138,7 @@ export function HistoryDetailModal({ update, onClose, onDelete, onRetry }: Props
           {/* Raw Transcript */}
           <div>
             <h3 className="text-xs font-semibold text-narada-text-muted uppercase tracking-wider mb-2">
-              Spoken Word
+              Written Word
             </h3>
             <p className="text-sm text-narada-text-secondary whitespace-pre-wrap">
               {update.rawTranscript}

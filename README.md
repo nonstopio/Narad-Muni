@@ -4,7 +4,7 @@
 
 # Narad Muni
 
-**Narayan Narayan! Speak once, and I shall carry your word across all three worlds.**
+**Narayan Narayan! Write once, and I shall carry your word across all three worlds.**
 
 [![Download](https://img.shields.io/badge/Download-Landing_Page-blue?style=for-the-badge&logo=github)](https://nonstopio.github.io/Narad-Muni/)
 [![Release](https://img.shields.io/github/v/release/nonstopio/Narad-Muni?style=for-the-badge&logo=electron&label=Latest)](https://github.com/nonstopio/Narad-Muni/releases/latest)
@@ -12,9 +12,9 @@
 
 <br />
 
-*Like the divine messenger [Narad Muni](https://en.wikipedia.org/wiki/Narada) who travels across Devalok, Prithvilok, and Patallok carrying sacred word — this tool takes a single voice recording and delivers formatted daily updates to **Slack**, **Microsoft Teams**, and **Jira** work logs.*
+*Like the divine messenger [Narad Muni](https://en.wikipedia.org/wiki/Narada) who travels across Devalok, Prithvilok, and Patallok carrying sacred word — this tool takes a single typed update and delivers formatted daily updates to **Slack**, **Microsoft Teams**, and **Jira** work logs.*
 
-**Record once, publish everywhere.**
+**Write once, publish everywhere.**
 
 [Download the App](https://nonstopio.github.io/Narad-Muni/) · [View Releases](https://github.com/nonstopio/Narad-Muni/releases) · [Report Issue](https://github.com/nonstopio/Narad-Muni/issues)
 
@@ -27,14 +27,14 @@
 ## How It Works
 
 ```
-   Speak            AI Oracle           Preview            Publish
+   Write            AI Oracle           Preview            Publish
   ─────────── ──▶ ─────────────── ──▶ ─────────────── ──▶ ───────────────
-  Record your       Deepgram + AI        Edit per-platform      Slack, Teams,
+  Type your         Claude/Gemini        Edit per-platform      Slack, Teams,
   daily standup     extract tasks,       formatted output       Jira — all at
-  naturally         times, blockers      with toggles           once
+  in plain words    times, blockers      with toggles           once
 ```
 
-1. **Invoke** — Record audio or type your daily update
+1. **Invoke** — Type your daily update
 2. **Oracle** — AI extracts tasks, blockers, time entries and formats output for each platform
 3. **Preview** — Tabbed view (Slack / Teams / Jira) with editable content and per-platform toggles
 4. **Deliver** — One click sends your updates to all enabled platforms simultaneously
@@ -66,22 +66,7 @@ All configuration happens inside the app on the **Settings** page. No `.env` fil
 
 ---
 
-### Step 2 — Configure Deepgram (Voice Transcription)
-
-Deepgram converts your voice recordings to text. **Required if you want to use voice input.**
-
-1. Go to [console.deepgram.com](https://console.deepgram.com/) and create an account
-2. Navigate to **API Keys** and create a new key
-3. Copy the API key
-4. In Narad Muni, go to **Settings → Divine Oracle**
-5. Paste the key into the **Deepgram API Key** field
-6. Click **Inscribe** to save
-
-> Without this key, voice recording won't work. You can still type updates manually.
-
----
-
-### Step 3 — Configure AI Provider
+### Step 2 — Configure AI Provider
 
 The AI provider parses your transcript into structured tasks, time entries, and formatted outputs. Choose one of the four options:
 
@@ -119,7 +104,7 @@ The AI provider parses your transcript into structured tasks, time entries, and 
 
 ---
 
-### Step 4 — Configure Slack
+### Step 3 — Configure Slack
 
 Go to **Settings → Slack Portal** in the app. Slack supports two delivery modes:
 
@@ -160,7 +145,7 @@ Replies to a daily workflow/bot message as a thread — keeps the channel clean.
 
 ---
 
-### Step 5 — Configure Microsoft Teams
+### Step 4 — Configure Microsoft Teams
 
 Go to **Settings → Teams Portal** in the app. Teams webhooks are created using **Workflows** (the old Connectors method is deprecated). This works for both **channels** and **group chats**.
 
@@ -199,7 +184,7 @@ If the templates aren't available, create one manually:
 
 ---
 
-### Step 6 — Configure Jira
+### Step 5 — Configure Jira
 
 Go to **Settings → Jira Chronicle Portal** in the app.
 
@@ -233,7 +218,7 @@ Set up daily recurring work log entries that are auto-injected into every day's 
 
 ---
 
-### Step 7 — Configure Notifications (Optional)
+### Step 6 — Configure Notifications (Optional)
 
 Set up daily reminders so you never miss logging your standup.
 
@@ -247,7 +232,7 @@ Set up daily reminders so you never miss logging your standup.
 ## Daily Usage
 
 1. Open Narad Muni and click a date on the calendar
-2. **Record** your standup (or type it manually)
+2. **Write** your standup in the text box
 3. Wait for the AI to process your transcript
 4. **Preview** the formatted outputs for each platform (Slack, Teams, Jira)
 5. Edit any output if needed, toggle platforms on/off

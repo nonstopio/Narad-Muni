@@ -57,7 +57,7 @@ export interface AdminAnalyticsData {
 
   /** p50/p95 latency per pipeline stage, in ms. `null` when no samples. */
   stageLatency: {
-    stage: "transcribe" | "deepgram" | "aiParse" | "aiProvider" | "slack" | "teams" | "jira" | "totalPublish";
+    stage: "aiParse" | "aiProvider" | "slack" | "teams" | "jira" | "totalPublish";
     p50: number | null;
     p95: number | null;
     sampleCount: number;

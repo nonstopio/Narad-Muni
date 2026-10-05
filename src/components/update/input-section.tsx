@@ -7,9 +7,7 @@ import { useAppStore } from "@/stores/app-store";
 import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import { useAudioRecorder } from "@/hooks/use-audio-recorder";
-import { AudioVisualizer } from "./audio-visualizer";
-import { Mic, Square, Loader2, Zap, RotateCcw, History, Bug, FolderGit2 } from "lucide-react";
+import { Loader2, Zap, History, Bug, FolderGit2 } from "lucide-react";
 import { seekAid } from "@/lib/seek-aid";
 import { ProjectFetchDialog, SKIP_TEXT } from "./project-fetch-dialog";
 import { buildActivityBlock, insertActivity } from "@/lib/project-activity";
@@ -36,20 +34,12 @@ export function InputSection({ onProcess }: InputSectionProps) {
   const {
     rawTranscript,
     setRawTranscript,
-    isRecording,
-    recordingSeconds,
-    audioBlob,
     processingError,
-    isTranscribing,
-    analyserNode,
     isProcessing,
     previewReady,
-    setAudioBlob,
   } = useUpdateStore();
-  const { toggleRecording, startRecording } = useAudioRecorder();
   const selectedDate = useAppStore((s) => s.selectedDate);
 
-  const [hasDeepgramKey, setHasDeepgramKey] = useState<boolean | null>(null);
   const [isFetchingLast, setIsFetchingLast] = useState(false);
   const router = useRouter();
   const isElectron = useSyncExternalStore(noopSubscribe, () => !!window.narada?.isElectron, () => false);
@@ -63,64 +53,8 @@ export function InputSection({ onProcess }: InputSectionProps) {
       mountedRef.current = false;
     };
   }, []);
-  useEffect(() => {
-    authedFetch("/api/settings/ai-provider")
-      .then((r) => r.json())
-      .then((data) => setHasDeepgramKey(!!data.hasDeepgramKey))
-      .catch(() => setHasDeepgramKey(false));
-  }, []);
-
-  // Register onToggleRecording callback for keyboard shortcut
-  useEffect(() => {
-    const { setOnToggleRecording } = useUpdateStore.getState();
-    setOnToggleRecording(() => {
-      if (hasDeepgramKey === false) {
-        useToastStore.getState().addToast("Grant me the Deepgram mantra in Sacred Configurations to hear your voice", "error");
-        return;
-      }
-      if (hasDeepgramKey === null) return;
-      if (useUpdateStore.getState().isTranscribing) {
-        useToastStore.getState().addToast("Patience! I am still transcribing your words...", "error");
-        return;
-      }
-      if (useUpdateStore.getState().isProcessing) {
-        useToastStore.getState().addToast("The sage is channeling! Wait for the oracle to finish...", "error");
-        return;
-      }
-      toggleRecording();
-    });
-    return () => useUpdateStore.getState().setOnToggleRecording(null);
-  }, [hasDeepgramKey, toggleRecording]);
-
-  // Consume autoStartRecording flag (set by keyboard shortcut from another page)
-  useEffect(() => {
-    if (hasDeepgramKey === null) return;
-    const { autoStartRecording, setAutoStartRecording } = useUpdateStore.getState();
-    if (!autoStartRecording) return;
-    setAutoStartRecording(false);
-    if (hasDeepgramKey === false) {
-      useToastStore.getState().addToast("Grant me the Deepgram mantra in Sacred Configurations to hear your voice", "error");
-      return;
-    }
-    setTimeout(() => startRecording(), 100);
-  }, [hasDeepgramKey, startRecording]);
-
-  const deepgramDisabled = hasDeepgramKey === false;
-
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m}:${s.toString().padStart(2, "0")}`;
-  };
-
-  const handleReRecord = () => {
-    setRawTranscript("");
-    setAudioBlob(null);
-    startRecording();
-  };
-
   const handleFetchLast = async () => {
-    if (isFetchingLast || isProcessing || isTranscribing) return;
+    if (isFetchingLast || isProcessing) return;
     setIsFetchingLast(true);
     try {
       const dateStr = selectedDate
@@ -151,7 +85,7 @@ export function InputSection({ onProcess }: InputSectionProps) {
 
   const handleFetchProjects = async () => {
     const api = window.narada?.projects;
-    if (!api || isFetchingProjects || isProcessing || isTranscribing || isRecording) return;
+    if (!api || isFetchingProjects || isProcessing) return;
     const req = { date: dayKey(selectedDate), seq: ++fetchSeqRef.current };
     // A result only lands if nothing newer started, we are still mounted, and the day is unchanged.
     const stale = () =>
@@ -219,7 +153,7 @@ export function InputSection({ onProcess }: InputSectionProps) {
             variant="ghost"
             size="xs"
             onClick={handleFetchLast}
-            disabled={isFetchingLast || isProcessing || isTranscribing}
+            disabled={isFetchingLast || isProcessing}
             className="text-narada-text-muted"
             title="Pre-fill with your last update's words"
           >
@@ -235,7 +169,7 @@ export function InputSection({ onProcess }: InputSectionProps) {
               variant="ghost"
               size="xs"
               onClick={handleFetchProjects}
-              disabled={isFetchingProjects || isProcessing || isTranscribing || isRecording}
+              disabled={isFetchingProjects || isProcessing}
               className="text-narada-text-muted"
               title="Fetch this day's commits from your repositories"
             >
@@ -267,72 +201,6 @@ export function InputSection({ onProcess }: InputSectionProps) {
         value={rawTranscript}
         onChange={(e) => setRawTranscript(e.target.value)}
       />
-
-      {/* Divider */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex-1 h-px bg-white/[0.06]" />
-        <span className="text-xs text-narada-text-muted">or speak your truth below</span>
-        <div className="flex-1 h-px bg-white/[0.06]" />
-      </div>
-
-      {/* Audio recorder row — fixed height so layout doesn't shift between states */}
-      <div className="h-10 mb-4">
-        {!isRecording && !isTranscribing && (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleRecording}
-              disabled={deepgramDisabled}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0 ${
-                deepgramDisabled
-                  ? "bg-white/[0.06] text-narada-text-muted cursor-not-allowed"
-                  : "bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:shadow-[0_0_30px_rgba(239,68,68,0.5)] hover:scale-105 active:scale-95"
-              }`}
-            >
-              <Mic className="w-4.5 h-4.5" />
-            </button>
-            <span className="text-sm text-narada-text-secondary">
-              {deepgramDisabled ? "Grant me the Deepgram mantra in Sacred Configurations to hear your voice" : "Speak your update"}
-            </span>
-            {audioBlob && (
-              <Button
-                variant="ghost"
-                size="xs"
-                onClick={handleReRecord}
-                className="ml-auto text-narada-text-muted"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Speak again</span>
-              </Button>
-            )}
-          </div>
-        )}
-
-        {isRecording && (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleRecording}
-              className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 bg-narada-rose text-white shadow-[0_0_20px_rgba(239,68,68,0.4)] flex-shrink-0"
-            >
-              <Square className="w-4 h-4" fill="currentColor" />
-            </button>
-            <div className="font-mono text-sm font-semibold text-narada-text tabular-nums">
-              {formatTime(recordingSeconds)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <AudioVisualizer analyserNode={analyserNode} compact />
-            </div>
-          </div>
-        )}
-
-        {isTranscribing && (
-          <div className="flex items-center gap-3">
-            <Loader2 className="w-5 h-5 text-narada-primary animate-spin flex-shrink-0" />
-            <span className="text-sm text-narada-text-secondary">
-              Transcribing your voice... Narad is listening...
-            </span>
-          </div>
-        )}
-      </div>
 
       {/* Process with AI button */}
       <Button

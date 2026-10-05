@@ -217,14 +217,13 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
     return () => {
       cancelled = true;
       const s = useUpdateStore.getState();
-      // Fire recording_discarded if user recorded/typed but left without publishing
+      // Fire recording_discarded if user typed but left without publishing
       const leftWithUnpublishedWork =
         !s.retryMode &&
         s.step !== "sharing" &&
-        (s.audioBlob !== null || s.rawTranscript.trim().length > 0);
+        s.rawTranscript.trim().length > 0;
       if (leftWithUnpublishedWork) {
         trackEvent("recording_discarded", {
-          had_audio: s.audioBlob !== null,
           had_transcript: s.rawTranscript.trim().length > 0,
           preview_ready: s.previewReady,
           transcript_chars: s.rawTranscript.length,

@@ -10,7 +10,7 @@ export type Platform = "SLACK" | "TEAMS" | "JIRA";
 
 export type ModalStep = "editing" | "sharing";
 
-export type ProcessingStage = "transcribing" | "analyzing" | "formatting";
+export type ProcessingStage = "analyzing" | "formatting";
 
 /** Where a draft's words came from. Missing means "manual". */
 export type DraftSource = "manual" | "projects";
@@ -20,7 +20,6 @@ export interface UpdateData {
   createdAt: string;
   date: string;
   rawTranscript: string;
-  audioPath?: string | null;
   slackOutput: string;
   teamsOutput: string;
   slackStatus: PublishStatus;
@@ -32,8 +31,6 @@ export interface UpdateData {
 }
 
 export interface UpdateMetricsTimings {
-  transcribeMs?: number;
-  deepgramMs?: number;
   aiParseMs?: number;
   aiProviderMs?: number;
   slackMs?: number;
@@ -46,7 +43,6 @@ export interface UpdateMetrics {
   aiProvider: string;
   transcriptChars: number;
   transcriptWords: number;
-  audioSizeBytes: number | null;
   taskCount: number;
   blockerCount: number;
   timeEntryCount: number;
@@ -57,17 +53,14 @@ export interface UpdateMetrics {
 }
 
 /**
- * Client-side accumulator of metrics collected during the transcribe/parse phases,
+ * Client-side accumulator of metrics collected during the parse phase,
  * forwarded to POST /api/updates so the server can assemble the final `metrics` object.
  */
 export interface UpdateMetricsHints {
   aiProvider?: string;
   transcriptChars?: number;
-  audioSizeBytes?: number;
   taskCount?: number;
   blockerCount?: number;
-  deepgramMs?: number;
-  transcribeMs?: number;
   aiProviderMs?: number;
   aiParseMs?: number;
 }

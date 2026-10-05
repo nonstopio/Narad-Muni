@@ -4,7 +4,6 @@ import { type FirebasePerformance, type PerformanceTrace, trace as firebaseTrace
 import { initPerformance } from "./firebase";
 
 type NaradaTrace =
-  | "narada_transcribe"
   | "narada_ai_parse"
   | "narada_publish"
   | "narada_full_update_flow";

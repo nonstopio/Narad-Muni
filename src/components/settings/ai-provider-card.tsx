@@ -108,7 +108,6 @@ export function AIProviderCard() {
   const [azureDeployment, setAzureDeployment] = useState(aiSettings.azureOpenaiDeployment);
   const [azureApiVersion, setAzureApiVersion] = useState(aiSettings.azureOpenaiApiVersion);
   const [useGlobalFor, setUseGlobalFor] = useState<Partial<Record<KeyProvider, boolean>>>(aiSettings.useGlobalFor);
-  const [deepgramKey, setDeepgramKey] = useState(aiSettings.deepgramApiKey);
   const [timeoutSecs, setTimeoutSecs] = useState(String(aiSettings.aiTimeoutMs / 1000));
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -123,11 +122,7 @@ export function AIProviderCard() {
         aiProvider: selected,
         removeKeys: [keyName],
       });
-      if (keyName === "deepgramApiKey") {
-        setDeepgramKey("");
-      } else {
-        setApiKeys((prev) => ({ ...prev, [keyName]: "" }));
-      }
+      setApiKeys((prev) => ({ ...prev, [keyName]: "" }));
       addToast(`Narayan Narayan! The ${label} mantra has been forgotten`, "success");
     } catch (err) {
       console.error("[Narada] AIProviderCard handleRemoveKey:", err);
@@ -155,7 +150,6 @@ export function AIProviderCard() {
     setAzureDeployment(aiSettings.azureOpenaiDeployment);
     setAzureApiVersion(aiSettings.azureOpenaiApiVersion);
     setUseGlobalFor(aiSettings.useGlobalFor);
-    setDeepgramKey(aiSettings.deepgramApiKey);
     setTimeoutSecs(String(aiSettings.aiTimeoutMs / 1000));
   }, [aiSettings]);
 
@@ -279,7 +273,6 @@ export function AIProviderCard() {
           saveData.azureOpenaiApiVersion = azureApiVersion || undefined;
         }
       }
-      saveData.deepgramApiKey = deepgramKey || undefined;
       saveData.aiTimeoutMs = resolveAiTimeout(Number(timeoutSecs) * 1000);
 
       await saveAIProviderSettings(saveData as unknown as Parameters<typeof saveAIProviderSettings>[0]);
@@ -489,48 +482,6 @@ export function AIProviderCard() {
         >
           {testing ? "Consulting the Oracle..." : "Test Connection with Oracle"}
         </Button>
-      </div>
-
-      <div className="mt-4 pt-4 border-t border-white/[0.06]">
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-xs font-semibold text-narada-text-secondary uppercase tracking-wider">
-            Deepgram API Key
-          </label>
-          <a
-            href="https://console.deepgram.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-narada-primary hover:text-narada-primary/80 transition-colors"
-          >
-            Get API Key
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        </div>
-        <input
-          className="glass-input font-mono text-[13px]"
-          type="password"
-          placeholder="Enter your Deepgram API key for voice transcription"
-          value={deepgramKey}
-          onChange={(e) => setDeepgramKey(e.target.value)}
-        />
-        {aiSettings.hasDeepgramKey && (
-          <div className="flex items-center gap-2 mt-1.5">
-            <p className="text-xs text-narada-emerald">Key configured</p>
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => handleRemoveKey("deepgramApiKey", "Deepgram")}
-              disabled={removingKey === "deepgramApiKey"}
-              className="text-narada-text-muted hover:text-narada-rose h-auto py-0 px-1"
-            >
-              <X className="w-3 h-3" />
-              Remove
-            </Button>
-          </div>
-        )}
-        <p className="text-xs text-narada-text-secondary mt-1.5">
-          I need this mantra to hear your voice
-        </p>
       </div>
 
       <div className="mt-4 pt-4 border-t border-white/[0.06]">

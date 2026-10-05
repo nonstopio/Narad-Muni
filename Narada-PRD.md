@@ -30,9 +30,9 @@
 
 ## 1. Executive Summary
 
-Narada is a voice-first productivity platform that eliminates the repetitive task of manually posting daily work updates across multiple platforms. By recording a single voice note, developers and team members can automatically generate and distribute formatted updates to Slack, Microsoft Teams, and Jira work logs simultaneously.
+Narada is a productivity platform that eliminates the repetitive task of manually posting daily work updates across multiple platforms. By writing a single typed update, developers and team members can automatically generate and distribute formatted updates to Slack, Microsoft Teams, and Jira work logs simultaneously.
 
-**Core Value Proposition:** Record once, publish everywhere. Narada transforms a single voice recording into platform-specific formatted updates for Slack, Teams, and Jira — cutting daily reporting time from 15+ minutes to under 2 minutes.
+**Core Value Proposition:** Write once, publish everywhere. Narada transforms a single typed update into platform-specific formatted updates for Slack, Teams, and Jira — cutting daily reporting time from 15+ minutes to under 2 minutes.
 
 ---
 
@@ -93,14 +93,14 @@ A key pattern observed: entries like `OPP-846` for "Team meetings, review and mo
 
 ### 3.1 Product Vision
 
-Narada is a web application that provides a voice-first interface for daily standup updates. Users press a button, speak their update naturally, and Narada's AI agent processes the voice recording into structured, platform-specific formats for Slack, Teams, and Jira work logs. After a quick verification step, all platforms are updated with a single click.
+Narada is a web application that provides a simple interface for daily standup updates. Users type their update in plain words, and Narada's AI agent processes it into structured, platform-specific formats for Slack, Teams, and Jira work logs. After a quick verification step, all platforms are updated with a single click.
 
 ### 3.2 Core Workflow
 
 | Step | Action | Detail |
 |------|--------|--------|
-| **1. Record** | User taps a calendar date | Opens the update modal with a text box and mic button |
-| **2. Input** | Speak or type update | Audio is transcribed via Deepgram Nova-3; or user types directly |
+| **1. Open** | User taps a calendar date | Opens the update modal with a text box |
+| **2. Input** | Type update | User types the update directly |
 | **3. AI Parse** | "Process with AI" | Claude API extracts tasks, time estimates, Jira issue IDs, and blockers into structured data |
 | **4. Format** | Platform-specific output | System generates Slack (mrkdwn), Teams (Adaptive Cards), and Jira work log entries (including auto-injected repeat entries) |
 | **5. Verify** | Preview & edit | User reviews all three outputs in tabbed preview with inline editing |
@@ -119,8 +119,8 @@ Narada is a web application that provides a voice-first interface for daily stan
 
 | ID | Story | Priority |
 |----|-------|----------|
-| US-001 | As a developer, I want to record my daily update as a voice note so that I can give updates quickly without typing. | Must Have |
-| US-002 | As a developer, I want the system to automatically extract Jira issue IDs from my speech so that work logs are linked correctly. | Must Have |
+| US-001 | As a developer, I want to write my daily update once in plain words so that I can give updates quickly without reformatting it per platform. | Must Have |
+| US-002 | As a developer, I want the system to automatically extract Jira issue IDs from my update so that work logs are linked correctly. | Must Have |
 | US-003 | As a developer, I want to preview all formatted outputs before publishing so that I can verify accuracy. | Must Have |
 | US-004 | As a developer, I want to publish to Slack, Teams, and Jira with a single click so that I save time. | Must Have |
 | US-005 | As a developer, I want to configure repeat/fixed entries (e.g., daily standup meetings) so they auto-populate in every Jira work log. | Must Have |
@@ -161,7 +161,7 @@ Narada uses a futuristic, glassmorphism-based dark-mode design system. The aesth
 | `--secondary` | `#8B5CF6` (Violet) | — | Gradients, logo, avatar |
 | `--emerald` | `#10B981` (Emerald) | `rgba(16, 185, 129, 0.3)` | Success, "Share All" button, update dots |
 | `--amber` | `#F59E0B` (Amber) | — | Warnings, stats |
-| `--rose` | `#EF4444` (Rose) | `rgba(239, 68, 68, 0.5)` | Errors, recording state, remove buttons |
+| `--rose` | `#EF4444` (Rose) | `rgba(239, 68, 68, 0.5)` | Errors, remove buttons |
 
 #### Text
 
@@ -206,12 +206,10 @@ Font import: `https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;70
 | Token | Value | Usage |
 |-------|-------|-------|
 | `--transition` | `all 0.3s cubic-bezier(0.4, 0, 0.2, 1)` | All interactive elements |
-| `pulse` | `1.5s ease-in-out infinite` | Recording mic button glow |
-| `blink` | `1s ease-in-out infinite` | Recording dot indicator |
 | `spin` | `1s linear infinite` | Processing spinner |
 | `scaleIn` | `0.5s cubic-bezier(0.4, 0, 0.2, 1)` | Success checkmark entrance |
 | `float` | `20s ease-in-out infinite` | Background gradient blobs |
-| `fadeIn` | `0.3s ease` | Recording info appearance |
+| `fadeIn` | `0.3s ease` | Content appearance |
 
 ### 5.5 Elevation & Glow Effects
 
@@ -219,7 +217,6 @@ All interactive elements use glow effects matching their accent color:
 
 - **Primary focus/active:** `box-shadow: 0 0 20px var(--primary-glow)`
 - **Emerald (share/success):** `box-shadow: 0 0 20px var(--emerald-glow)`
-- **Rose (recording):** `box-shadow: 0 0 20px rgba(239, 68, 68, 0.5)`
 - **Hover states:** `background: rgba(255, 255, 255, 0.05)` with border brightening
 
 ### 5.6 Background Treatment
@@ -366,8 +363,6 @@ Triggered by clicking any calendar day. Centered modal with overlay (background 
 #### Step 1: Input
 
 - **Textarea:** Full-width, glass background, 150px min-height. Placeholder: "What did you accomplish today?"
-- **Mic button:** Circular, positioned bottom-right of textarea. Default: muted border + mic emoji. Recording state: rose background + glow + pulse animation.
-- **Recording indicator:** Appears when recording — red blinking dot + "Recording: 0:00" timer
 - **"Process with AI" button:** Full-width primary button with lightning bolt icon
 
 #### Step 2: Processing
@@ -396,29 +391,22 @@ Triggered by clicking any calendar day. Centered modal with overlay (background 
 
 ## 7. Functional Requirements
 
-### 7.1 Voice Recording Module
+### 7.1 Text Input Module
 
-- Browser-based audio capture using MediaRecorder API (WebM/Opus codec)
-- Visual recording indicator with blinking dot and timer
-- Support for recordings up to 10 minutes
-- Mic button with animated recording state (pulse + glow)
-- Fallback: users can type directly into the textarea
+- Users type their daily update directly into the textarea
+- Supports technical jargon, Jira issue IDs (e.g., OPP-1692), and project names as written
 
-### 7.2 Speech-to-Text Engine
+### 7.2 Voice Input (Removed)
 
-- Integration with Deepgram Nova-3 API for high-accuracy transcription
-- Support for technical jargon, Jira issue IDs (e.g., OPP-1692), and project names
-- Features: `smart_format=true`, `punctuate=true`, `diarize=false` (single speaker)
-- Cost: ~$0.0085/minute (~$0.50/month for typical daily use)
-- Fallback: Web Speech API for offline/cost-saving mode (Chrome only)
+Voice input was removed in favour of typed updates.
 
 ### 7.3 AI Processing Agent (Claude API)
 
 The Claude API agent receives the raw transcript and extracts structured data using tool use with strict JSON schema output:
 
 - **Task extraction:** Identifies discrete work items, descriptions, and associated Jira issue keys
-- **Time estimation:** Parses spoken time references ("spent about 3 hours") into precise durations
-- **Blocker detection:** Identifies and categorizes blockers from natural speech
+- **Time estimation:** Parses written time references ("spent about 3 hours") into precise durations
+- **Blocker detection:** Identifies and categorizes blockers from natural language
 - **Multi-day awareness:** Distinguishes "today" tasks from "next day" plans
 - **Repeat entry injection:** Merges configured repeat entries into the Jira output
 - **Format generation:** Produces platform-specific output for Slack, Teams, and Jira simultaneously
@@ -472,7 +460,7 @@ Blockers:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  CLIENT TIER                                                │
-│  Next.js React Frontend | MediaRecorder API                 │
+│  Next.js React Frontend                                     │
 │  Zustand State | Dexie.js (offline cache)                   │
 ├─────────────────────────────────────────────────────────────┤
 │  API TIER                                                   │
@@ -480,24 +468,23 @@ Blockers:
 │  Queue Manager | Authentication                             │
 ├─────────────────────────────────────────────────────────────┤
 │  EXTERNAL SERVICES                                          │
-│  Deepgram (STT) | Claude API (AI) | Slack API               │
+│  Claude API (AI) | Slack API                                │
 │  Teams Graph API | Jira REST API                            │
 ├─────────────────────────────────────────────────────────────┤
 │  DATA TIER                                                  │
-│  SQLite (local DB) | Audio Blob Storage (filesystem)        │
+│  SQLite (local DB)                                          │
 │  Encrypted Credentials Store                                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### 8.2 Data Flow
 
-1. User taps calendar date → Modal opens with textarea + mic button
-2. User speaks or types → Audio blob sent to `/api/transcribe` → Deepgram Nova-3
-3. Transcript returned → Sent to `/api/parse` with Claude API
-4. Claude extracts structured data (tasks, times, issues, blockers) → Returns JSON
-5. Frontend renders tabbed preview → User edits and confirms
-6. "Share All" → Parallel API calls to `/api/slack`, `/api/teams`, `/api/jira`
-7. Results stored in SQLite with status per platform
+1. User taps calendar date → Modal opens with textarea
+2. User types the update → Sent to `/api/parse` with Claude API
+3. Claude extracts structured data (tasks, times, issues, blockers) → Returns JSON
+4. Frontend renders tabbed preview → User edits and confirms
+5. "Share All" → Parallel API calls to `/api/slack`, `/api/teams`, `/api/jira`
+6. Results stored in SQLite with status per platform
 
 ---
 
@@ -509,8 +496,6 @@ Blockers:
 | **Language** | TypeScript | Type safety across full stack, better IDE support |
 | **UI Framework** | Tailwind CSS + shadcn/ui | Rapid prototyping, consistent design system, accessible components |
 | **State Management** | Zustand | Lightweight, no boilerplate, works with React Server Components |
-| **Audio Capture** | MediaRecorder API | Native browser API, no dependencies, WebM/Opus codec |
-| **Speech-to-Text** | Deepgram Nova-3 | 90%+ accuracy, <300ms latency, streaming support, $0.0085/min |
 | **AI Agent** | Claude API (Anthropic) | Structured outputs via tool use, strong reasoning, Sonnet 4.5 |
 | **Database** | SQLite + Prisma ORM | Zero-config, file-based, excellent for single-user, migration path to PostgreSQL |
 | **Offline Cache** | Dexie.js (IndexedDB) | Offline draft support, mature API |
@@ -550,12 +535,9 @@ Blockers:
 - **Time conversion:** IST → UTC (subtract 19800 seconds from epoch)
 - **Prerequisite:** Time tracking enabled in Jira project settings
 
-### 10.4 Deepgram Integration
+### 10.4 Voice Transcription (Removed)
 
-- **Model:** Nova-3 (latest, highest accuracy)
-- **Mode:** Pre-recorded (upload WebM blob) for MVP; streaming for v2
-- **Features:** `smart_format=true`, `punctuate=true`, `diarize=false`
-- **Cost:** ~$0.0085/minute (~$0.50/month typical use)
+Voice input was removed in favour of typed updates.
 
 ### 10.5 Claude API Integration
 
@@ -575,10 +557,9 @@ Blockers:
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | String (UUID) | Primary key |
-| `createdAt` | DateTime | Timestamp of recording |
+| `createdAt` | DateTime | Timestamp of creation |
 | `date` | DateTime | The calendar date this update is for |
-| `rawTranscript` | String | Full transcript from Deepgram |
-| `audioPath` | String? | Path to stored audio blob |
+| `rawTranscript` | String | Full text of the typed update |
 | `slackOutput` | String | Formatted Slack mrkdwn output |
 | `teamsOutput` | String | Formatted Teams output |
 | `slackStatus` | Enum | PENDING / SENT / FAILED / SKIPPED |
@@ -631,14 +612,13 @@ Blockers:
 
 ### Phase 1: Foundation (Weeks 1–2)
 
-Core infrastructure, audio recording, and basic transcription pipeline.
+Core infrastructure, text input, and the base data model.
 
 1. Initialize Next.js project with TypeScript, Tailwind CSS, and Prisma
 2. Implement design system: CSS custom properties, glassmorphism components, animated background blobs
 3. Build sidebar navigation and page routing
-4. Build audio recording component with MediaRecorder API (record/stop/playback)
-5. Create `/api/transcribe` endpoint with Deepgram Nova-3 integration
-6. Set up SQLite database with Prisma schema
+4. Build the update textarea input
+5. Set up SQLite database with Prisma schema
 
 ### Phase 2: AI Agent & Formatting (Weeks 3–4)
 
@@ -682,13 +662,11 @@ History, search, deployment, and hardening.
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Speech-to-text accuracy with technical jargon (Jira IDs, project names) | High | Medium | Custom vocabulary hints in Deepgram; user correction in preview; learning from corrections over time |
 | AI hallucination of Jira issue keys | Medium | High | Validate extracted issue keys against Jira API before publishing; maintain local cache of valid keys |
 | Slack/Teams webhook deprecation | Low | Medium | Design adapter pattern for easy migration to Bot Token / Graph API in v2 |
 | API rate limiting during bulk publish | Low | Low | Sequential publish with delays; exponential backoff on 429 responses |
 | SQLite limitations for concurrent access | Low | Low | Single-user app; WAL mode enabled; migration path to PostgreSQL documented |
-| Deepgram/Claude API cost overruns | Medium | Medium | Usage monitoring dashboard; daily budget caps; local caching of repeated requests |
-| Browser microphone permission denied | Medium | Low | Clear permission prompts; fallback to text-only input; error messaging |
+| Claude API cost overruns | Medium | Medium | Usage monitoring dashboard; daily budget caps; local caching of repeated requests |
 
 ---
 
@@ -697,11 +675,10 @@ History, search, deployment, and hardening.
 | Metric | Target | Measurement |
 |--------|--------|-------------|
 | Time per daily update | < 2 minutes end-to-end | Currently 15–20 minutes |
-| Transcription accuracy | > 90% correct on first pass | Edit distance before/after user corrections |
 | AI parsing accuracy | > 85% tasks/times extracted correctly | Correction rate in preview screen |
 | Publish success rate | > 99% successful API calls | Per-platform failure rate monitoring |
-| User adoption | Daily active usage for 30 consecutive days | Recording frequency in local DB |
-| Context switches eliminated | Reduced from 9 to 2 interactions | Single record + single publish |
+| User adoption | Daily active usage for 30 consecutive days | Update frequency in local DB |
+| Context switches eliminated | Reduced from 9 to 2 interactions | Single update + single publish |
 
 ---
 
@@ -711,13 +688,11 @@ History, search, deployment, and hardening.
 
 | Term | Definition |
 |------|-----------|
-| **STT** | Speech-to-Text — converting audio speech to written text |
 | **mrkdwn** | Slack's custom markdown-like formatting syntax |
 | **Adaptive Cards** | Microsoft's cross-platform card-based UI framework for Teams |
 | **Work Log** | A Jira time tracking entry recording hours spent on an issue |
 | **Repeat Entry** | A fixed Jira work log entry auto-injected daily (e.g., recurring meetings) |
 | **Glassmorphism** | UI style using translucent backgrounds, blur effects, and light borders |
-| **Deepgram Nova-3** | Latest generation speech recognition model from Deepgram |
 | **Prisma** | Type-safe ORM for Node.js and TypeScript with migration support |
 
 ### 15.2 Reference Links
@@ -725,7 +700,6 @@ History, search, deployment, and hardening.
 - Slack API: https://api.slack.com
 - Microsoft Graph API: https://learn.microsoft.com/en-us/graph
 - Jira REST API v3: https://developer.atlassian.com/cloud/jira/platform/rest/v3
-- Deepgram API: https://developers.deepgram.com
 - Claude API (Anthropic): https://docs.anthropic.com/en/api
 - Next.js: https://nextjs.org/docs
 - Prisma ORM: https://www.prisma.io/docs

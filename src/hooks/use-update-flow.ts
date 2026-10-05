@@ -26,14 +26,12 @@ export function useUpdateFlow() {
     const {
       rawTranscript,
       draftSource,
-      audioBlob,
       slackEnabled,
       teamsEnabled,
       jiraEnabled,
       setSlackOutput,
       setTeamsOutput,
       setWorkLogEntries,
-      setRawTranscript,
       setProcessingError,
       setProcessingStage,
       setIsProcessing,
@@ -43,7 +41,7 @@ export function useUpdateFlow() {
     } = store;
     setMetricsHints(null);
 
-    if (!rawTranscript && !audioBlob) return;
+    if (!rawTranscript.trim()) return;
 
     if (!slackEnabled && !teamsEnabled && !jiraEnabled) {
       useToastStore.getState().addToast(
@@ -61,54 +59,7 @@ export function useUpdateFlow() {
     let flowTrace: Awaited<ReturnType<typeof startTrace>> = null;
     try {
       flowTrace = await startTrace("narada_full_update_flow");
-      let transcript = rawTranscript;
-
-      // Transcribe audio if we have a blob but no text
-      if (audioBlob && !transcript) {
-        trackEvent("transcription_start", { audio_size_bytes: audioBlob.size });
-        setProcessingStage("transcribing");
-        console.log("[Narada] Transcribing audio blob:", audioBlob.size, "bytes, type:", audioBlob.type);
-
-        const transcribeStart = Date.now();
-        const transcribeData = await traceAsync("narada_transcribe", async () => {
-          const formData = new FormData();
-          formData.append("audio", audioBlob, "recording.webm");
-
-          const transcribeRes = await authedFetch("/api/transcribe", {
-            method: "POST",
-            body: formData,
-          });
-          return transcribeRes.json();
-        });
-        const transcribeWallMs = Date.now() - transcribeStart;
-        console.log("[Narada] Transcription response:", transcribeData);
-
-        if (!transcribeData.success) {
-          trackEvent("processing_error", { stage: "transcribe", reason: classifyError(transcribeData.error) });
-          throw new Error(transcribeData.error || "Transcription failed");
-        }
-
-        transcript = transcribeData.transcript ?? "";
-        setRawTranscript(transcript);
-
-        const deepgramMs = transcribeData._timings?.deepgramMs;
-        mergeMetricsHints({
-          audioSizeBytes: audioBlob.size,
-          transcriptChars: transcript.length,
-          transcribeMs: transcribeWallMs,
-          deepgramMs,
-        });
-        trackEvent("transcription_complete", {
-          duration_ms: transcribeWallMs,
-          deepgram_ms: typeof deepgramMs === "number" ? deepgramMs : -1,
-          audio_size_bytes: audioBlob.size,
-          transcript_chars: transcript.length,
-        });
-      } else {
-        setProcessingStage("transcribing");
-        // Brief pause so user sees transcript stage
-        await new Promise((r) => setTimeout(r, 300));
-      }
+      const transcript = rawTranscript;
 
       // Parse with AI
       trackEvent("ai_processing_start", { transcript_chars: transcript.length });

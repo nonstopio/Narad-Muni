@@ -2,7 +2,7 @@
   "name": "narada-app",
   "version": "1.18.1",
   "productName": "Narad Muni",
-  "description": "Voice-first productivity platform — record once, publish to Slack, Teams, and Jira",
+  "description": "Productivity platform — write your daily update once, publish to Slack, Teams, and Jira",
   "author": {
     "name": "NonStop IO",
     "url": "https://nonstopio.com"
@@ -26,7 +26,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
-    "@deepgram/sdk": "^4.11.3",
     "@google/generative-ai": "^0.24.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

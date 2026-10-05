@@ -32,7 +32,7 @@ const f = routeHttpsVia(stub("node"), stub("net"));
 
   // Request objects route by their url and pass through untouched.
   calls.length = 0;
-  const req = new Request("https://api.deepgram.com/v1/listen", { method: "POST", body: "a" });
+  const req = new Request("https://api.anthropic.com/v1/messages", { method: "POST", body: "a" });
   await f(req);
   assert.strictEqual(calls[0].via, "net");
   assert.strictEqual(calls[0].input, req);

@@ -19,20 +19,15 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 const STAGE_LABELS: Record<ProcessingStage, string> = {
-  transcribing: "Listening to your sacred words",
   analyzing: "Seeking divine insight",
   formatting: "Crafting scrolls for three worlds",
 };
 
-const STAGE_ORDER: ProcessingStage[] = ["transcribing", "analyzing", "formatting"];
+const STAGE_ORDER: ProcessingStage[] = ["analyzing", "formatting"];
 
 const STAGE_MESSAGES: Record<ProcessingStage, string[]> = {
-  transcribing: [
-    "Listening to your sacred words...",
-    "The sage hears all that is spoken...",
-  ],
   analyzing: [
-    "Parsing your narration...",
+    "Reading your words...",
     "Detecting tasks and sacred tickets...",
     "Weighing time across each endeavor...",
     "Ensuring 8 hours of devotion are honored...",
@@ -53,7 +48,6 @@ function getStageIndex(stage: ProcessingStage | null): number {
 
 function getProgressPercent(stage: ProcessingStage | null): number {
   switch (stage) {
-    case "transcribing": return 15;
     case "analyzing": return 55;
     case "formatting": return 90;
     default: return 0;

@@ -1,6 +1,6 @@
 # Narad Muni — Presentation Guide
 
-> **Record once. Publish everywhere.**
+> **Write once. Publish everywhere.**
 > Your daily standup takes 15-20 minutes across Slack, Teams, and Jira. Narad Muni brings that down to under 2 minutes.
 
 Named after the [divine messenger Narad](https://en.wikipedia.org/wiki/Narada) who carries word across the three worlds — this tool does the same for your daily updates.
@@ -43,15 +43,15 @@ And it's not just time — it's the cognitive load of formatting differently for
 
 The home screen shows a monthly calendar. Days with existing updates are highlighted in blue. Click any empty day to create a new update.
 
-**Step 2: Speak or type your update**
+**Step 2: Type your update**
 
-Hit the microphone button (or `Cmd+R`) and talk naturally:
+Write it in plain words, the way you would tell a teammate:
 
 > *"Today I worked on the login page redesign, that was PROJ-123, spent about 3 hours on it. Then I did code review for the payments module, PROJ-456, took about an hour. Had the daily standup and sprint planning. Tomorrow I'll continue with the login page and start the password reset flow. I'm blocked on the API team — still waiting for the auth endpoint."*
 
-That's it. One take. No formatting, no structure needed.
+That's it. One pass. No formatting, no structure needed.
 
-**Step 3: AI processes your recording**
+**Step 3: AI processes your update**
 
 Click "Invoke the Sage" (or `Cmd+Enter`). The AI:
 - Extracts individual tasks with Jira ticket IDs
@@ -129,13 +129,9 @@ Status badges show the result: SENT, FAILED, or SKIPPED (if you toggled a platfo
 
 ## 3. Feature Deep-Dives
 
-### 3.1 Voice Recording
+### 3.1 Text Input
 
-- **One-tap recording** — click the mic button or press `Cmd+R` from anywhere in the app
-- **Live waveform visualizer** — 16-26 animated bars showing real-time audio levels, rendered at 60fps
-- **Deepgram Nova-3** transcription — industry-leading speech-to-text accuracy
-- **Append mode** — transcript appends to the text area, so you can record multiple takes or mix voice + typing
-- **Smart format** — Deepgram auto-punctuates and formats the transcript
+Voice input was removed in favour of typed updates. Type your update in plain words, or pre-fill it with the **Last Update** or **Projects** (desktop) buttons.
 
 ### 3.2 AI Parsing — 4 Provider Options
 
@@ -278,7 +274,6 @@ Power-user navigation built in:
 | `Cmd+2` | Go to History (Chronicles) |
 | `Cmd+3` | Go to Settings (Configurations) |
 | `Cmd+4` | Go to Bug Report (Seek Aid) |
-| `Cmd+R` | Toggle voice recording / quick-create today |
 | `Cmd+Enter` | Invoke the Sage (AI process) |
 | `Cmd+Shift+Enter` | Dispatch to All Worlds (share) |
 | `Escape` | Close modal / go back |
@@ -327,7 +322,7 @@ In-app bug reporting with AI-powered enhancement:
 
 | Activity | Before | After | Saved |
 |----------|--------|-------|-------|
-| Recall & compose update | 5 min | 1 min (speak) | 4 min |
+| Recall & compose update | 5 min | 1 min (type) | 4 min |
 | Format for Slack | 3 min | 0 (auto) | 3 min |
 | Format for Teams | 3 min | 0 (auto) | 3 min |
 | Log time in Jira (per ticket) | 5 min | 0 (auto) | 5 min |
@@ -350,7 +345,7 @@ In-app bug reporting with AI-powered enhancement:
 
 **Before:** 9 switches (Slack compose → Slack format → Teams compose → Teams format → Jira open → Jira ticket 1 → Jira ticket 2 → Jira ticket 3 → Verify totals)
 
-**After:** 2 actions (Speak → Dispatch)
+**After:** 2 actions (Write → Dispatch)
 
 ---
 
@@ -359,14 +354,8 @@ In-app bug reporting with AI-powered enhancement:
 ### Data Flow
 
 ```
-                        +-----------+
-Voice/Text Input -----> | Deepgram  | ----> Raw Transcript
-                        | Nova-3    |
-                        +-----------+
-                              |
-                              v
                      +----------------+
-Raw Transcript ----> | AI Provider    | ----> Structured JSON
+Text Input --------> | AI Provider    | ----> Structured JSON
                      | (Claude/Gemini)|       (tasks, times, blockers,
                      +----------------+        formatted outputs)
                               |
@@ -399,7 +388,6 @@ Structured JSON ---> | Preview & Edit | ----> User reviews/edits
 | UI | Tailwind CSS 4 + shadcn/ui + Framer Motion |
 | State | Zustand 5 |
 | Database | SQLite + Prisma 6 |
-| Speech-to-Text | Deepgram Nova-3 |
 | AI Processing | Claude CLI / Claude API / Gemini 2.0 Flash |
 | Desktop | Electron + better-sqlite3 |
 | Icons | Lucide React |
@@ -430,7 +418,7 @@ PlatformConfig (per platform: Slack, Teams, Jira)
 
 AppSettings (singleton)
 ├── aiProvider (local-claude | claude-api | gemini | local-cursor)
-├── claudeApiKey, geminiApiKey, deepgramApiKey
+├── claudeApiKey, geminiApiKey
 └── (all keys DB-stored, no .env files)
 
 Draft (one per day, auto-saved)
@@ -460,7 +448,6 @@ Narad Muni is the divine sage who travels the three worlds (Devalok, Prithvilok,
 - *"Narayan Narayan! Your word has reached all three worlds!"* — success message
 - *"The scrolls will materialize once the sage has spoken..."* — loading state
 - *"Alas! The oracle could not be reached"* — error message
-- *"Grant me the Deepgram mantra in Sacred Configurations to hear your voice"* — missing API key
 
 **Design:** Dark glassmorphic theme inspired by Linear, Raycast, and Arc. Glass-effect cards with blur, semi-transparent backgrounds, and accent colors (blue primary, violet secondary, emerald success, amber warning, rose error).
 
@@ -472,7 +459,6 @@ Narad Muni is the divine sage who travels the three worlds (Devalok, Prithvilok,
 
 | Service | What to Configure | Where to Get It |
 |---------|------------------|-----------------|
-| Deepgram | API key | [deepgram.com](https://deepgram.com) (free tier available) |
 | Slack | Incoming Webhook URL, User ID | Slack App settings |
 | Teams | Incoming Webhook URL, User Name, User ID | Teams channel connector |
 | Jira | Base URL, Email, API Token, Project Key | [id.atlassian.com/manage-profile/security](https://id.atlassian.com/manage-profile/security) |
@@ -481,12 +467,12 @@ Narad Muni is the divine sage who travels the three worlds (Devalok, Prithvilok,
 ### Quick Setup (5 minutes)
 
 1. **Install** — download the macOS app or run `npm run dev` for web
-2. **Settings > Divine Oracle** — add your Deepgram API key and choose an AI provider
+2. **Settings > Divine Oracle** — choose an AI provider
 3. **Settings > Slack** — paste your webhook URL, enter your Slack User ID
 4. **Settings > Teams** — paste your webhook URL, enter your name and ID
 5. **Settings > Jira** — enter base URL, email, API token, project key, timezone
 6. **Settings > Jira > Repeat Entries** — add your daily recurring tasks (standup, sync, etc.)
-7. **Go to the calendar** — click today and start recording
+7. **Go to the calendar** — click today and write your update
 
 **No `.env` files needed.** Everything is configured through the Settings UI and stored in the local SQLite database.
 
@@ -499,7 +485,7 @@ Narad Muni is the divine sage who travels the three worlds (Devalok, Prithvilok,
 
 ### The Demo Flow
 1. Show the calendar — clean, visual, one click to start
-2. Record a 30-second voice update — natural, unstructured
+2. Type a quick update — natural, unstructured
 3. Click "Invoke the Sage" — watch AI format everything
 4. Show the 3 tabs — Slack, Teams, Jira, all formatted differently
 5. Click "Dispatch to All Worlds" — all 3 platforms updated in seconds
@@ -508,7 +494,7 @@ Narad Muni is the divine sage who travels the three worlds (Devalok, Prithvilok,
 8. Back to calendar — day is now highlighted, streak counter updated
 
 ### The Closer
-> "One recording. Three platforms. Under 2 minutes. Every day."
+> "One update. Three platforms. Under 2 minutes. Every day."
 
 ### Objection Handling
 
