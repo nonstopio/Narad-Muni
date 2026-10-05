@@ -112,17 +112,11 @@ export async function enrichIssueDescription(
           break;
         }
         case "azure-openai": {
-          const { AzureOpenAI } = await import("openai");
-          const client = new AzureOpenAI({
-            apiKey: resolved.apiKey,
-            endpoint: resolved.endpoint,
-            deployment: resolved.deployment,
-            apiVersion: resolved.apiVersion,
-            timeout: 60_000,
-          });
+          const { createAzureClient } = await import("./openai-provider");
+          const client = createAzureClient({ ...resolved, timeoutMs: 60_000 });
+          // No token cap: reasoning deployments spend it on hidden reasoning and return empty.
           const response = await client.chat.completions.create({
-            model: resolved.deployment,
-            max_completion_tokens: 2048,
+            model: resolved.deployment.trim(),
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: userMessage },

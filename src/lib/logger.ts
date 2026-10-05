@@ -63,31 +63,36 @@ function appendEntry(level: string, args: unknown[]) {
   }
 }
 
-// Monkey-patch console methods
-const originalLog = console.log;
-const originalWarn = console.warn;
-const originalError = console.error;
-const originalDebug = console.debug;
+// Monkey-patch console methods. Instrumentation and the logs/report routes load this module
+// in separate bundles; patching twice wrote every line twice.
+const g = globalThis as { __naradaConsolePatched?: boolean };
+if (!g.__naradaConsolePatched) {
+  g.__naradaConsolePatched = true;
+  const originalLog = console.log;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  const originalDebug = console.debug;
 
-console.log = (...args: unknown[]) => {
-  originalLog(...args);
-  appendEntry("INFO", args);
-};
+  console.log = (...args: unknown[]) => {
+    originalLog(...args);
+    appendEntry("INFO", args);
+  };
 
-console.warn = (...args: unknown[]) => {
-  originalWarn(...args);
-  appendEntry("WARN", args);
-};
+  console.warn = (...args: unknown[]) => {
+    originalWarn(...args);
+    appendEntry("WARN", args);
+  };
 
-console.error = (...args: unknown[]) => {
-  originalError(...args);
-  appendEntry("ERROR", args);
-};
+  console.error = (...args: unknown[]) => {
+    originalError(...args);
+    appendEntry("ERROR", args);
+  };
 
-console.debug = (...args: unknown[]) => {
-  originalDebug(...args);
-  appendEntry("DEBUG", args);
-};
+  console.debug = (...args: unknown[]) => {
+    originalDebug(...args);
+    appendEntry("DEBUG", args);
+  };
+}
 
 // Rotate on first load
 rotateIfNeeded();

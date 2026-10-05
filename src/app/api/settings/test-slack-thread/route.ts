@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findWorkflowThread } from "@/lib/slack-thread";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
+import { errorMessage } from "@/lib/utils";
 
 interface AuthTestResponse {
   ok: boolean;
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
         });
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = errorMessage(err, String(err));
       if (msg.includes("channel_not_found") || msg.includes("not_in_channel")) {
         return NextResponse.json({
           success: false,
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada] Test Slack thread error:", error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Test failed" },
+      { success: false, error: errorMessage(error, "Test failed") },
       { status: 500 }
     );
   }

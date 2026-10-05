@@ -3,6 +3,7 @@ import { transcribeAudio } from "@/lib/deepgram";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
 import { settingsDoc } from "@/lib/firestore-helpers";
 import { time } from "@/lib/timing";
+import { errorMessage } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   const routeStart = Date.now();
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Transcription failed",
+        error: errorMessage(error, "Transcription failed"),
       },
       { status: 500 }
     );

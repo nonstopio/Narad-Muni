@@ -6,6 +6,7 @@ import { resolveProviderConfig, type AppSettings } from "@/lib/ai";
 import { getGlobalAIConfig } from "@/lib/global-ai-config";
 import type { AIProvider, KeyProvider } from "@/types";
 import { DEFAULT_CLAUDE_MODEL } from "@/lib/ai/claude-api-provider";
+import { errorMessage } from "@/lib/utils";
 
 const VALID_PROVIDERS: AIProvider[] = [
   "gemini",
@@ -179,7 +180,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
     if (isAuthError(err)) return handleAuthError(err);
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = errorMessage(err);
     console.error(`[Test AI] failed:`, message);
     return NextResponse.json({ success: false, error: message });
   }
