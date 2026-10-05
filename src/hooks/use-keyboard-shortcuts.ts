@@ -71,25 +71,6 @@ export function useKeyboardShortcuts() {
         }
       }
 
-      // ⌘+R — toggle voice recording (works even in inputs)
-      if (e.key === "r" && mod && !e.shiftKey && !e.altKey) {
-        const state = useUpdateStore.getState();
-        if (state.onToggleRecording) {
-          e.preventDefault();
-          state.onToggleRecording();
-          return;
-        }
-        if (state.retryMode) {
-          e.preventDefault();
-          return;
-        }
-        e.preventDefault();
-        state.setAutoStartRecording(true);
-        const today = new Date().toISOString().split("T")[0];
-        router.push(`/update?date=${today}`);
-        return;
-      }
-
       // Escape — close shortcuts modal first, then existing logic
       if (e.key === "Escape") {
         if (useShortcutsModalStore.getState().open) {

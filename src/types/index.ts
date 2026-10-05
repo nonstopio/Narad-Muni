@@ -10,7 +10,7 @@ export type Platform = "SLACK" | "TEAMS" | "JIRA";
 
 export type ModalStep = "editing" | "sharing";
 
-export type ProcessingStage = "transcribing" | "analyzing" | "formatting";
+export type ProcessingStage = "analyzing" | "formatting";
 
 /** Where a draft's words came from. Missing means "manual". */
 export type DraftSource = "manual" | "projects";

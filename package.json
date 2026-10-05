@@ -26,7 +26,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
-    "@deepgram/sdk": "^4.11.3",
     "@google/generative-ai": "^0.24.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

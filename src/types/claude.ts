@@ -39,11 +39,3 @@ export interface ParseResponse {
   data?: ClaudeParseResult;
   error?: string;
 }
-
-export interface TranscribeResponse {
-  success: boolean;
-  transcript?: string;
-  confidence?: number;
-  duration?: number;
-  error?: string;
-}

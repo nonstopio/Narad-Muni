@@ -7,9 +7,6 @@ interface UpdateStore {
   // Where the words came from; "projects" once commit activity is inserted.
   draftSource: DraftSource;
   setDraftSource: (source: DraftSource) => void;
-  isRecording: boolean;
-  recordingSeconds: number;
-  audioBlob: Blob | null;
   slackOutput: string;
   teamsOutput: string;
   workLogEntries: WorkLogEntryData[];
@@ -17,9 +14,7 @@ interface UpdateStore {
   teamsEnabled: boolean;
   jiraEnabled: boolean;
   processingError: string | null;
-  isTranscribing: boolean;
   processingStage: ProcessingStage | null;
-  analyserNode: AnalyserNode | null;
   previewReady: boolean;
   isProcessing: boolean;
 
@@ -27,7 +22,7 @@ interface UpdateStore {
   jiraBaseUrl: string | null;
   setJiraBaseUrl: (url: string | null) => void;
 
-  // Metrics hints carried forward from transcribe/parse to publish
+  // Metrics hints carried forward from parse to publish
   metricsHints: UpdateMetricsHints | null;
   setMetricsHints: (hints: UpdateMetricsHints | null) => void;
   mergeMetricsHints: (patch: Partial<UpdateMetricsHints>) => void;
@@ -41,9 +36,6 @@ interface UpdateStore {
 
   setStep: (step: ModalStep) => void;
   setRawTranscript: (text: string) => void;
-  setIsRecording: (recording: boolean) => void;
-  setRecordingSeconds: (seconds: number) => void;
-  setAudioBlob: (blob: Blob | null) => void;
   setSlackOutput: (output: string) => void;
   setTeamsOutput: (output: string) => void;
   setWorkLogEntries: (entries: WorkLogEntryData[]) => void;
@@ -52,19 +44,13 @@ interface UpdateStore {
   removeWorkLogEntry: (index: number) => void;
   togglePlatform: (platform: "slack" | "teams" | "jira") => void;
   setProcessingError: (error: string | null) => void;
-  setIsTranscribing: (transcribing: boolean) => void;
   setProcessingStage: (stage: ProcessingStage | null) => void;
-  setAnalyserNode: (node: AnalyserNode | null) => void;
   setPreviewReady: (ready: boolean) => void;
   setIsProcessing: (processing: boolean) => void;
   onInvokeSage: (() => void) | null;
   onDispatch: (() => void) | null;
-  onToggleRecording: (() => void) | null;
   setOnInvokeSage: (cb: (() => void) | null) => void;
   setOnDispatch: (cb: (() => void) | null) => void;
-  setOnToggleRecording: (cb: (() => void) | null) => void;
-  autoStartRecording: boolean;
-  setAutoStartRecording: (auto: boolean) => void;
   setRetryMode: (mode: boolean) => void;
   setRetryUpdateId: (id: string | null) => void;
   setRetryStatuses: (slack: PublishStatus | null, teams: PublishStatus | null, jira: PublishStatus | null) => void;
@@ -77,9 +63,6 @@ const initialState = {
   step: "editing" as ModalStep,
   rawTranscript: "",
   draftSource: "manual" as DraftSource,
-  isRecording: false,
-  recordingSeconds: 0,
-  audioBlob: null as Blob | null,
   slackOutput: "",
   teamsOutput: "",
   workLogEntries: [] as WorkLogEntryData[],
@@ -87,15 +70,11 @@ const initialState = {
   teamsEnabled: false,
   jiraEnabled: false,
   processingError: null as string | null,
-  isTranscribing: false,
   processingStage: null as ProcessingStage | null,
-  analyserNode: null as AnalyserNode | null,
   previewReady: false,
   isProcessing: false,
   onInvokeSage: null as (() => void) | null,
   onDispatch: null as (() => void) | null,
-  onToggleRecording: null as (() => void) | null,
-  autoStartRecording: false,
   jiraBaseUrl: null as string | null,
   retryMode: false,
   retryUpdateId: null as string | null,
@@ -111,9 +90,6 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
   // Emptying the words forgets where they came from.
   setRawTranscript: (text) => set(text ? { rawTranscript: text } : { rawTranscript: text, draftSource: "manual" }),
   setDraftSource: (source) => set({ draftSource: source }),
-  setIsRecording: (recording) => set({ isRecording: recording }),
-  setRecordingSeconds: (seconds) => set({ recordingSeconds: seconds }),
-  setAudioBlob: (blob) => set({ audioBlob: blob }),
   setSlackOutput: (output) => set({ slackOutput: output }),
   setTeamsOutput: (output) => set({ teamsOutput: output }),
   setWorkLogEntries: (entries) => set({ workLogEntries: entries }),
@@ -142,15 +118,11 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
       return { jiraEnabled: !state.jiraEnabled };
     }),
   setProcessingError: (error) => set({ processingError: error }),
-  setIsTranscribing: (transcribing) => set({ isTranscribing: transcribing }),
   setProcessingStage: (stage) => set({ processingStage: stage }),
-  setAnalyserNode: (node) => set({ analyserNode: node }),
   setPreviewReady: (ready) => set({ previewReady: ready }),
   setIsProcessing: (processing) => set({ isProcessing: processing }),
   setOnInvokeSage: (cb) => set({ onInvokeSage: cb }),
   setOnDispatch: (cb) => set({ onDispatch: cb }),
-  setOnToggleRecording: (cb) => set({ onToggleRecording: cb }),
-  setAutoStartRecording: (auto) => set({ autoStartRecording: auto }),
   setJiraBaseUrl: (url) => set({ jiraBaseUrl: url }),
   setRetryMode: (mode) => set({ retryMode: mode }),
   setRetryUpdateId: (id) => set({ retryUpdateId: id }),
@@ -170,22 +142,15 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
       step: "editing",
       rawTranscript: "",
       draftSource: "manual",
-      isRecording: false,
-      recordingSeconds: 0,
-      audioBlob: null,
       slackOutput: "",
       teamsOutput: "",
       workLogEntries: [],
       processingError: null,
-      isTranscribing: false,
       processingStage: null,
-      analyserNode: null,
       previewReady: false,
       isProcessing: false,
       onInvokeSage: null,
       onDispatch: null,
-      onToggleRecording: null,
-      autoStartRecording: false,
       retryMode: false,
       retryUpdateId: null,
       retrySlackStatus: null,
