@@ -25,8 +25,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      # A re-run of an already released push would recompute the same version
+      # off the old commit and fail on the existing tag. A released commit is
+      # an ancestor of its tag, so skip the whole release instead.
+      - id: released
+        run: |
+          TAG=$(git tag --contains HEAD --list 'v[0-9]*.[0-9]*.[0-9]*' | head -1)
+          if [ -n "$TAG" ]; then
+            echo "::notice::$GITHUB_SHA was already released in $TAG; nothing to do"
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+          fi
+
       # Conventional-commit bump off the last tag.
       - id: v
+        if: steps.released.outputs.tag == ''
         run: |
           LAST=$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || true)
           LOG=$(git log ${LAST:+$LAST..}HEAD --no-merges --format='%s%n%b')
@@ -55,6 +67,7 @@ jobs:
       # GITHUB_TOKEN don't re-trigger this workflow. If main moved meanwhile
       # the push fails and the next run releases everything.
       - id: commit
+        if: steps.released.outputs.tag == ''
         env:
           VERSION: ${{ steps.v.outputs.version }}
           LAST: ${{ steps.v.outputs.last }}
@@ -71,6 +84,7 @@ jobs:
 
   build:
     needs: version
+    if: needs.version.outputs.version != ''
     strategy:
       fail-fast: false
       matrix:
