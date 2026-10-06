@@ -142,9 +142,9 @@ async function publishJiraWorklogs(
             accept: "application/json",
             authorization: authToken,
             "content-type": "application/json",
-            // Packaged app posts via Chromium's net.fetch with a browser User-Agent, which trips
-            // Jira's XSRF check (403 "XSRF check failed") unless we opt out.
-            "x-atlassian-token": "no-check",
+            // Packaged app posts via Chromium's net.fetch, whose browser User-Agent trips Jira's
+            // XSRF check (403 "XSRF check failed"). X-Atlassian-Token: no-check does not lift it.
+            "user-agent": "NaradMuni",
           },
           body: JSON.stringify(payload),
         });
