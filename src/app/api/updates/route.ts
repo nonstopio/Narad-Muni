@@ -3,6 +3,7 @@ import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware"
 import { updatesCol, configsCol, isOnLeave, LEAVE_BLOCKED } from "@/lib/firestore-helpers";
 import { isDateKey, updateDateIso } from "@/lib/date-key";
 import { jiraPublishBlocker } from "@/lib/jira-guard";
+import { buildAdfComment } from "@/lib/jira-adf";
 import { linkifyTickets } from "@/lib/linkify-tickets";
 import { findWorkflowThread, postThreadReply } from "@/lib/slack-thread";
 import { time } from "@/lib/timing";
@@ -56,19 +57,6 @@ function secsToTimeSpent(secs: number): string {
   if (h > 0) return `${h}h`;
   if (m > 0) return `${m}m`;
   return "0m";
-}
-
-function buildAdfComment(text: string) {
-  return {
-    type: "doc",
-    version: 1,
-    content: [
-      {
-        type: "paragraph",
-        content: [{ type: "text", text }],
-      },
-    ],
-  };
 }
 
 function isTransientError(status: number): boolean {

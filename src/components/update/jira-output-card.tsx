@@ -140,7 +140,7 @@ export function JiraOutputCard() {
 
       {!isLocked && workLogEntries.some((e) => e.needsConfirmation) && (
         <p className="mb-3 px-3 py-2 rounded-lg text-xs bg-amber-500/10 border border-amber-500/30 text-narada-amber">
-          These hours are my estimates from your commits — confirm or edit each before Jira receives them.
+          These hours are my estimates from your commits, stretched to fill your chosen day. Confirm or edit each before Jira receives them.
         </p>
       )}
 
@@ -181,7 +181,7 @@ export function JiraOutputCard() {
                   <td className="p-2 border-b border-white/[0.06] text-narada-text-secondary">
                     {formatStartTime(entry.started)}
                   </td>
-                  <td className="p-2 border-b border-white/[0.06] text-narada-text-secondary">
+                  <td className="p-2 border-b border-white/[0.06] text-narada-text-secondary whitespace-pre-line">
                     {entry.comment}
                   </td>
                 </tr>
@@ -321,14 +321,14 @@ export function JiraOutputCard() {
                       />
                     </td>
                     <td className="p-1.5 border-b border-white/[0.06]">
-                      <input
-                        type="text"
+                      <textarea
+                        rows={2}
                         value={entry.comment ?? ""}
                         onChange={(e) =>
                           updateWorkLogEntry(idx, { comment: e.target.value })
                         }
                         disabled={isPosted}
-                        className="glass-input w-full px-2 py-1 text-xs text-narada-text-secondary bg-transparent disabled:opacity-50"
+                        className="glass-input w-full min-h-[3.25rem] resize-y px-2 py-1 text-xs leading-snug text-narada-text-secondary bg-transparent disabled:opacity-50"
                         placeholder="What was done..."
                       />
                     </td>
