@@ -40,7 +40,6 @@ export function InputSection({ onProcess }: InputSectionProps) {
     processingError,
     isProcessing,
     previewReady,
-    draftSource,
     workedHours,
     setWorkedHours,
   } = useUpdateStore();
@@ -210,6 +209,71 @@ export function InputSection({ onProcess }: InputSectionProps) {
         onChange={(e) => setRawTranscript(e.target.value)}
       />
 
+      {/* Hours worked — the day's minimum, for typed and commit-built drafts alike */}
+      <div className="mb-4 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+        <div className="mb-2.5 flex items-baseline justify-between gap-2">
+          <span id="hours-label" className="text-xs font-medium text-narada-text-secondary">
+            Hours of devotion
+          </span>
+          <span className="text-[11px] text-narada-text-muted">
+            At least {workedHours}h, shorter days are stretched
+          </span>
+        </div>
+        <div role="group" aria-labelledby="hours-label" className="flex items-center gap-1.5">
+          {HOUR_CHIPS.map((h) => {
+            const active = customHours === null && workedHours === h;
+            return (
+              <button
+                key={h}
+                type="button"
+                aria-pressed={active}
+                disabled={isProcessing}
+                onClick={() => {
+                  setCustomHours(null);
+                  setWorkedHours(h);
+                }}
+                className={`flex-1 h-8 rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none ${
+                  active
+                    ? "bg-narada-primary border border-narada-primary text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+                    : "bg-white/[0.03] border border-white/[0.06] text-narada-text-secondary hover:bg-white/[0.06] hover:text-narada-text"
+                }`}
+              >
+                {h}h
+              </button>
+            );
+          })}
+          <div className="relative w-[4.5rem] shrink-0">
+            <input
+              type="number"
+              min={0.5}
+              max={24}
+              step={0.5}
+              placeholder="Other"
+              aria-label="Custom hours worked"
+              disabled={isProcessing}
+              value={customHours ?? (HOUR_CHIPS.includes(workedHours) ? "" : String(workedHours))}
+              onChange={(e) => {
+                setCustomHours(e.target.value);
+                const h = Number(e.target.value);
+                if (e.target.value && validHours(h)) setWorkedHours(h);
+              }}
+              onBlur={() => {
+                // Snap to the nearest half hour like the Jira duration fields (1.25 → 1.5)
+                const h = Number(customHours);
+                if (customHours && Number.isFinite(h)) setWorkedHours(Math.min(24, Math.max(0.5, Math.round(h * 2) / 2)));
+                setCustomHours(null);
+              }}
+              className={`w-full h-8 px-2 rounded-lg [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none text-xs text-center font-mono bg-white/[0.03] border text-narada-text placeholder:font-sans placeholder:text-narada-text-muted focus:outline-none focus:border-narada-primary transition-all duration-200 disabled:opacity-50 ${
+                customHours === null && !HOUR_CHIPS.includes(workedHours) ? "border-narada-primary" : "border-white/[0.06]"
+              }`}
+            />
+            {(customHours || !HOUR_CHIPS.includes(workedHours)) && (
+              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-narada-text-muted">h</span>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Process with AI button */}
       <Button
         variant="primary"
@@ -230,57 +294,6 @@ export function InputSection({ onProcess }: InputSectionProps) {
           </>
         )}
       </Button>
-
-      {/* Hours worked — commit drafts are estimates and never spread to a total */}
-      {draftSource !== "projects" && (
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <span className="text-[11px] text-narada-text-muted">Hours of devotion</span>
-          <div className="flex items-center gap-1">
-            {HOUR_CHIPS.map((h) => (
-              <button
-                key={h}
-                type="button"
-                disabled={isProcessing}
-                onClick={() => {
-                  setCustomHours(null);
-                  setWorkedHours(h);
-                }}
-                className={`w-7 py-0.5 rounded-3xl text-[11px] font-medium transition-all duration-300 disabled:opacity-50 disabled:pointer-events-none ${
-                  customHours === null && workedHours === h
-                    ? "bg-narada-primary border border-narada-primary text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]"
-                    : "bg-white/[0.03] border border-white/[0.06] text-narada-text-secondary hover:bg-white/[0.06]"
-                }`}
-              >
-                {h}
-              </button>
-            ))}
-            <input
-              type="number"
-              min={0.5}
-              max={24}
-              step={0.5}
-              placeholder="…"
-              aria-label="Custom hours worked"
-              disabled={isProcessing}
-              value={customHours ?? (HOUR_CHIPS.includes(workedHours) ? "" : String(workedHours))}
-              onChange={(e) => {
-                setCustomHours(e.target.value);
-                const h = Number(e.target.value);
-                if (e.target.value && validHours(h)) setWorkedHours(h);
-              }}
-              onBlur={() => {
-                // Snap to the nearest half hour like the Jira duration fields (1.25 → 1.5)
-                const h = Number(customHours);
-                if (customHours && Number.isFinite(h)) setWorkedHours(Math.min(24, Math.max(0.5, Math.round(h * 2) / 2)));
-                setCustomHours(null);
-              }}
-              className={`w-12 py-0.5 px-1.5 rounded-3xl [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none text-[11px] text-center font-mono bg-white/[0.03] border text-narada-text placeholder:text-narada-text-muted focus:outline-none focus:border-narada-primary transition-all duration-300 disabled:opacity-50 ${
-                customHours === null && !HOUR_CHIPS.includes(workedHours) ? "border-narada-primary" : "border-white/[0.06]"
-              }`}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Error display */}
       {processingError && (
