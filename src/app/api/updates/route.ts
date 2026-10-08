@@ -75,7 +75,6 @@ interface WorkLogEntryDoc {
   comment: string | null;
   isRepeat: boolean;
   jiraWorklogId: string | null;
-  needsConfirmation?: boolean;
 }
 
 async function publishJiraWorklogs(
@@ -444,7 +443,7 @@ export async function POST(request: NextRequest) {
       rawTranscript: string;
       slackOutput?: string;
       teamsOutput?: string;
-      workLogEntries?: { issueKey: string; timeSpentSecs: number; started: string; comment?: string; isRepeat: boolean; needsConfirmation?: boolean }[];
+      workLogEntries?: { issueKey: string; timeSpentSecs: number; started: string; comment?: string; isRepeat: boolean }[];
       source?: unknown;
       slackEnabled: boolean;
       teamsEnabled: boolean;
@@ -474,7 +473,6 @@ export async function POST(request: NextRequest) {
         comment: entry.comment || "",
         isRepeat: entry.isRepeat || false,
         jiraWorklogId: null,
-        needsConfirmation: entry.needsConfirmation === true,
       })
     );
 
