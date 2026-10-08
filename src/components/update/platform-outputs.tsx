@@ -110,6 +110,9 @@ export function PlatformOutputs({
           </>
         )}
       </Button>
+      {jiraBlocker && !isSharing && (
+        <p className="mt-2 text-center text-xs text-narada-amber">{jiraBlocker}</p>
+      )}
       </div>
     </div>
   );

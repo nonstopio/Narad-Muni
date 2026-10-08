@@ -73,7 +73,6 @@ export interface WorkLogEntryData {
   comment?: string;
   isRepeat: boolean;
   jiraWorklogId?: string | null;
-  needsConfirmation?: boolean;
 }
 
 export interface PlatformConfigData {

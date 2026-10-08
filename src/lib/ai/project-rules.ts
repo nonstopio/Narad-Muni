@@ -1,6 +1,6 @@
 // Time-entry rules for drafts built from commits (source "projects"). Commits
-// show work, not hours, so every estimate is flagged for the user to confirm,
-// and a ticket key the evidence never mentions is blanked rather than trusted.
+// show work, not hours, so estimates are rounded to half-hour steps, and a
+// ticket key the evidence never mentions is blanked rather than trusted.
 // The day-total floor (enforceTimeRules) runs after this, as for typed drafts.
 
 import { findTickets } from "@/lib/linkify-tickets";
@@ -17,12 +17,11 @@ export function applyProjectSourceRules(
   return entries
     .map((e) =>
       e.isRepeat
-        ? { ...e, needsConfirmation: false }
+        ? e
         : {
             ...e,
             timeSpentSecs: Math.max(STEP_SECS, Math.round(e.timeSpentSecs / STEP_SECS) * STEP_SECS),
             issueKey: evidence.has(e.issueKey) ? e.issueKey : "",
-            needsConfirmation: true,
           }
     )
     .sort((a, b) => a.started.localeCompare(b.started));

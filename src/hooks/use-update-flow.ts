@@ -111,13 +111,12 @@ export function useUpdateFlow() {
       setSlackOutput(data.slackFormat);
       setTeamsOutput(data.teamsFormat);
       setWorkLogEntries(
-        data.timeEntries.map((entry: { issueKey: string; timeSpentSecs: number; started: string; comment: string; isRepeat: boolean; needsConfirmation?: boolean }) => ({
+        data.timeEntries.map((entry: { issueKey: string; timeSpentSecs: number; started: string; comment: string; isRepeat: boolean }) => ({
           issueKey: entry.issueKey,
           timeSpentSecs: entry.timeSpentSecs,
           started: entry.started,
           comment: entry.comment,
           isRepeat: entry.isRepeat,
-          needsConfirmation: entry.needsConfirmation === true,
         }))
       );
 

@@ -33,8 +33,7 @@ assert.strictEqual(nonRepeat.reduce((s, x) => s + x.timeSpentSecs, 0), 3 * 3600,
 assert.strictEqual(out.find((x) => x.started.endsWith("11:00:00"))!.issueKey, "", "invented ABC-99 is blanked");
 assert.ok(out.some((x) => x.issueKey === "NM-12"), "key from a commit subject is kept");
 assert.ok(out.some((x) => x.issueKey === "NM-14"), "key from refs is kept");
-assert.deepStrictEqual(out.find((x) => x.isRepeat), { ...repeat, needsConfirmation: false }, "repeat entries untouched and confirmed");
-assert.ok(nonRepeat.every((x) => x.needsConfirmation === true), "every estimate needs confirmation");
+assert.deepStrictEqual(out.find((x) => x.isRepeat), repeat, "repeat entries untouched");
 assert.deepStrictEqual(out.map((x) => x.started), [...out.map((x) => x.started)].sort(), "sorted by start");
 
 // A key that only extends a real one ("NM-1" inside "NM-12") is not evidence.
@@ -44,10 +43,9 @@ const r = applyProjectSourceRules([e("OPS-1", 600, "2026-10-01T10:00:00")], tran
 assert.strictEqual(r.issueKey, "OPS-1");
 assert.strictEqual(r.timeSpentSecs, 1800);
 
-// What /api/parse does: the 8h floor still applies, keeping flags and blanked keys.
+// What /api/parse does: the 8h floor still applies, keeping blanked keys.
 const floored = enforceTimeRules(out, 8 * 3600);
 assert.strictEqual(floored.reduce((s, x) => s + x.timeSpentSecs, 0), 8 * 3600, "commit day meets the 8h minimum");
-assert.ok(floored.filter((x) => !x.isRepeat).every((x) => x.needsConfirmation === true), "flags survive the floor");
 assert.ok(floored.some((x) => x.issueKey === "" && !x.isRepeat), "blanked key survives the floor");
 // A single ticket takes the whole day.
 const one = enforceTimeRules(applyProjectSourceRules([e("NM-12", 1800, "2026-10-01T10:00:00")], transcript, []), 8 * 3600);

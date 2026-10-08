@@ -6,7 +6,7 @@ import { useUpdateStore } from "@/stores/update-store";
 import { useAppStore } from "@/stores/app-store";
 import { Button } from "@/components/ui/button";
 import { ClipboardList, Check, Plus, X, Lock, CheckCircle2 } from "lucide-react";
-import { isValidIssueKey } from "@/lib/jira-guard";
+import { isValidIssueKey, QUICK_HOURS, isQuickPick, hasHalfHour, toggleHalfHour } from "@/lib/jira-guard";
 import type { WorkLogEntryData } from "@/types";
 
 function formatTime(secs: number) {
@@ -67,6 +67,12 @@ export function JiraOutputCard() {
   const selectedDate = useAppStore((s) => s.selectedDate);
 
   const [timeDrafts, setTimeDrafts] = useState<Record<number, string>>({});
+  const [timePickerIdx, setTimePickerIdx] = useState<number | null>(null);
+
+  const pickTime = (idx: number, secs: number) => {
+    updateWorkLogEntry(idx, { timeSpentSecs: secs });
+    setTimeDrafts((prev) => ({ ...prev, [idx]: formatTime(secs) }));
+  };
 
   const isLocked = retryMode && retryJiraStatus === "SENT";
 
@@ -137,12 +143,6 @@ export function JiraOutputCard() {
           </button>
         )}
       </div>
-
-      {!isLocked && workLogEntries.some((e) => e.needsConfirmation) && (
-        <p className="mb-3 px-3 py-2 rounded-lg text-xs bg-amber-500/10 border border-amber-500/30 text-narada-amber">
-          These hours are my estimates from your commits, stretched to fill your chosen day. Confirm or edit each before Jira receives them.
-        </p>
-      )}
 
       {/* Body — work log table */}
       {workLogEntries.length === 0 ? (
@@ -233,7 +233,6 @@ export function JiraOutputCard() {
                           onChange={(e) =>
                             updateWorkLogEntry(idx, {
                               issueKey: e.target.value.toUpperCase(),
-                              needsConfirmation: false,
                             })
                           }
                           disabled={isPosted}
@@ -246,7 +245,23 @@ export function JiraOutputCard() {
                       </div>
                     </td>
                     <td className="p-1.5 border-b border-white/[0.06]">
-                      <div className="flex flex-col items-start gap-1">
+                      {/* Picker stays open while focus is anywhere in the cell, so Tab reaches the chips */}
+                      <div
+                        className="flex flex-col items-start gap-1"
+                        onFocus={() => setTimePickerIdx(idx)}
+                        onBlur={(e) => {
+                          if (e.currentTarget.contains(e.relatedTarget)) return;
+                          setTimePickerIdx(null);
+                          // A keyboard pick sets a draft after the input already blurred; drop it.
+                          if (e.target.tagName === "BUTTON") {
+                            setTimeDrafts((prev) => {
+                              const next = { ...prev };
+                              delete next[idx];
+                              return next;
+                            });
+                          }
+                        }}
+                      >
                       <input
                         type="text"
                         value={
@@ -273,7 +288,6 @@ export function JiraOutputCard() {
                             if (parsed !== null && draft !== formatTime(entry.timeSpentSecs)) {
                               updateWorkLogEntry(idx, {
                                 timeSpentSecs: parsed,
-                                needsConfirmation: false,
                               });
                             }
                           }
@@ -284,24 +298,44 @@ export function JiraOutputCard() {
                           });
                         }}
                         disabled={isPosted}
-                        className="glass-input w-24 px-2 py-1 text-xs text-narada-text-secondary bg-transparent disabled:opacity-50"
+                        className="glass-input w-28 px-2 py-1 text-xs text-narada-text-secondary bg-transparent disabled:opacity-50"
                         placeholder="1h 30m"
                       />
-                      {entry.needsConfirmation && (
-                        <div className="flex items-center gap-1">
-                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-amber-500/10 border border-amber-500/30 text-narada-amber">
-                            Estimate
-                          </span>
-                          <Button
-                            variant="success-soft"
-                            size="xs"
-                            className="h-6 px-2"
-                            onClick={() => updateWorkLogEntry(idx, { needsConfirmation: false })}
-                          >
-                            Confirm
-                          </Button>
-                        </div>
-                      )}
+                      {timePickerIdx === idx && !isPosted && (() => {
+                        const secs = entry.timeSpentSecs;
+                        const hasHalf = hasHalfHour(secs);
+                        const chip = (active: boolean) =>
+                          `h-7 px-2.5 text-xs font-medium rounded-md border transition-colors ${
+                            active
+                              ? "bg-narada-primary border-narada-primary text-white"
+                              : "bg-white/[0.04] border-white/[0.08] text-narada-text-secondary hover:bg-white/[0.08]"
+                          }`;
+                        return (
+                          <div role="group" aria-label="Quick durations" className="flex flex-wrap gap-1 max-w-[16rem]">
+                            {QUICK_HOURS.map((h) => (
+                              <button
+                                key={h}
+                                type="button"
+                                aria-pressed={isQuickPick(h, secs)}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => pickTime(idx, h * 3600)}
+                                className={chip(isQuickPick(h, secs))}
+                              >
+                                {h === 0.5 ? "30m" : `${h}h`}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              aria-pressed={hasHalf}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => pickTime(idx, toggleHalfHour(secs))}
+                              className={chip(hasHalf)}
+                            >
+                              +30m
+                            </button>
+                          </div>
+                        );
+                      })()}
                       </div>
                     </td>
                     <td className="p-1.5 border-b border-white/[0.06]">
