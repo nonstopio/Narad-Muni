@@ -1,7 +1,7 @@
-// Time-entry rules for drafts built from commits (source "projects"). Unlike
-// the manual path there is no 8h scaling: commits show work, not hours, so
-// every estimate is flagged for the user to confirm, and a ticket key the
-// evidence never mentions is blanked rather than trusted.
+// Time-entry rules for drafts built from commits (source "projects"). Commits
+// show work, not hours, so every estimate is flagged for the user to confirm,
+// and a ticket key the evidence never mentions is blanked rather than trusted.
+// The day-total floor (enforceTimeRules) runs after this, as for typed drafts.
 
 import { findTickets } from "@/lib/linkify-tickets";
 import type { ClaudeTimeEntry } from "@/types/claude";

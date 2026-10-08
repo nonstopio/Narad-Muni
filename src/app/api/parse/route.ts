@@ -60,11 +60,12 @@ export async function POST(request: NextRequest) {
     );
 
     const merged = [...repeatTimeEntries, ...result.timeEntries];
-    // Commit-sourced drafts are estimates to confirm, never scaled to the day's total.
-    const allTimeEntries =
-      source === "projects"
-        ? applyProjectSourceRules(merged, transcript, repeats || [])
-        : enforceTimeRules(merged, targetSecs);
+    // Commits show coding, not the whole day: commit-sourced estimates still meet the chosen
+    // hours, but keep their flags and evidence-checked ticket keys.
+    const allTimeEntries = enforceTimeRules(
+      source === "projects" ? applyProjectSourceRules(merged, transcript, repeats || []) : merged,
+      targetSecs
+    );
     const totalSecs = allTimeEntries.reduce((s, e) => s + e.timeSpentSecs, 0);
     console.log(`[Narada] POST /api/parse success: tasks=${result.tasks?.length ?? 0} entries=${allTimeEntries.length} totalSecs=${totalSecs} provider_ms=${providerMs}`);
 

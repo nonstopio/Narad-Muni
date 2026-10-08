@@ -1,11 +1,12 @@
 /**
  * Self-check for commit-sourced drafts. Run: npx tsx src/lib/ai/project-rules.test.ts
- * Commits are evidence of work, not of hours or tickets: nothing here may be
- * scaled up to 8h or keep a ticket the evidence never mentioned.
+ * Commits are evidence of work, not of hours or tickets: nothing here may keep
+ * a ticket the evidence never mentioned. The chosen hours still apply afterwards.
  */
 
 import assert from "node:assert";
 import { applyProjectSourceRules } from "./project-rules";
+import { enforceTimeRules } from "./time-rules";
 import type { ClaudeTimeEntry } from "@/types/claude";
 
 const transcript = [
@@ -28,7 +29,7 @@ const out = applyProjectSourceRules(
 );
 
 const nonRepeat = out.filter((x) => !x.isRepeat);
-assert.strictEqual(nonRepeat.reduce((s, x) => s + x.timeSpentSecs, 0), 3 * 3600, "3 × 1h stays 3h, not scaled to 8h");
+assert.strictEqual(nonRepeat.reduce((s, x) => s + x.timeSpentSecs, 0), 3 * 3600, "3 × 1h stays 3h before the day-total floor");
 assert.strictEqual(out.find((x) => x.started.endsWith("11:00:00"))!.issueKey, "", "invented ABC-99 is blanked");
 assert.ok(out.some((x) => x.issueKey === "NM-12"), "key from a commit subject is kept");
 assert.ok(out.some((x) => x.issueKey === "NM-14"), "key from refs is kept");
@@ -42,5 +43,14 @@ assert.strictEqual(applyProjectSourceRules([e("NM-1", 1800, "2026-10-01T10:00:00
 const r = applyProjectSourceRules([e("OPS-1", 600, "2026-10-01T10:00:00")], transcript, [{ ticketId: "OPS-1" }])[0];
 assert.strictEqual(r.issueKey, "OPS-1");
 assert.strictEqual(r.timeSpentSecs, 1800);
+
+// What /api/parse does: the 8h floor still applies, keeping flags and blanked keys.
+const floored = enforceTimeRules(out, 8 * 3600);
+assert.strictEqual(floored.reduce((s, x) => s + x.timeSpentSecs, 0), 8 * 3600, "commit day meets the 8h minimum");
+assert.ok(floored.filter((x) => !x.isRepeat).every((x) => x.needsConfirmation === true), "flags survive the floor");
+assert.ok(floored.some((x) => x.issueKey === "" && !x.isRepeat), "blanked key survives the floor");
+// A single ticket takes the whole day.
+const one = enforceTimeRules(applyProjectSourceRules([e("NM-12", 1800, "2026-10-01T10:00:00")], transcript, []), 8 * 3600);
+assert.strictEqual(one[0].timeSpentSecs, 8 * 3600, "one ticket gets all 8h");
 
 console.log("project-rules: all assertions passed");

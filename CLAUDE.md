@@ -125,7 +125,7 @@ Dark glassmorphism theme (inspired by Linear/Raycast/Arc).
 - **Platform toggles:** Users can enable/disable Slack, Teams, and Jira per update before publishing. Disabled platforms get status `SKIPPED`.
 - **Calendar interaction:** Clicking a date with an existing update opens a detail modal (read-only + delete). Clicking a date without an update opens the creation flow.
 - **Leave:** Marked from the day view, stored in `leaves/`. Never counts as a message, hours or time saved; the streak (`src/lib/streak.ts`) steps over leave days without counting or breaking. Weekends without an update still break it. Server enforces: no publish or draft write on a leave day, no leave on a day with an update (deleting the update does not retract posts).
-- **Fetch from Projects (desktop):** Settings → Sacred Repositories lists local git folders per signed-in user. The day view's Projects button collects that day's own non-merge commits (by author time in the workday timezone, read-only git), previews them, then inserts a `[Project activity]` block and sets the draft source to `projects`. For that source the AI treats the block as untrusted evidence, `/api/parse` skips the day-total scaling and blanks unevidenced ticket keys, and every estimate needs confirming before Jira can receive it.
+- **Fetch from Projects (desktop):** Settings → Sacred Repositories lists local git folders per signed-in user. The day view's Projects button collects that day's own non-merge commits (by author time in the workday timezone, read-only git), previews them, then inserts a `[Project activity]` block and sets the draft source to `projects`. For that source the AI treats the block as untrusted evidence, `/api/parse` blanks unevidenced ticket keys and still scales the day up to the chosen hours (commits show coding, not testing or deploying), and every estimate needs confirming before Jira can receive it.
 - **Jira publish guard:** `jiraPublishBlocker` (`src/lib/jira-guard.ts`) disables Dispatch and makes POST/PUT `/api/updates` return 400 when Jira is on and an entry is unconfirmed, has an invalid key, or has no duration or one off half-hour steps. It applies to every update.
 - **AI providers:** Three options (configurable in Settings): `local-claude` (spawns Claude CLI, no API key needed), `claude-api` (Anthropic SDK), `gemini` (Google AI SDK).
 
@@ -181,7 +181,7 @@ npm run electron:build    # Full production build + package
 | `src/hooks/use-update-flow.ts` | Orchestrates parse -> preview |
 | `src/lib/streak.ts` | Devotion streak over day keys, skipping leave days |
 | `src/lib/project-activity.ts` | Builds/inserts the `[Project activity]` block from fetched commits |
-| `src/lib/ai/project-rules.ts` | Time-entry rules for commit-sourced drafts (no day-total scaling, estimates flagged) |
+| `src/lib/ai/project-rules.ts` | Time-entry rules for commit-sourced drafts (estimates flagged, unevidenced keys blanked) |
 | `electron/projects.ts` | Local git projects store + read-only commit collection |
 | `src/app/api/updates/route.ts` | Core publish logic (Slack webhook, Teams Adaptive Card, Jira worklog) |
 | `electron/main.ts` | Electron main process entry point |
