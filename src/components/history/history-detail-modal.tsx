@@ -233,7 +233,7 @@ export function HistoryDetailModal({ update, onClose, onDelete, onRetry }: Props
                           <td className="p-2 border-b border-white/[0.06] text-narada-text-secondary">
                             {formatStartTime(entry.started)}
                           </td>
-                          <td className="p-2 border-b border-white/[0.06] text-narada-text-secondary">
+                          <td className="p-2 border-b border-white/[0.06] text-narada-text-secondary whitespace-pre-line">
                             {entry.comment}
                           </td>
                         </tr>

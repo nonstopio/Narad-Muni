@@ -40,5 +40,12 @@ jobs:
       - name: Settings tests
         run: npx tsx src/lib/ai-settings.test.ts
 
+      - name: Worklog tests
+        run: |
+          npx tsx src/lib/ai/time-rules.test.ts
+          npx tsx src/lib/ai/project-rules.test.ts
+          npx tsx src/lib/ai/prompt.test.ts
+          npx tsx src/lib/jira-adf.test.ts
+
       - name: Changelog tests
         run: node scripts/changelog.test.mjs
