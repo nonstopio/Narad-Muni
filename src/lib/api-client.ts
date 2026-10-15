@@ -43,6 +43,7 @@ export async function authedFetch(
     throw err;
   }
 
+  if (auth.currentUser?.uid !== user.uid) throw new Error("Account changed during request");
   const headers = new Headers(options.headers);
   headers.set("Authorization", `Bearer ${token}`);
 

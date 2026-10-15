@@ -4,7 +4,7 @@ export type KeyProvider = Exclude<AIProvider, "local-claude" | "local-cursor">;
 
 export const KEY_PROVIDERS: KeyProvider[] = ["gemini", "claude-api", "groq", "openai", "azure-openai"];
 
-export type PublishStatus = "PENDING" | "SENT" | "FAILED" | "SKIPPED";
+export type PublishStatus = "PENDING" | "SENT" | "FAILED" | "SKIPPED" | "UNCERTAIN";
 
 export type Platform = "SLACK" | "TEAMS" | "JIRA";
 
@@ -146,7 +146,7 @@ export function computeCombinedStatus(
     (s) => s !== "SKIPPED"
   );
   if (enabled.length === 0) return "all-success";
-  const failedCount = enabled.filter((s) => s === "FAILED").length;
+  const failedCount = enabled.filter((s) => s !== "SENT").length;
   if (failedCount === 0) return "all-success";
   if (failedCount === enabled.length) return "all-failed";
   return "partial";

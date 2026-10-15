@@ -8,7 +8,7 @@ function PlatformStatusBadge({
   status,
 }: {
   platform: string;
-  status: "sent" | "retry" | "skipped";
+  status: "sent" | "retry" | "skipped" | "check";
 }) {
   if (status === "sent") {
     return (
@@ -26,13 +26,14 @@ function PlatformStatusBadge({
   }
   return (
     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-white/[0.03] border border-white/[0.06] text-narada-text-muted">
-      <Minus className="w-3 h-3" /> {platform} — Skipped
+      <Minus className="w-3 h-3" /> {platform} — {status === "check" ? "Check delivery" : "Skipped"}
     </span>
   );
 }
 
-function getStatus(original: string | null, enabled: boolean): "sent" | "retry" | "skipped" {
+function getStatus(original: string | null, enabled: boolean): "sent" | "retry" | "skipped" | "check" {
   if (original === "SENT") return "sent";
+  if (original === "UNCERTAIN") return "check";
   if (enabled && (original === "FAILED" || original === "PENDING")) return "retry";
   return "skipped";
 }

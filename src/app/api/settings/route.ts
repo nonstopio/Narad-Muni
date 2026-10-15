@@ -8,7 +8,10 @@ export async function GET(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     console.log(`[Narada] GET /api/settings uid=${user.uid}`);
-    const snapshot = await configsCol(user.uid).get();
+    const collection = configsCol(user.uid);
+    const snapshot = await (request.nextUrl.searchParams.has("editor")
+      ? collection.select("platform", "baseUrl", "isActive", "repeatEntries")
+      : collection).get();
 
     const configs = snapshot.docs.map((doc: QueryDocumentSnapshot) => ({
       id: doc.id,

@@ -7,6 +7,7 @@ import { authedFetch } from "@/lib/api-client";
 import { useToastStore } from "@/components/ui/toast";
 import { trackEvent } from "@/lib/analytics";
 import type { UpdateData } from "@/types";
+import { invalidateResources } from "@/lib/resource-cache";
 
 export const LEAVE_BLOCKED_COPY =
   "Alas! This day already holds a published scroll. Erase it below first — that removes my record only; posts already in Slack, Teams or Jira stay.";
@@ -20,6 +21,7 @@ function StatusBadge({
 }) {
   const isSuccess = status === "SENT";
   const isFailed = status === "FAILED";
+  const needsCheck = status === "UNCERTAIN" || status === "PENDING";
 
   return (
     <span
@@ -31,7 +33,7 @@ function StatusBadge({
             : "bg-white/[0.03] border border-white/[0.06] text-narada-text-muted"
       }`}
     >
-      {isSuccess ? "\u2713" : isFailed ? "\u2717" : "\u2022"} {platform}
+      {isSuccess ? "\u2713" : isFailed ? "\u2717" : "\u2022"} {platform}{needsCheck ? " · Check delivery" : ""}
     </span>
   );
 }
@@ -99,10 +101,12 @@ export function HistoryDetailModal({ update, onClose, onDelete, onRetry }: Props
         method: "DELETE",
       });
       if (res.ok) {
+        invalidateResources();
         trackEvent("update_delete");
         onDelete(update.id);
       } else {
-        useToastStore.getState().addToast("Alas! The chronicle could not be erased", "error");
+        const data = await res.json().catch(() => ({}));
+        useToastStore.getState().addToast(data.error || "Alas! The chronicle could not be erased", "error");
       }
     } catch (err) {
       console.error("Delete failed:", err);
@@ -135,6 +139,11 @@ export function HistoryDetailModal({ update, onClose, onDelete, onRetry }: Props
 
         {/* Body — scrollable */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {[update.slackStatus, update.teamsStatus, update.jiraStatus].some((status) => status === "UNCERTAIN" || status === "PENDING") && (
+            <p role="status" className="text-sm text-narada-amber">
+              Alas! A world has not confirmed this scroll. Check Slack, Teams or Jira before another dispatch; I shall not risk sending it twice.
+            </p>
+          )}
           {/* Raw Transcript */}
           <div>
             <h3 className="text-xs font-semibold text-narada-text-muted uppercase tracking-wider mb-2">
@@ -278,9 +287,7 @@ export function HistoryDetailModal({ update, onClose, onDelete, onRetry }: Props
                 : "Erase"}
           </Button>
           {onRetry &&
-            (update.slackStatus === "FAILED" ||
-              update.teamsStatus === "FAILED" ||
-              update.jiraStatus === "FAILED") && (
+            [update.slackStatus, update.teamsStatus, update.jiraStatus].some((status) => status === "FAILED" || status === "PENDING") && (
               <Button
                 variant="warning-soft"
                 size="default"

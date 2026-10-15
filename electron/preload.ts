@@ -4,6 +4,12 @@ import { contextBridge, ipcRenderer } from "electron";
 // contextIsolation: true, nodeIntegration: false — secure by default.
 contextBridge.exposeInMainWorld("narada", {
   isElectron: true,
+  drafts: {
+    read: (uid: string, date: string) => ipcRenderer.sendSync("drafts:read", uid, date),
+    write: (uid: string, date: string, value: unknown) => ipcRenderer.sendSync("drafts:write", uid, date, value),
+    list: (uid: string) => ipcRenderer.sendSync("drafts:list", uid),
+    remove: (uid: string, date: string) => ipcRenderer.sendSync("drafts:remove", uid, date),
+  },
   setFirebaseUser: (uid: string | null): Promise<void> =>
     ipcRenderer.invoke("set-firebase-user", uid),
   reloadNotificationSchedule: (config: {

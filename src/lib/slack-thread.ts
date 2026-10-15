@@ -3,6 +3,7 @@
  * Uses Slack Web API (Bot Token) instead of Incoming Webhooks.
  */
 
+import { deliveryFetch, RejectedDelivery } from "./publish-delivery";
 const SLACK_API = "https://slack.com/api";
 
 interface SlackMessage {
@@ -122,13 +123,14 @@ export async function findWorkflowThread(
 
   const res = await fetch(`${SLACK_API}/conversations.history?${params}`, {
     headers: { Authorization: `Bearer ${botToken}` },
+    signal: AbortSignal.timeout(15000),
   });
 
   const data: ConversationsHistoryResponse = await res.json();
 
   if (!data.ok) {
     console.error(`[Narada -> Slack Thread] conversations.history error: ${data.error}`);
-    throw new Error(`Slack API error: ${data.error}`);
+    throw new RejectedDelivery(`Slack API error: ${data.error}`);
   }
 
   const messages = data.messages || [];
@@ -165,7 +167,7 @@ export async function postThreadReply(
     `[Narada -> Slack Thread] Posting thread reply to ${channelId}, thread_ts=${threadTs}, length=${text.length}`
   );
 
-  const res = await fetch(`${SLACK_API}/chat.postMessage`, {
+  const res = await deliveryFetch(`${SLACK_API}/chat.postMessage`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${botToken}`,
@@ -182,7 +184,10 @@ export async function postThreadReply(
 
   if (!data.ok) {
     console.error(`[Narada -> Slack Thread] chat.postMessage error: ${data.error}`);
-    throw new Error(`Slack API error: ${data.error}`);
+    if (["ratelimited", "invalid_auth", "channel_not_found", "not_in_channel", "missing_scope", "token_revoked", "account_inactive", "no_text"].includes(data.error ?? "")) {
+      throw new RejectedDelivery(`Slack API error: ${data.error}`);
+    }
+    throw new Error(`Slack API outcome needs checking: ${data.error}`);
   }
 
   console.log(`[Narada -> Slack Thread] Reply posted successfully, ts=${data.ts}`);

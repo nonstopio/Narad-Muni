@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { authedFetch, cacheRequestTimeout } from "@/lib/api-client";
 import { DEFAULT_AI_TIMEOUT_MS, resolveAiTimeout } from "@/lib/ai-timeout";
+import { invalidateResources } from "@/lib/resource-cache";
 import { trackEvent } from "@/lib/analytics";
 import type { PlatformConfigData, AIProvider, KeyProvider } from "@/types";
 
@@ -141,11 +142,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       if (result.success === false) {
         return { success: false, error: result.error ?? "Failed to save settings" };
       }
-      const res = await authedFetch("/api/settings");
-      const data = await res.json();
-      if (data.configs) {
-        set({ configs: data.configs });
-      }
+      set((state) => ({ configs: state.configs.map((item) => item.id === config.id ? result.config : item) }));
+      invalidateResources();
       trackEvent("settings_save", { platform: config.platform });
       return { success: true };
     } catch {

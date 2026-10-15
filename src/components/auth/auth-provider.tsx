@@ -17,10 +17,12 @@ import {
 } from "firebase/auth";
 import { auth, initAnalytics, initPerformance } from "@/lib/firebase";
 import { trackEvent } from "@/lib/analytics";
+import { syncPendingDrafts } from "@/lib/local-drafts";
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
+  storageError: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   getIdToken: () => Promise<string>;
@@ -33,20 +35,27 @@ const googleProvider = new GoogleAuthProvider();
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [storageError, setStorageError] = useState(false);
 
   useEffect(() => {
     // Initialize analytics & performance monitoring
     initAnalytics().catch(() => {});
     initPerformance().catch(() => {});
 
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setLoading(true);
+      setStorageError(false);
+      setUser(null);
+      // Establish the desktop storage owner before mounting any editor.
+      try { await window.narada?.setFirebaseUser(firebaseUser?.uid ?? null); }
+      catch (err) { console.error("[Narada] Desktop user setup failed:", err); setStorageError(true); setLoading(false); return; }
+      if (auth.currentUser?.uid !== firebaseUser?.uid) return;
       setUser(firebaseUser);
       setLoading(false);
 
       // Notify Electron of auth state + seed defaults for new users
       if (firebaseUser) {
         trackEvent("session_start_narada");
-        window.narada?.setFirebaseUser(firebaseUser.uid);
         // Seed default configs once per session (fire-and-forget, idempotent on server)
         const seedKey = `narada_seeded_${firebaseUser.uid}`;
         if (!sessionStorage.getItem(seedKey)) {
@@ -61,13 +70,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             })
           );
         }
-      } else {
-        window.narada?.setFirebaseUser(null);
       }
     });
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const sync = () => { syncPendingDrafts().catch((err) => console.warn("[Narada] Local draft sync:", err)); };
+    sync();
+    const interval = setInterval(sync, 30000);
+    window.addEventListener("online", sync);
+    return () => { clearInterval(interval); window.removeEventListener("online", sync); };
+  }, [user]);
 
   const signIn = useCallback(async () => {
     await signInWithPopup(auth, googleProvider);
@@ -75,7 +91,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOutFn = useCallback(async () => {
     trackEvent("sign_out");
-    window.narada?.setFirebaseUser(null);
+    setLoading(true);
+    setUser(null);
+    await window.narada?.setFirebaseUser(null);
     await firebaseSignOut(auth);
   }, []);
 
@@ -88,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, signIn, signOut: signOutFn, getIdToken }}
+      value={{ user, loading, storageError, signIn, signOut: signOutFn, getIdToken }}
     >
       {children}
     </AuthContext.Provider>

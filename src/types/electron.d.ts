@@ -6,6 +6,12 @@ declare global {
   interface Window {
     narada?: {
       isElectron: boolean;
+      drafts: {
+        read: (uid: string, date: string) => { value?: unknown; error?: string };
+        write: (uid: string, date: string, value: unknown) => { error?: string };
+        list: (uid: string) => { value?: string[]; error?: string };
+        remove: (uid: string, date: string) => { error?: string };
+      };
       setFirebaseUser: (uid: string | null) => Promise<void>;
       reloadNotificationSchedule: (config: {
         notificationsEnabled: boolean;

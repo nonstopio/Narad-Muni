@@ -1,55 +1,23 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { authedFetch } from "@/lib/api-client";
+import { useResource } from "@/lib/resource-cache";
 import { UpdatePageClient } from "@/components/update/update-page-client";
-import { PageSpinner } from "@/components/ui/page-spinner";
-import { PageError } from "@/components/ui/page-error";
+import { Button } from "@/components/ui/button";
 import type { PlatformConfigData } from "@/types";
 
+const EMPTY_CONFIGS: PlatformConfigData[] = [];
+
 export default function UpdatePage() {
-  const [configs, setConfigs] = useState<PlatformConfigData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  const loadConfigs = useCallback(() => {
-    authedFetch("/api/settings")
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((data) => {
-        setConfigs(data.configs || []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("[Narada] Failed to load configs:", err);
-        setError(true);
-        setLoading(false);
-      });
-  }, []);
-
-  useEffect(() => {
-    loadConfigs();
-  }, [loadConfigs]);
-
-  if (loading) {
-    return <PageSpinner message="Preparing the sacred scrolls..." />;
-  }
-
-  if (error) {
-    return (
-      <PageError
-        title="Alas! The sacred scrolls could not be prepared"
-        message="Your platform configurations elude me. This may be a fleeting disturbance."
-        onRetry={() => {
-          setLoading(true);
-          setError(false);
-          loadConfigs();
-        }}
-      />
-    );
-  }
-
-  return <UpdatePageClient platformConfigs={configs} />;
+  const { data, loading, error, refresh } = useResource<{ configs: PlatformConfigData[] }>("/api/settings?editor=1");
+  return (
+    <div className="flex-1 flex flex-col min-h-0">
+      {(loading || error) && (
+        <div role="status" className="flex items-center gap-3 px-8 py-2 text-xs text-narada-text-muted">
+          {loading ? "I am refreshing the portals — you may begin your words." : "Alas! I could not refresh the portals. I shall keep your words on this device."}
+          {error && <Button variant="ghost" size="sm" onClick={refresh}>Refresh portals</Button>}
+        </div>
+      )}
+      <UpdatePageClient platformConfigs={data?.configs ?? EMPTY_CONFIGS} />
+    </div>
+  );
 }

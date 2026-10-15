@@ -1,161 +1,122 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useLayoutEffect, useCallback, useRef } from "react";
 import { useUpdateStore } from "@/stores/update-store";
 import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
-import { trackEvent } from "@/lib/analytics";
-import { shouldSave } from "./draft-save-rule";
-import type { DraftSource } from "@/types";
+import { auth } from "@/lib/firebase";
+import { readLocalDraft, writeLocalDraft, syncLocalDraft, retireLocalDraft, canRevalidateDraft, type LocalDraft } from "@/lib/local-drafts";
 
-const DEBOUNCE_MS = 1500;
+function snapshot(): Omit<LocalDraft, "revision"> {
+  const s = useUpdateStore.getState();
+  return {
+    rawTranscript: s.rawTranscript, draftSource: s.draftSource, workedHours: s.workedHours,
+    slackOutput: s.slackOutput, teamsOutput: s.teamsOutput, workLogEntries: s.workLogEntries,
+    previewReady: s.previewReady, metricsHints: s.metricsHints,
+    retryUpdateId: s.retryUpdateId,
+    slackEnabled: s.slackEnabled, teamsEnabled: s.teamsEnabled, jiraEnabled: s.jiraEnabled,
+  };
+}
 
-export function useDraftAutoSave(dateStr: string | null, enabled: boolean) {
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSavedRef = useRef<string>("");
-  const lastSourceRef = useRef<DraftSource>("manual");
-  // False until this date's draft has loaded; nothing is saved before that.
-  const loadedRef = useRef(false);
-  const pendingRef = useRef<Promise<void> | null>(null);
-  const enabledRef = useRef(enabled);
-  const dateRef = useRef(dateStr);
-  const saveErrorShownRef = useRef(false);
+export function useDraftAutoSave(dateStr: string | null, enabled: boolean, cloudEnabled = enabled, retryId: string | null = null) {
+  const cloudRef = useRef(cloudEnabled);
+  useLayoutEffect(() => { cloudRef.current = cloudEnabled; }, [cloudEnabled]);
 
-  useEffect(() => {
-    enabledRef.current = enabled;
-    dateRef.current = dateStr;
-  });
-
-  // The save decision for the store's current text and source.
-  const due = useCallback(() => {
-    const { rawTranscript, draftSource } = useUpdateStore.getState();
-    return shouldSave({
-      loaded: loadedRef.current,
-      text: rawTranscript,
-      lastSaved: lastSavedRef.current,
-      source: draftSource,
-      lastSource: lastSourceRef.current,
-    });
-  }, []);
-
-  const save = useCallback((date: string, keepalive = false) => {
-    const { rawTranscript: text, draftSource: source } = useUpdateStore.getState();
-    lastSavedRef.current = text;
-    lastSourceRef.current = source;
-    trackEvent("draft_save");
-    const request = authedFetch("/api/drafts", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date, rawTranscript: text, source }),
-      keepalive,
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        saveErrorShownRef.current = false;
-      })
-      .catch((err) => {
-        console.error("[Narada] Failed to save draft:", err);
-        if (!saveErrorShownRef.current) {
-          saveErrorShownRef.current = true;
-          useToastStore.getState().addToast("Alas! Your draft could not be saved", "error");
-        }
-      });
-    pendingRef.current = request;
-    return request;
-  }, []);
-
-  // Load the draft for this date
-  useEffect(() => {
-    loadedRef.current = false;
-    lastSavedRef.current = "";
-    lastSourceRef.current = "manual";
+  useLayoutEffect(() => {
     if (!enabled || !dateStr) return;
-
+    const date = dateStr;
+    const uid = auth.currentUser?.uid;
     let cancelled = false;
-
-    authedFetch(`/api/drafts?date=${dateStr}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled) return;
-        const saved: string = data.draft?.rawTranscript ?? "";
-        const savedSource: DraftSource = data.draft?.source === "projects" ? "projects" : "manual";
-        lastSavedRef.current = saved;
-        lastSourceRef.current = savedSource;
-        loadedRef.current = true;
-        // Only restore if the textarea is still empty (resetForNewUpdate already ran)
-        if (saved && !useUpdateStore.getState().rawTranscript.trim()) {
-          useUpdateStore.setState({ rawTranscript: saved, draftSource: savedSource });
-        }
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        loadedRef.current = true;
-        console.error("[Narada] Failed to load draft:", err);
-        useToastStore.getState().addToast("Alas! Could not retrieve your saved draft", "error");
-      });
-
-    return () => {
-      cancelled = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let storageError = false;
+    let local: LocalDraft | null = null;
+    try {
+      local = readLocalDraft(date);
+      if (local && !local.deleted && (local.retryUpdateId ?? null) === retryId) {
+        const editor = {
+          rawTranscript: local.rawTranscript, draftSource: local.draftSource, workedHours: local.workedHours,
+          slackOutput: local.slackOutput, teamsOutput: local.teamsOutput, workLogEntries: local.workLogEntries,
+          previewReady: local.previewReady, metricsHints: local.metricsHints,
+          ...(typeof local.slackEnabled === "boolean" ? { slackEnabled: local.slackEnabled } : {}),
+          ...(typeof local.teamsEnabled === "boolean" ? { teamsEnabled: local.teamsEnabled } : {}),
+          ...(typeof local.jiraEnabled === "boolean" ? { jiraEnabled: local.jiraEnabled } : {}),
+        };
+        useUpdateStore.setState(editor);
+        if (retryId) useUpdateStore.setState({ retryUpdateId: retryId });
+      }
+    } catch (err) {
+      console.error("[Narada] Local draft restore failed:", err);
+      useToastStore.getState().addToast("Alas! I could not open your local scroll. I shall keep it untouched.", "error");
+      return;
+    }
+    let previous = JSON.stringify(snapshot());
+    const content = () => {
+      const editable = snapshot();
+      return JSON.stringify({ ...editable, slackEnabled: undefined, teamsEnabled: undefined, jiraEnabled: undefined });
     };
+    let previousContent = content();
+    let cloudLoaded = !!local && local.cloudReady !== false;
+    let canRestoreCloud = canRevalidateDraft(local) || local?.cloudReady === false;
+    const unsub = useUpdateStore.subscribe(() => {
+      if (auth.currentUser?.uid !== uid) return;
+      const editor = snapshot();
+      const serialized = JSON.stringify(editor);
+      if (serialized === previous) return;
+      const nextContent = content();
+      const contentChanged = nextContent !== previousContent;
+      if (contentChanged) canRestoreCloud = false;
+      previousContent = nextContent;
+      try {
+        const current = readLocalDraft(date);
+        const revision = crypto.randomUUID();
+        const keepClean = !contentChanged && !!current && canRevalidateDraft(current);
+        writeLocalDraft(date, { ...editor, cloudReady: cloudLoaded || !canRestoreCloud, revision, ...(keepClean ? { syncedRevision: revision } : {}) });
+        previous = serialized;
+        storageError = false;
+      } catch (err) {
+        console.error("[Narada] Local draft save failed:", err);
+        if (!storageError) useToastStore.getState().addToast("Alas! I could not preserve this scroll on your device. Keep the window open until storage returns.", "error");
+        storageError = true;
+      }
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (cloudRef.current) syncLocalDraft(date).catch(() => {});
+      }, 1500);
+    });
+
+    // Local content wins over a late cloud response, including a restored preview.
+    let cloudRequest = 0;
+    const restoreCloud = () => {
+      if (!canRestoreCloud || retryId) return;
+      const request = ++cloudRequest;
+      authedFetch(`/api/drafts?date=${date}`, { signal: AbortSignal.timeout(15000) })
+        .then((res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
+        .then((data) => {
+          if (cancelled || request !== cloudRequest || auth.currentUser?.uid !== uid || !canRestoreCloud) return;
+          cloudLoaded = true;
+          canRestoreCloud = false;
+          const rawTranscript = data.draft?.rawTranscript || "";
+          const changed = rawTranscript !== useUpdateStore.getState().rawTranscript;
+          useUpdateStore.setState({ rawTranscript, draftSource: data.draft?.source === "projects" ? "projects" : "manual", ...(changed ? { previewReady: false, slackOutput: "", teamsOutput: "", workLogEntries: [] } : {}) });
+          const restored = readLocalDraft(date);
+          if (restored) writeLocalDraft(date, { ...restored, cloudReady: true, syncedRevision: restored.revision });
+        })
+        .catch((err) => console.warn("[Narada] Cloud draft unavailable; local editing continues:", err));
+    };
+    restoreCloud();
+    const onOnline = () => { canRestoreCloud = canRevalidateDraft(readLocalDraft(date)) || !cloudLoaded && canRestoreCloud; restoreCloud(); };
+    window.addEventListener("online", onOnline);
+    const onFocus = () => { canRestoreCloud = canRevalidateDraft(readLocalDraft(date)); restoreCloud(); };
+    window.addEventListener("focus", onFocus);
+    return () => { cancelled = true; clearTimeout(timer); unsub(); window.removeEventListener("online", onOnline); window.removeEventListener("focus", onFocus); };
+  }, [dateStr, enabled, retryId]);
+
+  const flush = useCallback(async () => {
+    if (dateStr && enabled) await syncLocalDraft(dateStr);
   }, [dateStr, enabled]);
 
-  // Subscribe to rawTranscript changes and debounce-save
-  useEffect(() => {
-    if (!enabled || !dateStr) return;
-
-    let prev = useUpdateStore.getState();
-
-    const unsub = useUpdateStore.subscribe((state) => {
-      if (state.rawTranscript === prev.rawTranscript && state.draftSource === prev.draftSource) return;
-      prev = state;
-
-      if (!enabledRef.current || !dateRef.current) return;
-      if (!due()) return;
-
-      if (timerRef.current) clearTimeout(timerRef.current);
-
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null;
-        if (!enabledRef.current || !dateRef.current) return;
-        if (due()) save(dateRef.current);
-      }, DEBOUNCE_MS);
-    });
-
-    return () => {
-      unsub();
-      // Flush pending save on unmount or date change (dateRef still holds the old date here)
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-
-        if (dateRef.current && due()) save(dateRef.current, true);
-      }
-    };
-  }, [dateStr, enabled, save, due]);
-
-  /** Send any debounced change now and wait until the last save has landed. */
-  const flush = useCallback(async () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-      if (dateRef.current && due()) save(dateRef.current);
-    }
-    await pendingRef.current;
-  }, [save, due]);
-
-  const deleteDraft = useCallback(async () => {
-    if (!dateStr) return;
-    lastSavedRef.current = "";
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    try {
-      await authedFetch(`/api/drafts?date=${dateStr}`, { method: "DELETE" });
-    } catch (err) {
-      console.error("[Narada] Failed to delete draft:", err);
-    }
+  const deleteDraft = useCallback(async (revision: string | undefined, uid: string | undefined) => {
+    return dateStr ? retireLocalDraft(dateStr, revision, uid) : false;
   }, [dateStr]);
-
   return { deleteDraft, flush };
 }

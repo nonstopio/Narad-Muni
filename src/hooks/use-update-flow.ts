@@ -8,6 +8,7 @@ import { authedFetch } from "@/lib/api-client";
 import { trackEvent, classifyError } from "@/lib/analytics";
 import { traceAsync, startTrace, stopTrace } from "@/lib/performance";
 import type { PublishStatus } from "@/types";
+import { invalidateResources } from "@/lib/resource-cache";
 
 export interface ShareResult {
   success: boolean;
@@ -120,8 +121,6 @@ export function useUpdateFlow() {
         }))
       );
 
-      // Brief delay so user sees formatting complete
-      await new Promise((r) => setTimeout(r, 400));
       setProcessingStage(null);
       setIsProcessing(false);
       setPreviewReady(true);
@@ -192,6 +191,7 @@ export function useUpdateFlow() {
       }
 
       const timings = data._timings ?? {};
+      invalidateResources();
       trackEvent("publish_complete", {
         slack: data.update.slackStatus,
         teams: data.update.teamsStatus,
@@ -243,9 +243,9 @@ export function useUpdateFlow() {
     if (!retryUpdateId) return { success: false };
 
     // Retry a platform if it's enabled AND was NOT already sent
-    const retrySlack = slackEnabled && retrySlackStatus !== "SENT";
-    const retryTeams = teamsEnabled && retryTeamsStatus !== "SENT";
-    const retryJira = jiraEnabled && retryJiraStatus !== "SENT";
+    const retrySlack = slackEnabled && (retrySlackStatus === "FAILED" || retrySlackStatus === "PENDING");
+    const retryTeams = teamsEnabled && (retryTeamsStatus === "FAILED" || retryTeamsStatus === "PENDING");
+    const retryJira = jiraEnabled && (retryJiraStatus === "FAILED" || retryJiraStatus === "PENDING");
 
     // Nothing to retry — all platforms either succeeded or are disabled
     if (!retrySlack && !retryTeams && !retryJira) {
@@ -276,6 +276,8 @@ export function useUpdateFlow() {
       if (!data.success) {
         throw new Error(data.error);
       }
+
+      invalidateResources();
 
       setStep("editing");
       setIsProcessing(false);

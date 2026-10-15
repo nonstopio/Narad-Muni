@@ -7,7 +7,7 @@ export function SlackOutputCard() {
   const { slackOutput, setSlackOutput, slackEnabled, togglePlatform, retryMode, retrySlackStatus, jiraBaseUrl } =
     useUpdateStore();
 
-  const isLocked = retryMode && retrySlackStatus === "SENT";
+  const isLocked = retryMode && retrySlackStatus !== "FAILED";
 
   return (
     <div
@@ -28,7 +28,7 @@ export function SlackOutputCard() {
         {isLocked ? (
           <span className="px-3 py-1 rounded-3xl text-[11px] font-medium flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-narada-emerald">
             <Lock className="w-3 h-3" />
-            <span>Sent</span>
+            <span>{retrySlackStatus === "SENT" ? "Sent" : "Check delivery"}</span>
           </span>
         ) : (
           <button

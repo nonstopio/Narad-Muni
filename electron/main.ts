@@ -7,6 +7,7 @@ import { initAutoUpdater, checkForUpdatesManual } from "./updater";
 import { routeHttpsVia } from "./net-fetch";
 import { setupScheduler, reloadSchedule, fireTestNotification, NotificationSettings } from "./scheduler";
 import { createProjectStore } from "./projects";
+import { createDraftStore } from "./drafts";
 
 process.on("uncaughtException", (err) => console.error("[Narada] Uncaught exception:", err));
 process.on("unhandledRejection", (reason) => console.error("[Narada] Unhandled rejection:", reason));
@@ -409,6 +410,18 @@ async function startApp(): Promise<void> {
       if (!trusted(e)) throw new Error(`Untrusted IPC sender for ${channel}`);
       return fn(e, ...args);
     });
+
+  const drafts = createDraftStore(path.join(app.getPath("userData"), "drafts"), () => readConfig().firebaseUserId);
+  for (const operation of ["read", "write", "list", "remove"] as const) {
+    ipcMain.on(`drafts:${operation}`, (event, uid: string, date: string, value: unknown) => {
+      try {
+        if (!trusted(event)) throw new Error("untrusted-sender");
+        event.returnValue = { value: operation === "write" ? drafts.write(date, value, uid) : operation === "read" ? drafts.read(date, uid) : operation === "remove" ? drafts.remove(date, uid) : drafts.list(uid) };
+      } catch (err) {
+        event.returnValue = { error: err instanceof Error ? err.message : "draft-storage-failed" };
+      }
+    });
+  }
 
   // IPC: renderer passes config directly
   handle("reload-notification-schedule", (_event, config: NotificationSettings) => {
