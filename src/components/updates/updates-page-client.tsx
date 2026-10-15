@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatsBar } from "./stats-bar";
 import { Calendar } from "./calendar";
@@ -8,7 +8,7 @@ import { HistoryDetailModal } from "@/components/history/history-detail-modal";
 import { useAppStore } from "@/stores/app-store";
 import { useCalendar } from "@/hooks/use-calendar";
 import { useToastStore } from "@/components/ui/toast";
-import { authedFetch } from "@/lib/api-client";
+import { cachedResource, fetchResource, invalidateResources } from "@/lib/resource-cache";
 import { computeCombinedStatus } from "@/types";
 import { monthStats } from "@/lib/month-stats";
 import type { CombinedStatus, StatData, UpdateData } from "@/types";
@@ -32,42 +32,35 @@ export function UpdatesPageClient({
 }: Props) {
   const { currentMonth, monthTitle, calendarDays, prevMonth, nextMonth, goToToday } = useCalendar();
   const monthKey = formatMonth(currentMonth);
-  // Loading is derived: the shown month is loading until its data has landed.
-  const [loaded, setLoaded] = useState({ month: monthKey, updates: initialMonthUpdates, leaves: initialMonthLeaves, holidays: initialMonthHolidays });
-  const monthLoading = loaded.month !== monthKey;
-  const monthUpdates = useMemo(() => (monthLoading ? [] : loaded.updates), [monthLoading, loaded]);
-  const leaveSet = useMemo(() => new Set<string>(monthLoading ? [] : loaded.leaves), [monthLoading, loaded]);
-  const holidaySet = useMemo(() => new Set<string>(monthLoading ? [] : loaded.holidays), [monthLoading, loaded]);
-  const hasNavigated = useRef(false);
+  const [initialMonthKey] = useState(monthKey);
+  const [loaded, setLoaded] = useState<{ month: string; updates: UpdateData[]; leaves: string[]; holidays: string[] } | null>(null);
+  const initial = monthKey === initialMonthKey ? { updates: initialMonthUpdates, leaves: initialMonthLeaves, holidays: initialMonthHolidays } : null;
+  const cachedUpdates = cachedResource<{ updates: UpdateData[] }>(`/api/updates?month=${monthKey}`);
+  const cachedLeaves = cachedResource<{ leaves: string[]; holidays: string[] }>(`/api/leaves?month=${monthKey}`);
+  const cached = cachedUpdates && cachedLeaves ? { updates: cachedUpdates.updates, leaves: cachedLeaves.leaves, holidays: cachedLeaves.holidays } : null;
+  const shown = initial ?? (loaded?.month === monthKey ? loaded : cached);
+  const monthLoading = shown === null;
+  const monthUpdates = useMemo(() => shown?.updates ?? [], [shown?.updates]);
+  const leaveSet = useMemo(() => new Set(shown?.leaves ?? []), [shown?.leaves]);
+  const holidaySet = useMemo(() => new Set(shown?.holidays ?? []), [shown?.holidays]);
 
   useEffect(() => {
-    if (!hasNavigated.current) {
-      hasNavigated.current = true;
-      return; // skip fetch on mount — we already have initial data
-    }
-
-    const controller = new AbortController();
-    const getJson = (url: string) =>
-      authedFetch(url, { signal: controller.signal }).then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      });
-    Promise.all([getJson(`/api/updates?month=${monthKey}`), getJson(`/api/leaves?month=${monthKey}`)])
-      .then(([updateData, leaveData]) => {
-        if (!controller.signal.aborted) {
-          setLoaded({ month: monthKey, updates: updateData.updates || [], leaves: leaveData.leaves || [], holidays: leaveData.holidays || [] });
-        }
-      })
-      .catch((err) => {
-        if (!controller.signal.aborted) {
-          console.error("[Narada] Failed to fetch month updates:", err);
-          useToastStore.getState().addToast("Alas! Could not retrieve this month's chronicles", "error");
-          setLoaded({ month: monthKey, updates: [], leaves: [], holidays: [] });
-        }
-      });
-
-    return () => controller.abort();
-  }, [monthKey]);
+    if (monthKey === initialMonthKey) return;
+    let cancelled = false;
+    Promise.all([
+      fetchResource<{ updates: UpdateData[] }>(`/api/updates?month=${monthKey}`),
+      fetchResource<{ leaves: string[]; holidays: string[] }>(`/api/leaves?month=${monthKey}`),
+    ]).then(([updates, leaves]) => {
+      if (!cancelled) setLoaded({ month: monthKey, updates: updates.updates || [], leaves: leaves.leaves || [], holidays: leaves.holidays || [] });
+    }).catch((err) => {
+      if (!cancelled) {
+        console.error("[Narada] Month refresh failed:", err);
+        useToastStore.getState().addToast("Alas! I could not refresh this month's chronicles.", "error");
+        if (!cachedResource(`/api/updates?month=${monthKey}`)) setLoaded({ month: monthKey, updates: [], leaves: [], holidays: [] });
+      }
+    });
+    return () => { cancelled = true; };
+  }, [monthKey, initialMonthKey]);
 
   const updateStatusMap = useMemo(() => {
     const map = new Map<string, CombinedStatus>();
@@ -125,9 +118,9 @@ export function UpdatesPageClient({
   };
 
   function handleDelete(id: string) {
-    setLoaded((prev) => ({ ...prev, updates: prev.updates.filter((u) => u.id !== id) }));
+    setLoaded((prev) => prev ? { ...prev, updates: prev.updates.filter((u) => u.id !== id) } : prev);
     setSelectedUpdate(null);
-    router.refresh();
+    invalidateResources();
   }
 
   function handleRetry(update: UpdateData) {

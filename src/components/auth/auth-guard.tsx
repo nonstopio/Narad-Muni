@@ -2,10 +2,15 @@
 
 import { useAuth } from "./auth-provider";
 import { LoginScreen } from "./login-screen";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 export function AuthGuard({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, storageError } = useAuth();
+
+  if (storageError) return <div role="alert" className="p-8 text-center">
+    <p>Your local drafts could not be opened safely. Reconnect your account before editing.</p>
+    <button onClick={() => window.location.reload()}>Try again</button>
+  </div>;
 
   if (loading) {
     return (
@@ -24,5 +29,5 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     return <LoginScreen />;
   }
 
-  return <>{children}</>;
+  return <Fragment key={user.uid}>{children}</Fragment>;
 }

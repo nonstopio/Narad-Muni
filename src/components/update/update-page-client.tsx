@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useMemo, useCallback, useState } from "react";
+import { restoreRetryEntries } from "@/lib/retry-draft";
+import { auth } from "@/lib/firebase";
+
+import { useEffect, useLayoutEffect, useRef, useMemo, useCallback, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAppStore } from "@/stores/app-store";
 import { useUpdateStore } from "@/stores/update-store";
@@ -18,6 +21,8 @@ import type { PlatformConfigData, PublishStatus } from "@/types";
 import { authedFetch } from "@/lib/api-client";
 import { trackEvent } from "@/lib/analytics";
 import type { ShareResult } from "@/hooks/use-update-flow";
+import { invalidateResources } from "@/lib/resource-cache";
+import { readLocalDraft } from "@/lib/local-drafts";
 
 interface UpdatePageClientProps {
   platformConfigs: PlatformConfigData[];
@@ -32,8 +37,30 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
   const { processWithAI, shareAll, retryShare } = useUpdateFlow();
   const [retryLoading, setRetryLoading] = useState(false);
 
-  const dateParam = searchParams.get("date");
+  const [defaultDate] = useState(() => new Date().toLocaleDateString("sv-SE"));
+  const dateParam = searchParams.get("date") ?? defaultDate;
   const retryParam = searchParams.get("retry");
+  const initializedConfigs = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    resetForNewUpdate();
+    initializedConfigs.current = null;
+  }, [dateParam, retryParam, resetForNewUpdate]);
+  useEffect(() => {
+    if (!retryParam && platformConfigs.length && initializedConfigs.current !== dateParam) {
+      let saved = null;
+      try { saved = readLocalDraft(dateParam); } catch { /* The draft hook reports unreadable storage. */ }
+      initPlatformToggles(platformConfigs);
+      if (saved && !saved.deleted && !saved.retryUpdateId) {
+        useUpdateStore.setState({
+          ...(typeof saved.slackEnabled === "boolean" ? { slackEnabled: saved.slackEnabled } : {}),
+          ...(typeof saved.teamsEnabled === "boolean" ? { teamsEnabled: saved.teamsEnabled } : {}),
+          ...(typeof saved.jiraEnabled === "boolean" ? { jiraEnabled: saved.jiraEnabled } : {}),
+        });
+      }
+      initializedConfigs.current = dateParam;
+    }
+    setJiraBaseUrl(platformConfigs.find((config) => config.platform === "JIRA")?.baseUrl?.trim() || null);
+  }, [platformConfigs, dateParam, retryParam, initPlatformToggles, setJiraBaseUrl]);
 
   // Leave state for this date; null while unknown. Keyed by date so a stale
   // answer for the previous date is never shown for this one. A holiday is a leave of kind "holiday".
@@ -62,8 +89,8 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
     };
   }, [dateParam, retryParam]);
 
-  // Auto-save draft text per date (off in retry mode, on leave, and until leave is known)
-  const { deleteDraft, flush } = useDraftAutoSave(dateParam, !retryParam && !!dateParam && onLeave === false);
+  // Protect local edits immediately; cloud drafting waits for the leave check and excludes retries.
+  const { deleteDraft, flush } = useDraftAutoSave(dateParam, !!dateParam && onLeave !== true, !retryParam && onLeave === false, retryParam);
 
   const markLeave = useCallback(async (kind: "leave" | "holiday") => {
     if (!dateParam) return;
@@ -84,6 +111,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
       }
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setLeave({ date, onLeave: true, holiday: kind === "holiday" });
+      invalidateResources();
       useToastStore.getState().addToast(
         kind === "holiday" ? "Narayan Narayan! A holiday — even the gods feast today." : "Narayan Narayan! This day is marked for rest.",
         "success",
@@ -104,6 +132,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
       const res = await authedFetch(`/api/leaves?date=${date}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setLeave({ date, onLeave: false });
+      invalidateResources();
       useToastStore.getState().addToast("Narayan Narayan! The day is yours again — your draft awaits.", "success");
     } catch (err) {
       console.error("[Narada] Failed to undo leave:", err);
@@ -141,7 +170,6 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
 
     if (retryParam) {
       // Retry mode — clear stale normal-mode state first, then fetch existing update
-      resetForNewUpdate();
       setRetryLoading(true);
       authedFetch(`/api/updates?id=${retryParam}`)
         .then((res) => res.json())
@@ -154,6 +182,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
           }
           const u = data.update;
           const s = useUpdateStore.getState();
+          const local = dateParam ? readLocalDraft(dateParam) : null;
 
           // Populate store with existing data
           s.setRawTranscript(u.rawTranscript || "");
@@ -182,9 +211,9 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
 
           // Set platform toggles based on original statuses:
           // SENT → enabled (locked), FAILED → enabled (editable), SKIPPED → disabled
-          const slackOn = u.slackStatus === "SENT" || u.slackStatus === "FAILED";
-          const teamsOn = u.teamsStatus === "SENT" || u.teamsStatus === "FAILED";
-          const jiraOn = u.jiraStatus === "SENT" || u.jiraStatus === "FAILED";
+          const slackOn = u.slackStatus !== "SKIPPED";
+          const teamsOn = u.teamsStatus !== "SKIPPED";
+          const jiraOn = u.jiraStatus !== "SKIPPED";
 
           // Directly set toggles (don't use initPlatformToggles which reads DB config)
           useUpdateStore.setState({
@@ -193,6 +222,15 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
             jiraEnabled: jiraOn,
             previewReady: true,
           });
+
+          if (local?.retryUpdateId === retryParam && !local.deleted) {
+            s.setRawTranscript(local.rawTranscript);
+            if (u.slackStatus === "FAILED") s.setSlackOutput(local.slackOutput);
+            if (u.teamsStatus === "FAILED") s.setTeamsOutput(local.teamsOutput);
+            if (u.jiraStatus === "FAILED") {
+              s.setWorkLogEntries(restoreRetryEntries(useUpdateStore.getState().workLogEntries, local.workLogEntries));
+            }
+          }
 
           setRetryLoading(false);
         })
@@ -203,15 +241,7 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
           setRetryLoading(false);
           router.push("/");
         });
-    } else {
-      // Normal mode — set toggles from DB and clear stale state
-      initPlatformToggles(platformConfigs);
-      resetForNewUpdate();
     }
-
-    // Set Jira baseUrl for linkification info note (both normal and retry modes)
-    const jiraConfig = platformConfigs.find((c) => c.platform === "JIRA");
-    setJiraBaseUrl(jiraConfig?.baseUrl?.trim() || null);
 
     // Cleanup retry state on unmount
     return () => {
@@ -255,6 +285,10 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
     if (!result.success || !result.statuses) return;
 
     const { slackStatus, teamsStatus, jiraStatus } = result.statuses;
+    if ([slackStatus, teamsStatus, jiraStatus].some((status) => status === "UNCERTAIN" || status === "PENDING")) {
+      useToastStore.getState().addToast("Alas! A world has not confirmed delivery. Check its posts before sending again; I have kept your saved scroll.", "warning");
+      return;
+    }
     const combined = computeCombinedStatus(slackStatus, teamsStatus, jiraStatus);
 
     if (combined === "all-success") {
@@ -284,21 +318,29 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
   }, []);
 
   const handleShareAll = useCallback(async () => {
+    const revision = dateParam ? readLocalDraft(dateParam)?.revision : undefined;
+    const owner = auth.currentUser?.uid;
     const result = await shareAll();
     if (result.success) {
-      await deleteDraft();
+      if (!await deleteDraft(revision, owner)) {
+        useToastStore.getState().addToast("Published. Your newer edits remain saved on this device.", "success");
+        return;
+      }
       showShareToast(result);
       router.push("/");
     }
-  }, [shareAll, deleteDraft, router, showShareToast]);
+  }, [shareAll, deleteDraft, router, showShareToast, dateParam]);
 
   const handleRetryShare = useCallback(async () => {
+    const revision = dateParam ? readLocalDraft(dateParam)?.revision : undefined;
+    const owner = auth.currentUser?.uid;
     const result = await retryShare();
     if (result.success) {
+      if (result.statuses && Object.values(result.statuses).every((status) => status === "SENT" || status === "SKIPPED") && !await deleteDraft(revision, owner)) return;
       showShareToast(result);
       router.push("/");
     }
-  }, [retryShare, router, showShareToast]);
+  }, [retryShare, deleteDraft, router, showShareToast, dateParam]);
 
   const isRetryMode = store.retryMode;
   const dispatchHandler = isRetryMode ? handleRetryShare : handleShareAll;

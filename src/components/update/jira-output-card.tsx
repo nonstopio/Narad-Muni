@@ -74,7 +74,7 @@ export function JiraOutputCard() {
     setTimeDrafts((prev) => ({ ...prev, [idx]: formatTime(secs) }));
   };
 
-  const isLocked = retryMode && retryJiraStatus === "SENT";
+  const isLocked = retryMode && retryJiraStatus !== "FAILED";
 
   const totalHours =
     workLogEntries.reduce((sum, e) => sum + e.timeSpentSecs, 0) / 3600;
@@ -127,7 +127,7 @@ export function JiraOutputCard() {
         {isLocked ? (
           <span className="px-3 py-1 rounded-3xl text-[11px] font-medium flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-narada-emerald">
             <Lock className="w-3 h-3" />
-            <span>Sent</span>
+            <span>{retryJiraStatus === "SENT" ? "Sent" : "Check delivery"}</span>
           </span>
         ) : (
           <button

@@ -32,7 +32,7 @@ function StatusBadge({
             : "bg-white/[0.03] border border-white/[0.06] text-narada-text-muted"
       }`}
     >
-      {isSuccess ? "\u2713" : isFailed ? "\u2717" : "\u2022"} {platform}
+      {isSuccess ? "\u2713" : isFailed ? "\u2717" : "\u2022"} {platform}{status === "UNCERTAIN" || status === "PENDING" ? " · Check delivery" : ""}
     </span>
   );
 }

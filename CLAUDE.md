@@ -1,6 +1,16 @@
-# CLAUDE.md
+# Repository agent instructions
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+These instructions apply equally to Claude Code, Codex, and every other agent working in this repository.
+
+## Shared rules and required verification
+
+- `CLAUDE.md` and `AGENTS.md` in each directory must contain identical instructions. Any agent changing either file must update its partner in the same change. Create both files when adding nested guidance; never add agent-specific exceptions.
+- Whenever code, configuration, architecture, or workflow changes, review and update the applicable paired instruction files together so they describe the resulting behavior. Keep relevant guidance current, rather than adding a chronological log of every edit.
+- Run `node scripts/check-agent-rules.mjs` before finishing. CI checks pair parity, including nested directories.
+- Read the relevant code and existing tests before editing. Preserve authentication, per-user isolation, leave guards, and Jira validation.
+- Verify changed user flows with the installed Playwright MCP or Chrome DevTools MCP, in addition to focused tests and type checks. Use isolated fixture accounts and mocked external APIs for publishing tests; never send test posts to real channels or worklogs.
+- Required checks: `npm run lint`, `npx tsc --noEmit`, `npm run electron:compile`, focused tests, and `npm run build`. Report any environment limitation honestly; do not claim a mocked browser check proves live VPN or third-party delivery.
+- Do not discard unrelated local edits, publish a release, or push to `main` without authorization.
 
 ## Project Overview
 
@@ -12,11 +22,11 @@ The application is **fully implemented** and functional. Supports ~100 users wit
 
 - **Framework:** Next.js 16 with TypeScript (App Router, React 19)
 - **UI:** Tailwind CSS 4 + shadcn/ui + Framer Motion
-- **State:** Zustand 5
+- **State:** Zustand 5; immediate per-user local draft snapshots and cached page reads
 - **Database:** Firebase Firestore (cloud, per-user data)
 - **Auth:** Firebase Authentication (Google Sign-In)
 - **Analytics:** Firebase Analytics
-- **AI Processing:** Supports 3 providers — Local Claude CLI (default), Claude API (Anthropic SDK), Gemini (Google AI SDK)
+- **AI Processing:** Local Claude CLI (default), Local Cursor CLI, Claude API, Gemini, Groq, OpenAI, Azure OpenAI
 - **Icons:** Lucide React
 
 ## Common Commands
@@ -26,7 +36,17 @@ npm run dev        # Start dev server
 npm run build      # Production build
 npm run lint       # ESLint
 npx tsc --noEmit   # Type-check without emitting
+npm run electron:compile
+node scripts/check-agent-rules.mjs
+node --import tsx electron/drafts.test.ts
+node --import tsx src/lib/local-drafts.test.ts
+node --import tsx src/lib/publish-delivery.test.ts
+node --import tsx src/app/api/updates/route.test.ts
 ```
+
+On hosts where the `tsx` CLI cannot create its local IPC pipe, use `node --import tsx <test-file>` instead. The production font download may need `NEXT_TURBOPACK_EXPERIMENTAL_USE_SYSTEM_TLS_CERTS=1` behind an OS-trusted corporate proxy; never disable TLS verification.
+
+The installed Playwright MCP can run `scripts/verify-performance-ui.js` through `browser_run_code_unsafe` with its absolute `filename`; it uses an isolated Firebase fixture identity and intercepted APIs. `scripts/verify-review-regressions.js` checks publish/refresh races, same-day conflicts, Jira retry receipts/new rows, and failed desktop ownership handoff after the performance fixture is initialized. `scripts/verify-desktop-drafts.cjs` uses the real compiled Electron main/preload to verify actual Quit/restart with mocked APIs. Run stage 1 and then stage 2 with the same temporary `NARADA_TEST_USER_DATA=/private/tmp/narada-desktop-<unique-name>` and `NARADA_TEST_STAGE=1` or `2`; it requires the local dev server on port 3947. Never point that harness at the user's real desktop profile.
 
 ## Architecture
 
@@ -48,7 +68,7 @@ Client (Next.js React) -> Firebase Auth (Google Sign-In)
 
 All user data is scoped under `users/{userId}/`:
 
-- **`updates/{updateId}`** — one per calendar day; stores raw transcript, formatted outputs per platform, publish statuses, and embedded `workLogEntries[]` array
+- **`updates/{updateId}`** — one per calendar day (new IDs are `YYYY-MM-DD`; legacy random IDs remain readable); stores raw transcript, formatted outputs per platform, publish statuses, and embedded `workLogEntries[]` array
 - **`configs/{platform}`** — SLACK, TEAMS, or JIRA config with embedded `repeatEntries[]` array
 - **`settings/app`** — AI provider selection + API keys + notification settings (singleton doc)
 - **`drafts/{YYYY-MM-DD}`** — Draft text keyed by date string, plus `source` (`"manual"` | `"projects"`; missing = manual). Updates store the same `source`
@@ -122,18 +142,21 @@ Dark glassmorphism theme (inspired by Linear/Raycast/Arc).
 ## Key Domain Concepts
 
 - **Repeat/Fixed Entries:** Jira work log entries auto-injected into every day's work log (configured in Settings under Jira). The AI merges these with transcript-derived entries and `/api/parse` treats the hours the user picked as a floor: a shorter day is scaled up to meet it, a longer one keeps its true total. The floor is picked under Invoke the Sage (`targetHours`, default 8h, 0.5–24h in half-hour steps; see `src/lib/ai/time-rules.ts`).
+- **Draft durability:** `electron/drafts.ts` writes private per-user, per-day atomic snapshots under `<userData>/drafts/<hashed uid>/`. The renderer synchronously acknowledges small local writes before returning from an edit, preserving text, chosen hours, platform choices, and edited previews across Quit/restart and localhost port changes. Browser mode falls back to user-scoped localStorage. Cloud sync serializes per day, retries on reconnect and every 30 seconds, and acknowledges only the uploaded revision. Deleted-draft tombstones prevent resurrection and are retired only after cloud deletion is acknowledged; retry previews stay local. Metadata initialization must not overwrite an unseen cloud draft. Clean snapshots revalidate on mount, focus, and reconnect; dirty snapshots and edits made during refresh win. Refreshing identical text preserves edited previews; changed cloud text invalidates stale previews. Publish completion retires only its captured local revision and account, preserving newer edits in the editor. Every native draft operation must assert the expected Firebase UID against the main process owner; failed ownership handoff blocks editing with a retry screen. Do not replace local edits with a late cloud response or silently overwrite unreadable local storage.
+- **Fast page reads:** Home uses `/api/updates?dashboard=1&month=YYYY-MM&today=YYYY-MM-DD` (monthly details, projected date keys for streak, leave keys). Editor uses `/api/settings?editor=1`, excluding credentials. `resource-cache.ts` caches only credential-free responses per user, coalesces reads, shows cached data during refresh, refreshes on focus/reconnect, and invalidates on mutations. The editor mounts immediately, even before its first settings fetch; account changes remount the protected UI to prevent old-account state leaking. Never persist webhook URLs or API tokens in that cache.
+- **Delivery safety:** POST atomically creates one update per date, including a legacy-ID lookup. Repeated POSTs return the existing record without resending only when the original normalized content identity matches. Different content for the same day returns 409 and keeps the new local draft. PUT uses server statuses and receipts, never client success flags. Retry restoration overlays editable local rows onto fresh server receipts. Newly added rows receive server IDs; unknown supplied IDs and duplicates are rejected. Slack/Teams/Jira run concurrently; Jira entries remain sequential and each successful worklog ID is persisted immediately. `updates/{id}/deliveries/{deliveryId-platform or deliveryId-jira-entry-id}` holds transactional claims and receipts. `UNCERTAIN` or an interrupted `SENDING` claim must never be resent automatically: webhook services cannot guarantee exactly-once delivery after a lost response. Only a definite rejection becomes retryable `FAILED`. A pending platform without a send claim can resume; an existing claim blocks replay. Explicitly erasing a resolved update starts a new delivery generation if the user publishes that day again. Preserve these ledgers and do not erase unresolved deliveries.
 - **Platform toggles:** Users can enable/disable Slack, Teams, and Jira per update before publishing. Disabled platforms get status `SKIPPED`.
 - **Calendar interaction:** Clicking a date with an existing update opens a detail modal (read-only + delete). Clicking a date without an update opens the creation flow.
 - **Leave:** Marked from the day view, stored in `leaves/`. Never counts as a message, hours or time saved; the streak (`src/lib/streak.ts`) steps over leave days without counting or breaking. Weekends without an update still break it. Server enforces: no publish or draft write on a leave day, no leave on a day with an update (deleting the update does not retract posts).
 - **Fetch from Projects (desktop):** Settings → Sacred Repositories lists local git folders per signed-in user. The day view's Projects button collects that day's own non-merge commits (by author time in the workday timezone, read-only git), previews them, then inserts a `[Project activity]` block and sets the draft source to `projects`. For that source the AI treats the block as untrusted evidence, `/api/parse` blanks unevidenced ticket keys and still scales the day up to the chosen hours (commits show coding, not testing or deploying).
 - **Jira publish guard:** `jiraPublishBlocker` (`src/lib/jira-guard.ts`) disables Dispatch and makes POST/PUT `/api/updates` return 400 when Jira is on and an entry has an invalid key, or has no duration or one off half-hour steps. It applies to every update.
-- **AI providers:** Three options (configurable in Settings): `local-claude` (spawns Claude CLI, no API key needed), `claude-api` (Anthropic SDK), `gemini` (Google AI SDK).
+- **AI providers:** Configurable in Settings: `local-claude`, `local-cursor`, `claude-api`, `gemini`, `groq`, `openai`, `azure-openai`. Local CLI providers still contact their remote AI services.
 
 ## API Integration Notes
 
 - **Slack:** Incoming Webhook POST with plain text + user mention (`<@userId>`).
 - **Teams:** Incoming Webhook POST with Adaptive Card format + `<at>` mention entity.
-- **Jira:** REST API v3, Basic auth (email + API token), worklog endpoint. Times stored as wall-clock in user's timezone, converted to true UTC before API call. 1 second delay between worklog POSTs to avoid rate limiting.
+- **Jira:** REST API v3, Basic auth (email + API token), worklog endpoint. Times stored as wall-clock in user's timezone, converted to true UTC before API call. No unconditional worklog delay. A confirmed rejection may be retried explicitly; timeouts, lost responses, and server errors require checking delivery before another send.
 - **AI parsing:** System prompt treats the user-chosen daily hours (default 8h) as a minimum, never shrinking a longer day, 30-min granularity, 30-min minimum per entry. Output is structured JSON with `tasks[]`, `blockers[]`, `timeEntries[]`, `tomorrowTasks[]`, `slackFormat`, `teamsFormat`.
 
 ## Environment Variables

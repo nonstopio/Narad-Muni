@@ -22,16 +22,16 @@ export function PlatformOutputs({
   activePlatforms,
   onShareAll,
 }: PlatformOutputsProps) {
-  const { previewReady, isProcessing, step, retryMode, retrySlackStatus, retryTeamsStatus, retryJiraStatus, jiraEnabled, workLogEntries } = useUpdateStore();
+  const { previewReady, isProcessing, step, retryMode, retrySlackStatus, retryTeamsStatus, retryJiraStatus, slackEnabled, teamsEnabled, jiraEnabled, workLogEntries } = useUpdateStore();
 
   const hasAnyPlatform =
     activePlatforms.slack || activePlatforms.teams || activePlatforms.jira;
   const isSharing = step === "sharing";
 
   // In retry mode, only show platforms that were SENT or FAILED (not SKIPPED)
-  const showSlack = retryMode ? (retrySlackStatus === "SENT" || retrySlackStatus === "FAILED") : activePlatforms.slack;
-  const showTeams = retryMode ? (retryTeamsStatus === "SENT" || retryTeamsStatus === "FAILED") : activePlatforms.teams;
-  const showJira = retryMode ? (retryJiraStatus === "SENT" || retryJiraStatus === "FAILED") : activePlatforms.jira;
+  const showSlack = retryMode ? retrySlackStatus !== "SKIPPED" : activePlatforms.slack;
+  const showTeams = retryMode ? retryTeamsStatus !== "SKIPPED" : activePlatforms.teams;
+  const showJira = retryMode ? retryJiraStatus !== "SKIPPED" : activePlatforms.jira;
 
   // No platforms configured at all (only applies in normal mode)
   if (!retryMode && !hasAnyPlatform) {
@@ -80,8 +80,11 @@ export function PlatformOutputs({
   const loadingText = retryMode ? "Re-dispatching..." : "Dispatching...";
   const buttonVariant = retryMode ? "warning-soft" as const : "success" as const;
   // Same rule the server enforces; with Jira off, Slack and Teams are never blocked.
-  const sendsJira = jiraEnabled && !(retryMode && retryJiraStatus === "SENT");
+  const sendsJira = jiraEnabled && (!retryMode || retryJiraStatus === "FAILED" || retryJiraStatus === "PENDING");
   const jiraBlocker = sendsJira ? jiraPublishBlocker(workLogEntries.filter((e) => !e.jiraWorklogId)) : null;
+  const canRetry = (slackEnabled && (retrySlackStatus === "FAILED" || retrySlackStatus === "PENDING")) ||
+    (teamsEnabled && (retryTeamsStatus === "FAILED" || retryTeamsStatus === "PENDING")) ||
+    (jiraEnabled && (retryJiraStatus === "FAILED" || retryJiraStatus === "PENDING"));
 
   return (
     <div className="flex flex-col gap-5">
@@ -95,7 +98,7 @@ export function PlatformOutputs({
         variant={buttonVariant}
         size="lg"
         onClick={onShareAll}
-        disabled={isSharing || !!jiraBlocker}
+        disabled={isSharing || !!jiraBlocker || (retryMode && !canRetry)}
         className="w-full"
       >
         {isSharing ? (

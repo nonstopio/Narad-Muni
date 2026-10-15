@@ -7,7 +7,7 @@ export function TeamsOutputCard() {
   const { teamsOutput, setTeamsOutput, teamsEnabled, togglePlatform, retryMode, retryTeamsStatus, jiraBaseUrl } =
     useUpdateStore();
 
-  const isLocked = retryMode && retryTeamsStatus === "SENT";
+  const isLocked = retryMode && retryTeamsStatus !== "FAILED";
 
   return (
     <div
@@ -28,7 +28,7 @@ export function TeamsOutputCard() {
         {isLocked ? (
           <span className="px-3 py-1 rounded-3xl text-[11px] font-medium flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-narada-emerald">
             <Lock className="w-3 h-3" />
-            <span>Sent</span>
+            <span>{retryTeamsStatus === "SENT" ? "Sent" : "Check delivery"}</span>
           </span>
         ) : (
           <button

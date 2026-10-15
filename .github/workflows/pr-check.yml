@@ -26,6 +26,17 @@ jobs:
       - name: Compile Electron TypeScript
         run: npm run electron:compile
 
+      - name: Shared agent instructions
+        run: node scripts/check-agent-rules.mjs
+
+      - name: Draft and delivery safety tests
+        run: |
+          npx tsx electron/drafts.test.ts
+          node --import tsx src/lib/local-drafts.test.ts
+          node --import tsx src/lib/retry-draft.test.ts
+          npx tsx src/lib/publish-delivery.test.ts
+          npx tsx src/app/api/updates/route.test.ts
+
       - name: Type-check app
         run: npx tsc --noEmit
 

@@ -1,15 +1,18 @@
+import { createHash } from "node:crypto";
+import { adminDb } from "@/lib/firebase-admin";
+import { deliverOnce, deliveryFetch, RejectedDelivery, mergeRetryEntries, type DeliveryState, type DeliveryLedger } from "@/lib/publish-delivery";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
-import { updatesCol, configsCol, isOnLeave, LEAVE_BLOCKED } from "@/lib/firestore-helpers";
+import { updatesCol, configsCol, leavesCol, isOnLeave, LEAVE_BLOCKED } from "@/lib/firestore-helpers";
 import { isDateKey, updateDateIso } from "@/lib/date-key";
 import { jiraPublishBlocker } from "@/lib/jira-guard";
 import { buildAdfComment } from "@/lib/jira-adf";
 import { linkifyTickets } from "@/lib/linkify-tickets";
 import { findWorkflowThread, postThreadReply } from "@/lib/slack-thread";
-import { time } from "@/lib/timing";
 import { getTimeSavedConstants, estimateTimeSavedSecs } from "@/lib/time-saved";
 import { type DocumentReference, type Query, type QueryDocumentSnapshot } from "firebase-admin/firestore";
-import type { UpdateMetrics, UpdateMetricsHints } from "@/types";
+import type { UpdateMetricsHints, PublishStatus } from "@/types";
+import { computeStreak, updateKeysOf } from "@/lib/streak";
 import { errorMessage } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -59,15 +62,8 @@ function secsToTimeSpent(secs: number): string {
   return "0m";
 }
 
-function isTransientError(status: number): boolean {
-  return status === 429 || status >= 500;
-}
-
-const JIRA_MAX_RETRIES = 3;
-const JIRA_RETRY_DELAY_MS = 5000;
-const JIRA_INTER_REQUEST_DELAY_MS = 2000;
-
 interface WorkLogEntryDoc {
+  [key: string]: unknown;
   id: string;
   issueKey: string;
   timeSpentSecs: number;
@@ -77,112 +73,66 @@ interface WorkLogEntryDoc {
   jiraWorklogId: string | null;
 }
 
+function ledger(ref: DocumentReference, key: string, statusField?: string, generation?: string): DeliveryLedger {
+  const receipt = ref.collection("deliveries").doc(generation ? `${generation}-${key}` : key);
+  return {
+    claim: () => adminDb.runTransaction(async (tx) => {
+      const [delivery, update] = await Promise.all([tx.get(receipt), tx.get(ref)]);
+      if (!update.exists) throw new Error("Update removed");
+      const data = update.data()!;
+      if (data.deliveryId !== generation) throw new Error("Scroll changed before delivery");
+      if (statusField && (data[statusField] === "SENT" || data[statusField] === "SKIPPED")) return "SENT";
+      if (statusField && data[statusField] === "UNCERTAIN") return "UNCERTAIN";
+      const state = delivery.data()?.state;
+      if (state === "SENT") {
+        if (statusField) tx.update(ref, { [statusField]: "SENT" });
+        return "SENT";
+      }
+      if (state === "SENDING" || state === "UNCERTAIN" || (!data.deliveryVersion && data[statusField ?? "jiraStatus"] !== "SENT")) {
+        if (statusField) tx.update(ref, { [statusField]: "UNCERTAIN" });
+        return "UNCERTAIN";
+      }
+      tx.set(receipt, { state: "SENDING", startedAt: new Date().toISOString() });
+      if (statusField) tx.update(ref, { [statusField]: "PENDING" });
+      return "claimed";
+    }),
+    finish: (state) => adminDb.runTransaction(async (tx) => {
+      const current = await tx.get(ref);
+      if (current.data()?.deliveryId !== generation) throw new Error("Scroll changed before receipt");
+      tx.set(receipt, { state, finishedAt: new Date().toISOString() }, { merge: true });
+      if (statusField) tx.update(ref, { [statusField]: state });
+    }),
+  };
+}
+
 async function publishJiraWorklogs(
   config: { baseUrl: string; email: string; apiToken: string; timezone: string },
   entries: WorkLogEntryDoc[],
-  updateRef: DocumentReference
-): Promise<{ fetchMs: number }> {
+  updateRef: DocumentReference,
+  generation?: string
+): Promise<void> {
   const authToken = "Basic " + Buffer.from(config.email + ":" + config.apiToken).toString("base64");
-  const total = entries.length;
-  let succeeded = 0;
-  let fetchMs = 0;
-  const failedKeys: string[] = [];
-
-  console.log(`[Narada] Jira worklogs: publishing ${total} entries`);
-
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    const idx = `[${i + 1}/${total}]`;
-
-    // Skip entries already posted (from retry flows)
-    if (entry.jiraWorklogId) {
-      succeeded++;
-      continue;
-    }
-
-    if (entry.timeSpentSecs <= 0) {
-      console.warn(`[Narada] ${idx} Skipping ${entry.issueKey} — timeSpentSecs is ${entry.timeSpentSecs}`);
-      failedKeys.push(`${entry.issueKey} (skipped: 0s)`);
-      continue;
-    }
-
-    const started = new Date(entry.started);
-    const startedUtc = toJiraUtc(started, config.timezone);
-    const timeSpent = secsToTimeSpent(entry.timeSpentSecs);
-    const payload = {
-      timeSpent,
-      started: startedUtc,
-      comment: buildAdfComment(entry.comment || ""),
-    };
-
-    const url = `${config.baseUrl.replace(/\/+$/, "")}/rest/api/3/issue/${entry.issueKey}/worklog`;
-    console.log(`[Narada] ${idx} ${entry.issueKey} — POST ${url} | timeSpent=${timeSpent} started=${startedUtc}`);
-
-    let entrySucceeded = false;
-
-    for (let attempt = 1; attempt <= JIRA_MAX_RETRIES; attempt++) {
-      try {
-        const fetchStart = Date.now();
-        const res = await fetch(url, {
-          method: "POST",
-          headers: {
-            accept: "application/json",
-            authorization: authToken,
-            "content-type": "application/json",
-            // Packaged app posts via Chromium's net.fetch, whose browser User-Agent trips Jira's
-            // XSRF check (403 "XSRF check failed"). X-Atlassian-Token: no-check does not lift it.
-            "user-agent": "NaradMuni",
-          },
-          body: JSON.stringify(payload),
-        });
-        fetchMs += Date.now() - fetchStart;
-
-        if (res.ok) {
-          const body = await res.json();
-          entry.jiraWorklogId = body.id?.toString() ?? null;
-          console.log(`[Narada] ${idx} ${entry.issueKey} — success (worklogId=${body.id})`);
-          entrySucceeded = true;
-          break;
-        }
-
-        const errBody = await res.text();
-        if (isTransientError(res.status) && attempt < JIRA_MAX_RETRIES) {
-          console.warn(`[Narada] ${idx} ${entry.issueKey} — transient error (${res.status}), retrying...`);
-          await new Promise((r) => setTimeout(r, JIRA_RETRY_DELAY_MS));
-          continue;
-        }
-        console.error(`[Narada] ${idx} ${entry.issueKey} — failed (${res.status}): ${errBody}`);
-        break;
-      } catch (err) {
-        if (attempt < JIRA_MAX_RETRIES) {
-          console.warn(`[Narada] ${idx} ${entry.issueKey} — network error, retrying:`, err);
-          await new Promise((r) => setTimeout(r, JIRA_RETRY_DELAY_MS));
-          continue;
-        }
-        console.error(`[Narada] ${idx} ${entry.issueKey} — network error (giving up):`, err);
-        break;
-      }
-    }
-
-    if (entrySucceeded) {
-      succeeded++;
-    } else {
-      failedKeys.push(entry.issueKey);
-    }
-
-    if (i < entries.length - 1) {
-      await new Promise((r) => setTimeout(r, JIRA_INTER_REQUEST_DELAY_MS));
-    }
+  const states: DeliveryState[] = [];
+  for (const entry of entries) {
+    if (entry.jiraWorklogId) continue;
+    const state = await deliverOnce(ledger(updateRef, `jira-${entry.id}`, undefined, generation), async () => {
+      if (entry.timeSpentSecs <= 0) throw new RejectedDelivery("Jira duration must be positive");
+      const res = await deliveryFetch(`${config.baseUrl.replace(/\/+$/, "")}/rest/api/3/issue/${entry.issueKey}/worklog`, {
+        method: "POST",
+        headers: { accept: "application/json", authorization: authToken, "content-type": "application/json", "user-agent": "NaradMuni" },
+        body: JSON.stringify({ timeSpent: secsToTimeSpent(entry.timeSpentSecs), started: toJiraUtc(new Date(entry.started), config.timezone), comment: buildAdfComment(entry.comment || "") }),
+      });
+      const body = await res.json();
+      if (!body.id) throw new Error("Jira accepted the worklog without a receipt");
+      entry.jiraWorklogId = String(body.id);
+      // Persist each receipt before sending another entry; quitting cannot erase successful IDs.
+      await updateRef.update({ workLogEntries: entries });
+    });
+    states.push(state);
+    if (state === "UNCERTAIN") break;
   }
-
-  const allSucceeded = failedKeys.length === 0;
-  console.log(`[Narada] Jira worklogs: ${succeeded}/${total} succeeded, fetchMs=${fetchMs}`);
-  // Single write at the end with all updated worklog IDs + final status
-  await updateRef.update({
-    workLogEntries: entries,
-    jiraStatus: allSucceeded ? "SENT" : "FAILED",
-  });
-  return { fetchMs };
+  if (states.includes("UNCERTAIN")) throw new Error("Jira delivery needs confirmation");
+  if (states.includes("FAILED")) throw new RejectedDelivery("Jira rejected a worklog");
 }
 
 // ---------------------------------------------------------------------------
@@ -233,7 +183,7 @@ async function sendSlackWebhook(
   teamLeadId?: string | null
 ): Promise<void> {
   const finalText = buildSlackFinalText(text, userId, date, teamLeadId);
-  const res = await fetch(webhookUrl, {
+  const res = await deliveryFetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: finalText }),
@@ -267,7 +217,7 @@ async function publishSlackViaThread(
     slackConfig.timezone
   );
   if (!threadTs) {
-    throw new Error("No workflow message found in the channel for the configured time window");
+    throw new RejectedDelivery("No workflow message found in the channel for the configured time window");
   }
   await postThreadReply(slackConfig.slackBotToken, slackConfig.slackChannelId, threadTs, finalText);
 }
@@ -318,7 +268,7 @@ async function sendTeamsWebhook(
   const cardContent: Record<string, unknown> = { type: "AdaptiveCard", version: "1.4", body: textBlocks };
   if (entities.length > 0) cardContent.msteams = { entities };
 
-  const res = await fetch(webhookUrl, {
+  const res = await deliveryFetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(cardContent),
@@ -344,7 +294,15 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing id parameter" }, { status: 400 });
     }
 
-    await updatesCol(user.uid).doc(id).delete();
+    const ref = updatesCol(user.uid).doc(id);
+    const erased = await adminDb.runTransaction(async (tx) => {
+      const doc = await tx.get(ref);
+      const data = doc.data();
+      if (data && [data.slackStatus, data.teamsStatus, data.jiraStatus].some((status) => status === "PENDING" || status === "UNCERTAIN")) return false;
+      tx.delete(ref);
+      return true;
+    });
+    if (!erased) return NextResponse.json({ success: false, error: "Alas! I cannot erase a scroll while a world has not confirmed delivery." }, { status: 409 });
     return NextResponse.json({ success: true });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
@@ -361,6 +319,28 @@ export async function GET(request: NextRequest) {
     const user = await verifyAuth(request);
     console.log(`[Narada] GET /api/updates uid=${user.uid}`);
     const { searchParams } = new URL(request.url);
+
+    if (searchParams.has("dashboard")) {
+      const month = searchParams.get("month") ?? "";
+      const today = searchParams.get("today");
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || !isDateKey(today)) {
+        return NextResponse.json({ error: "Invalid calendar date" }, { status: 400 });
+      }
+      const [year, m] = month.split("-").map(Number);
+      const [monthSnap, dateSnap, leaveSnap] = await Promise.all([
+        updatesCol(user.uid).where("date", ">=", new Date(Date.UTC(year, m - 1, 1)).toISOString())
+          .where("date", "<", new Date(Date.UTC(year, m, 1)).toISOString()).orderBy("date", "desc").get(),
+        updatesCol(user.uid).select("date").get(),
+        leavesCol(user.uid).select("kind").get(),
+      ]);
+      const leaves = leaveSnap.docs.map((d) => d.id);
+      return NextResponse.json({
+        updates: monthSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        leaves: leaves.filter((k) => k.startsWith(month)),
+        holidays: leaveSnap.docs.filter((d) => d.id.startsWith(month) && d.data().kind === "holiday").map((d) => d.id),
+        streak: computeStreak(updateKeysOf(dateSnap.docs.map((d) => ({ date: d.data().date }))), new Set(leaves), today),
+      });
+    }
 
     // Single update by ID
     const id = searchParams.get("id");
@@ -421,400 +401,162 @@ export async function GET(request: NextRequest) {
   }
 }
 
+interface StoredUpdate {
+  [key: string]: unknown;
+  date: string;
+  rawTranscript: string;
+  slackOutput: string;
+  teamsOutput: string;
+  slackStatus: PublishStatus;
+  teamsStatus: PublishStatus;
+  jiraStatus: PublishStatus;
+  workLogEntries: WorkLogEntryDoc[];
+  deliveryVersion?: number;
+  deliveryId?: string;
+}
+
+/** Stable content identity excludes generated IDs and delivery receipts. */
+function publishIdentity(update: StoredUpdate): string {
+  return createHash("sha256").update(JSON.stringify({
+    raw: update.rawTranscript, slack: update.slackOutput, teams: update.teamsOutput,
+    source: update.source || "manual",
+    enabled: [update.slackStatus, update.teamsStatus, update.jiraStatus].map(s => s !== "SKIPPED"),
+    entries: (update.workLogEntries || []).map(e => ({ issueKey: e.issueKey, timeSpentSecs: e.timeSpentSecs,
+      started: parseAsWallClock(e.started).toISOString(), comment: e.comment || "", isRepeat: !!e.isRepeat })),
+  })).digest("hex");
+}
+
+async function publishUpdate(uid: string, ref: DocumentReference, update: StoredUpdate, enabled: { slack: boolean; teams: boolean; jira: boolean }) {
+  // Read once. Independent platform delivery jobs start together.
+  const snap = await configsCol(uid).get();
+  const configs = Object.fromEntries(snap.docs.map((doc) => [doc.id, doc.data()]));
+  const jiraBaseUrl = configs.JIRA?.baseUrl?.trim();
+  const date = update.date.split("T")[0];
+  const timings: Record<string, number> = {};
+  await Promise.all((["slack", "teams", "jira"] as const).map(async (platform) => {
+    const field = `${platform}Status`;
+    if (!enabled[platform] || update[field] === "SENT" || update[field] === "SKIPPED") return;
+    const start = Date.now();
+    await deliverOnce(ledger(ref, platform, field, update.deliveryId), async () => {
+      // A concurrent retry may have edited a confirmed failure before this claim won.
+      const latest = (await ref.get()).data() as StoredUpdate;
+      const config = configs[platform.toUpperCase()];
+      if (!config?.isActive) throw new RejectedDelivery(`Alas! The ${platform} portal is closed.`);
+      if (platform === "slack") {
+        const text = jiraBaseUrl ? linkifyTickets(latest.slackOutput, jiraBaseUrl, "slack") : latest.slackOutput;
+        if (!text.trim()) throw new RejectedDelivery("Slack scroll is empty");
+        if (config.slackThreadMode && config.slackBotToken && config.slackChannelId) {
+          await publishSlackViaThread(config as Parameters<typeof publishSlackViaThread>[0], text, config.userId, date, config.teamLeadId);
+        } else if (config.webhookUrl) {
+          await sendSlackWebhook(config.webhookUrl, text, config.userId, date, config.teamLeadId);
+        } else throw new RejectedDelivery("Slack portal is not configured");
+      } else if (platform === "teams") {
+        if (!config.webhookUrl || !latest.teamsOutput.trim()) throw new RejectedDelivery("Teams portal or scroll is empty");
+        const text = jiraBaseUrl ? linkifyTickets(latest.teamsOutput, jiraBaseUrl, "teams") : latest.teamsOutput;
+        await sendTeamsWebhook(config.webhookUrl, text, config.userName, config.userId, date, config.teamLeadName, config.teamLeadId);
+      } else {
+        if (!config.baseUrl || !config.email || !config.apiToken) throw new RejectedDelivery("Jira portal is not configured");
+        await publishJiraWorklogs({ baseUrl: config.baseUrl, email: config.email, apiToken: config.apiToken, timezone: config.timezone || "Asia/Kolkata" }, latest.workLogEntries, ref, latest.deliveryId);
+      }
+    });
+    timings[`${platform}Ms`] = Date.now() - start;
+  }));
+  return timings;
+}
+
 export async function POST(request: NextRequest) {
   const routeStart = Date.now();
   try {
     const user = await verifyAuth(request);
-    console.log(`[Narada] POST /api/updates uid=${user.uid}`);
     const body = await request.json();
-    const {
-      date,
-      rawTranscript,
-      slackOutput,
-      teamsOutput,
-      workLogEntries,
-      slackEnabled,
-      teamsEnabled,
-      jiraEnabled,
-      metricsHints,
-      source,
-    }: {
-      date: string;
-      rawTranscript: string;
-      slackOutput?: string;
-      teamsOutput?: string;
-      workLogEntries?: { issueKey: string; timeSpentSecs: number; started: string; comment?: string; isRepeat: boolean }[];
-      source?: unknown;
-      slackEnabled: boolean;
-      teamsEnabled: boolean;
-      jiraEnabled: boolean;
-      metricsHints?: UpdateMetricsHints;
-    } = body;
-
-    if (!isDateKey(date)) {
-      return NextResponse.json({ success: false, error: "Alas! That day is not one I recognise." }, { status: 400 });
-    }
-    if (await isOnLeave(user.uid, date)) {
-      return NextResponse.json({ success: false, error: LEAVE_BLOCKED }, { status: 409 });
-    }
-    // Refuse before anything is posted, so Slack/Teams never go out ahead of a Jira failure.
+    const { date, rawTranscript, slackOutput, teamsOutput, workLogEntries, slackEnabled, teamsEnabled, jiraEnabled, metricsHints, source } = body;
+    if (!isDateKey(date) || typeof rawTranscript !== "string") return NextResponse.json({ success: false, error: "Alas! That scroll has no valid day or words." }, { status: 400 });
+    if (await isOnLeave(user.uid, date)) return NextResponse.json({ success: false, error: LEAVE_BLOCKED }, { status: 409 });
     const jiraBlocker = jiraEnabled ? jiraPublishBlocker(workLogEntries || []) : null;
-    if (jiraBlocker) {
-      return NextResponse.json({ success: false, error: jiraBlocker }, { status: 400 });
-    }
-
-    // Build work log entries with IDs
-    const entries: WorkLogEntryDoc[] = (workLogEntries || []).map(
-      (entry) => ({
-        id: crypto.randomUUID(),
-        issueKey: entry.issueKey,
-        timeSpentSecs: entry.timeSpentSecs,
-        started: parseAsWallClock(entry.started).toISOString(),
-        comment: entry.comment || "",
-        isRepeat: entry.isRepeat || false,
-        jiraWorklogId: null,
-      })
-    );
-
-    const updateData = {
-      createdAt: new Date().toISOString(),
-      date: updateDateIso(date),
-      rawTranscript,
-      slackOutput: slackOutput || "",
-      teamsOutput: teamsOutput || "",
-      slackStatus: slackEnabled ? "PENDING" : "SKIPPED",
-      teamsStatus: teamsEnabled ? "PENDING" : "SKIPPED",
-      jiraStatus: jiraEnabled ? "PENDING" : "SKIPPED",
-      workLogEntries: entries,
-      source: source === "projects" ? "projects" : "manual",
+    if (jiraBlocker) return NextResponse.json({ success: false, error: jiraBlocker }, { status: 400 });
+    const entries: WorkLogEntryDoc[] = (workLogEntries || []).map((entry: WorkLogEntryDoc) => ({
+      id: crypto.randomUUID(), issueKey: entry.issueKey, timeSpentSecs: entry.timeSpentSecs,
+      started: parseAsWallClock(entry.started).toISOString(), comment: entry.comment || "", isRepeat: entry.isRepeat || false, jiraWorklogId: null,
+    }));
+    const data: StoredUpdate = {
+      createdAt: new Date().toISOString(), date: updateDateIso(date), rawTranscript,
+      slackOutput: slackOutput || "", teamsOutput: teamsOutput || "",
+      slackStatus: slackEnabled ? "PENDING" : "SKIPPED", teamsStatus: teamsEnabled ? "PENDING" : "SKIPPED", jiraStatus: jiraEnabled ? "PENDING" : "SKIPPED",
+      workLogEntries: entries, source: source === "projects" ? "projects" : "manual", deliveryVersion: 1, deliveryId: crypto.randomUUID(),
     };
-
-    const docRef = await updatesCol(user.uid).add(updateData);
-    const update: typeof updateData & { id: string; metrics?: UpdateMetrics } = { id: docRef.id, ...updateData };
-
-    // Fetch Jira baseUrl for linkifying
-    let jiraBaseUrl: string | null = null;
-    try {
-      const jiraDoc = await configsCol(user.uid).doc("JIRA").get();
-      jiraBaseUrl = jiraDoc.data()?.baseUrl?.trim() || null;
-    } catch (err) { console.error("[Narada] POST /api/updates: failed to fetch Jira baseUrl:", err); }
-
-    let slackMs: number | undefined;
-    let teamsMs: number | undefined;
-    let jiraMs: number | undefined;
-
-    // Publish to Slack
-    if (slackEnabled && slackOutput) {
-      try {
-        const slackDoc = await configsCol(user.uid).doc("SLACK").get();
-        const slackConfig = slackDoc.data();
-
-        if (slackConfig?.isActive) {
-          const linkedSlackOutput = jiraBaseUrl ? linkifyTickets(slackOutput, jiraBaseUrl, "slack") : slackOutput;
-
-          if (slackConfig.slackThreadMode && slackConfig.slackBotToken && slackConfig.slackChannelId) {
-            const { ms } = await time(() =>
-              publishSlackViaThread(slackConfig as Parameters<typeof publishSlackViaThread>[0], linkedSlackOutput, slackConfig.userId, date, slackConfig.teamLeadId)
-            );
-            slackMs = ms;
-            await docRef.update({ slackStatus: "SENT" });
-            update.slackStatus = "SENT";
-          } else if (slackConfig.webhookUrl) {
-            const { ms } = await time(() =>
-              sendSlackWebhook(slackConfig.webhookUrl, linkedSlackOutput, slackConfig.userId, date, slackConfig.teamLeadId)
-            );
-            slackMs = ms;
-            await docRef.update({ slackStatus: "SENT" });
-            update.slackStatus = "SENT";
-          } else {
-            console.error("[Narada] Slack publish FAILED: no webhook URL or thread config");
-            await docRef.update({ slackStatus: "FAILED" });
-            update.slackStatus = "FAILED";
-          }
-        }
-      } catch (err) {
-        console.error("[Narada] Slack publish error:", err);
-        await docRef.update({ slackStatus: "FAILED" });
-        update.slackStatus = "FAILED";
-      }
-    }
-
-    // Publish to Teams
-    if (teamsEnabled && teamsOutput) {
-      try {
-        const teamsDoc = await configsCol(user.uid).doc("TEAMS").get();
-        const teamsConfig = teamsDoc.data();
-
-        if (teamsConfig?.isActive && teamsConfig?.webhookUrl) {
-          const linkedTeamsOutput = jiraBaseUrl ? linkifyTickets(teamsOutput, jiraBaseUrl, "teams") : teamsOutput;
-          const { ms } = await time(() =>
-            sendTeamsWebhook(teamsConfig.webhookUrl, linkedTeamsOutput, teamsConfig.userName, teamsConfig.userId, date, teamsConfig.teamLeadName, teamsConfig.teamLeadId)
-          );
-          teamsMs = ms;
-          await docRef.update({ teamsStatus: "SENT" });
-          update.teamsStatus = "SENT";
-        } else {
-          console.error("[Narada] Teams publish FAILED: inactive or no webhook URL");
-          await docRef.update({ teamsStatus: "FAILED" });
-          update.teamsStatus = "FAILED";
-        }
-      } catch (err) {
-        console.error("[Narada] Teams publish error:", err);
-        await docRef.update({ teamsStatus: "FAILED" });
-        update.teamsStatus = "FAILED";
-      }
-    }
-
-    // Publish to Jira
-    if (jiraEnabled && entries.length > 0) {
-      try {
-        const jiraDoc = await configsCol(user.uid).doc("JIRA").get();
-        const jiraConfig = jiraDoc.data();
-
-        if (jiraConfig?.isActive && jiraConfig?.baseUrl && jiraConfig?.email && jiraConfig?.apiToken) {
-          const { fetchMs } = await publishJiraWorklogs(
-            { baseUrl: jiraConfig.baseUrl, email: jiraConfig.email, apiToken: jiraConfig.apiToken, timezone: jiraConfig.timezone || "Asia/Kolkata" },
-            entries,
-            docRef
-          );
-          jiraMs = fetchMs;
-          const refreshed = await docRef.get();
-          const refreshedData = refreshed.data();
-          update.jiraStatus = refreshedData?.jiraStatus ?? update.jiraStatus;
-          update.workLogEntries = refreshedData?.workLogEntries ?? update.workLogEntries;
-        } else {
-          console.error("[Narada] Jira publish FAILED: inactive or incomplete config");
-          await docRef.update({ jiraStatus: "FAILED" });
-          update.jiraStatus = "FAILED";
-        }
-      } catch (err) {
-        console.error("[Narada] Jira publish error:", err);
-        await docRef.update({ jiraStatus: "FAILED" });
-        update.jiraStatus = "FAILED";
-      }
-    }
-
-    // Assemble metrics
-    const totalPublishMs = Date.now() - routeStart;
-    const platformsEnabled = [slackEnabled, teamsEnabled, jiraEnabled].filter(Boolean).length;
-    const platformsSucceeded =
-      (update.slackStatus === "SENT" ? 1 : 0) +
-      (update.teamsStatus === "SENT" ? 1 : 0) +
-      (update.jiraStatus === "SENT" ? 1 : 0);
-
-    const transcript = rawTranscript || "";
-    const transcriptChars = metricsHints?.transcriptChars ?? transcript.length;
-    const transcriptWords = transcript.trim() ? transcript.trim().split(/\s+/).length : 0;
-    const taskCount = metricsHints?.taskCount ?? 0;
-    const blockerCount = metricsHints?.blockerCount ?? 0;
-    const timeEntryCount = entries.length;
-
-    const constants = await getTimeSavedConstants();
-    const estTimeSavedSecs = estimateTimeSavedSecs(
-      { platformsSucceeded, taskCount, timeEntryCount, toolTimeSecs: totalPublishMs / 1000 },
-      constants
-    );
-
-    const metrics: UpdateMetrics = {
-      aiProvider: metricsHints?.aiProvider ?? "unknown",
-      transcriptChars,
-      transcriptWords,
-      taskCount,
-      blockerCount,
-      timeEntryCount,
-      platformsEnabled,
-      platformsSucceeded,
-      estTimeSavedSecs,
-      timings: {
-        aiParseMs: metricsHints?.aiParseMs,
-        aiProviderMs: metricsHints?.aiProviderMs,
-        slackMs,
-        teamsMs,
-        jiraMs,
-        totalPublishMs,
-      },
-    };
-
-    await docRef.update({ metrics });
-    update.metrics = metrics;
-
-    return NextResponse.json({
-      success: true,
-      update,
-      _timings: {
-        totalPublishMs,
-        slackMs,
-        teamsMs,
-        jiraMs,
-        platformsSucceeded,
-        estTimeSavedSecs,
-      },
+    data.publishIdentity = publishIdentity(data);
+    // One update per day; only the same content is an idempotent replay.
+    const ref = updatesCol(user.uid).doc(date);
+    const created = await adminDb.runTransaction(async (tx) => {
+      const [current, legacy] = await Promise.all([
+        tx.get(ref), tx.get(updatesCol(user.uid).where("date", "==", data.date).limit(1)),
+      ]);
+      if (current.exists) return { existing: { id: current.id, ...current.data() } };
+      if (!legacy.empty) return { existing: { id: legacy.docs[0].id, ...legacy.docs[0].data() } };
+      tx.create(ref, data);
+      return { existing: null };
     });
+    if (created.existing) {
+      const existing = created.existing as unknown as StoredUpdate;
+      if ((existing.publishIdentity || publishIdentity(existing)) !== data.publishIdentity) {
+        return NextResponse.json({ success: false, error: "This day already has a different published update. Your new draft is still saved. Open history to review or retry the existing update." }, { status: 409 });
+      }
+      return NextResponse.json({ success: true, update: created.existing, existing: true });
+    }
+    const timings = await publishUpdate(user.uid, ref, data, { slack: !!slackEnabled, teams: !!teamsEnabled, jira: !!jiraEnabled });
+    const result = (await ref.get()).data() as StoredUpdate;
+    const platformsSucceeded = [result.slackStatus, result.teamsStatus, result.jiraStatus].filter((s) => s === "SENT").length;
+    const hints: UpdateMetricsHints = metricsHints ?? {};
+    const totalPublishMs = Date.now() - routeStart;
+    const estTimeSavedSecs = estimateTimeSavedSecs({ platformsSucceeded, taskCount: hints.taskCount ?? 0, timeEntryCount: entries.length, toolTimeSecs: totalPublishMs / 1000 }, await getTimeSavedConstants());
+    const metrics = {
+      aiProvider: hints.aiProvider ?? "unknown", transcriptChars: hints.transcriptChars ?? rawTranscript.length,
+      transcriptWords: rawTranscript.trim() ? rawTranscript.trim().split(/\s+/).length : 0,
+      taskCount: hints.taskCount ?? 0, blockerCount: hints.blockerCount ?? 0, timeEntryCount: entries.length,
+      platformsEnabled: [slackEnabled, teamsEnabled, jiraEnabled].filter(Boolean).length, platformsSucceeded, estTimeSavedSecs,
+      timings: { aiParseMs: hints.aiParseMs, aiProviderMs: hints.aiProviderMs, ...timings, totalPublishMs },
+    };
+    await ref.update({ metrics });
+    return NextResponse.json({ success: true, update: { id: ref.id, ...result, metrics }, _timings: { ...timings, totalPublishMs, platformsSucceeded, estTimeSavedSecs } });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
-    console.error("[Narada] POST /api/updates error:", error);
-    return NextResponse.json(
-      { success: false, error: errorMessage(error, "Failed to create update") },
-      { status: 500 }
-    );
+    console.error("[Narada] Publish error:", error);
+    return NextResponse.json({ success: false, error: errorMessage(error, "Alas! I could not finish dispatching this scroll.") }, { status: 500 });
   }
 }
-
-// ---------------------------------------------------------------------------
-// PUT — Retry failed platforms
-// ---------------------------------------------------------------------------
 
 export async function PUT(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
-    console.log(`[Narada] PUT /api/updates uid=${user.uid}`);
     const body = await request.json();
-    const { updateId, slackOutput, teamsOutput, workLogEntries, retrySlack, retryTeams, retryJira } = body;
-
-    if (!updateId) {
-      return NextResponse.json({ success: false, error: "Missing updateId" }, { status: 400 });
-    }
-    if (retryJira && Array.isArray(workLogEntries)) {
-      const unposted = workLogEntries.filter((e: { jiraWorklogId?: string | null }) => !e.jiraWorklogId);
-      const jiraBlocker = jiraPublishBlocker(unposted);
-      if (jiraBlocker) return NextResponse.json({ success: false, error: jiraBlocker }, { status: 400 });
-    }
-
-    const docRef = updatesCol(user.uid).doc(updateId);
-    const doc = await docRef.get();
-    if (!doc.exists) {
-      return NextResponse.json({ success: false, error: "Update not found" }, { status: 404 });
-    }
-
-    const updateData: Record<string, unknown> = {};
-    if (retrySlack && slackOutput !== undefined) {
-      updateData.slackOutput = slackOutput;
-      updateData.slackStatus = "PENDING";
-    }
-    if (retryTeams && teamsOutput !== undefined) {
-      updateData.teamsOutput = teamsOutput;
-      updateData.teamsStatus = "PENDING";
-    }
-    if (retryJira) {
-      updateData.jiraStatus = "PENDING";
-    }
-
-    if (Object.keys(updateData).length > 0) {
-      await docRef.update(updateData);
-    }
-
-    const existing = doc.data()!;
-    const dateStr = new Date(existing.date).toISOString().split("T")[0];
-
-    // Fetch Jira baseUrl
-    let jiraBaseUrl: string | null = null;
-    try {
-      const jiraDoc = await configsCol(user.uid).doc("JIRA").get();
-      jiraBaseUrl = jiraDoc.data()?.baseUrl?.trim() || null;
-    } catch (err) { console.error("[Narada] PUT /api/updates: failed to fetch Jira baseUrl:", err); }
-
-    // Retry Slack
-    if (retrySlack) {
-      try {
-        const slackDoc = await configsCol(user.uid).doc("SLACK").get();
-        const slackConfig = slackDoc.data();
-
-        const finalOutput = jiraBaseUrl
-          ? linkifyTickets(slackOutput ?? existing.slackOutput, jiraBaseUrl, "slack")
-          : (slackOutput ?? existing.slackOutput);
-
-        if (slackConfig?.slackThreadMode && slackConfig.slackBotToken && slackConfig.slackChannelId) {
-          await publishSlackViaThread(slackConfig as Parameters<typeof publishSlackViaThread>[0], finalOutput, slackConfig.userId, dateStr, slackConfig.teamLeadId);
-          await docRef.update({ slackStatus: "SENT" });
-        } else if (slackConfig?.webhookUrl) {
-          await sendSlackWebhook(slackConfig.webhookUrl, finalOutput, slackConfig.userId, dateStr, slackConfig.teamLeadId);
-          await docRef.update({ slackStatus: "SENT" });
-        } else {
-          console.error("[Narada] Slack retry FAILED: no webhook URL or thread config");
-          await docRef.update({ slackStatus: "FAILED" });
-        }
-      } catch (err) {
-        console.error("[Narada] Slack retry error:", err);
-        await docRef.update({ slackStatus: "FAILED" });
+    const { updateId, retrySlack, retryTeams, retryJira } = body;
+    if (typeof updateId !== "string" || !updateId || updateId.includes("/")) return NextResponse.json({ success: false, error: "Invalid scroll ID" }, { status: 400 });
+    const ref = updatesCol(user.uid).doc(updateId);
+    // Retry edits and the send claim use the same durable parent; never trust client SENT flags.
+    const data = await adminDb.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) throw new RejectedDelivery("Alas! This scroll could not be found.");
+      const current = snap.data() as StoredUpdate;
+      const patch: Record<string, unknown> = {};
+      // Only confirmed failures are editable. In-flight and uncertain payloads remain frozen.
+      if (retrySlack && current.slackStatus === "FAILED" && typeof body.slackOutput === "string") patch.slackOutput = body.slackOutput;
+      if (retryTeams && current.teamsStatus === "FAILED" && typeof body.teamsOutput === "string") patch.teamsOutput = body.teamsOutput;
+      if (retryJira && current.jiraStatus === "FAILED" && Array.isArray(body.workLogEntries)) {
+        const entries = mergeRetryEntries(current.workLogEntries, body.workLogEntries);
+        const blocker = jiraPublishBlocker(entries);
+        if (blocker) throw new RejectedDelivery(blocker);
+        patch.workLogEntries = entries.map((entry) => entry.jiraWorklogId ? entry : { ...entry, started: parseAsWallClock(entry.started).toISOString() });
       }
-    }
-
-    // Retry Teams
-    if (retryTeams) {
-      try {
-        const teamsDoc = await configsCol(user.uid).doc("TEAMS").get();
-        const teamsConfig = teamsDoc.data();
-
-        if (teamsConfig?.webhookUrl) {
-          const finalOutput = jiraBaseUrl
-            ? linkifyTickets(teamsOutput ?? existing.teamsOutput, jiraBaseUrl, "teams")
-            : (teamsOutput ?? existing.teamsOutput);
-          await sendTeamsWebhook(teamsConfig.webhookUrl, finalOutput, teamsConfig.userName, teamsConfig.userId, dateStr, teamsConfig.teamLeadName, teamsConfig.teamLeadId);
-          await docRef.update({ teamsStatus: "SENT" });
-        } else {
-          console.error("[Narada] Teams retry FAILED: no webhook URL");
-          await docRef.update({ teamsStatus: "FAILED" });
-        }
-      } catch (err) {
-        console.error("[Narada] Teams retry error:", err);
-        await docRef.update({ teamsStatus: "FAILED" });
-      }
-    }
-
-    // Retry Jira
-    if (retryJira && workLogEntries?.length > 0) {
-      try {
-        const newEntries: WorkLogEntryDoc[] = (workLogEntries as {
-          issueKey: string; timeSpentSecs: number; started: string; comment?: string; isRepeat: boolean; jiraWorklogId?: string | null;
-        }[])
-          .filter((e) => !e.jiraWorklogId)
-          .map((entry) => ({
-            id: crypto.randomUUID(),
-            issueKey: entry.issueKey,
-            timeSpentSecs: entry.timeSpentSecs,
-            started: parseAsWallClock(entry.started).toISOString(),
-            comment: entry.comment || "",
-            isRepeat: entry.isRepeat || false,
-            jiraWorklogId: null,
-          }));
-
-        // Keep already-posted entries, replace unposted
-        const currentEntries: WorkLogEntryDoc[] = existing.workLogEntries || [];
-        const postedEntries = currentEntries.filter((e: WorkLogEntryDoc) => e.jiraWorklogId);
-        const allEntries = [...postedEntries, ...newEntries];
-        await docRef.update({ workLogEntries: allEntries });
-
-        const jiraDoc = await configsCol(user.uid).doc("JIRA").get();
-        const jiraConfig = jiraDoc.data();
-
-        if (jiraConfig?.baseUrl && jiraConfig?.email && jiraConfig?.apiToken) {
-          // Pass full array — publishJiraWorklogs skips already-posted entries
-          await publishJiraWorklogs(
-            { baseUrl: jiraConfig.baseUrl, email: jiraConfig.email, apiToken: jiraConfig.apiToken, timezone: jiraConfig.timezone || "Asia/Kolkata" },
-            allEntries,
-            docRef
-          );
-        } else {
-          console.error("[Narada] Jira retry FAILED: incomplete config");
-          await docRef.update({ jiraStatus: "FAILED" });
-        }
-      } catch (err) {
-        console.error("[Narada] Jira retry error:", err);
-        await docRef.update({ jiraStatus: "FAILED" });
-      }
-    } else if (retryJira) {
-      await docRef.update({ jiraStatus: "SENT" });
-    }
-
-    // Return refreshed update
-    const final = await docRef.get();
+      if (Object.keys(patch).length) tx.update(ref, patch);
+      return { ...current, ...patch } as StoredUpdate;
+    });
+    if (await isOnLeave(user.uid, data.date.split("T")[0])) return NextResponse.json({ success: false, error: LEAVE_BLOCKED }, { status: 409 });
+    await publishUpdate(user.uid, ref, data, { slack: !!retrySlack, teams: !!retryTeams, jira: !!retryJira });
+    const final = await ref.get();
     return NextResponse.json({ success: true, update: { id: final.id, ...final.data() } });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
-    console.error("[Narada] PUT /api/updates error:", error);
-    return NextResponse.json(
-      { success: false, error: errorMessage(error, "Failed to retry update") },
-      { status: 500 }
-    );
+    console.error("[Narada] Retry error:", error);
+    return NextResponse.json({ success: false, error: errorMessage(error, "Alas! I could not retry this scroll.") }, { status: error instanceof RejectedDelivery ? 400 : 500 });
   }
 }
