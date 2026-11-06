@@ -69,12 +69,12 @@ function UpdateReadyTile() {
       }}
       title={`Narayan Narayan! v${version} is ready. Click to restart and install, or I shall install it when you quit.`}
       aria-label={`Update v${version} is ready to install`}
-      className="relative mb-3 w-10 h-10 flex items-center justify-center rounded-xl border border-narada-emerald/40 bg-narada-emerald/10 text-narada-emerald shadow-[0_0_14px_rgba(16,185,129,0.45)] hover:bg-narada-emerald/20 transition-colors cursor-pointer"
+      className="relative mb-3 w-10 h-10 flex items-center justify-center rounded-xl text-narada-emerald hover:bg-white/[0.03] transition-all duration-300 cursor-pointer"
     >
-      <ArrowDownToLine className="w-[18px] h-[18px]" />
-      <span className="absolute -top-1 -right-1 flex w-2.5 h-2.5 pointer-events-none">
+      <ArrowDownToLine className="w-[18px] h-[18px] drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+      <span className="absolute top-2 right-2 flex w-2 h-2 pointer-events-none">
         <span className="absolute inset-0 rounded-full bg-narada-emerald opacity-75 motion-safe:animate-ping" />
-        <span className="relative w-2.5 h-2.5 rounded-full bg-narada-emerald ring-2 ring-narada-surface" />
+        <span className="relative w-2 h-2 rounded-full bg-narada-emerald ring-2 ring-narada-surface" />
       </span>
     </button>
   );
