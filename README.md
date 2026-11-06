@@ -52,7 +52,7 @@ Download and install Narad Muni from the [landing page](https://nonstopio.github
 
 **Windows:** run `Narad-Muni-Setup-<version>.exe`. The installer is not code-signed, so SmartScreen may warn — click **More info → Run anyway**.
 
-**Updates:** the app checks for new releases at startup and every six hours, downloads them in the background, and asks before restarting (**Restart and Install** or **Later**). You can also use **Narad Muni → Check for Updates…** in the menu bar. Settings, data and history are kept.
+**Updates:** the app checks for new releases at startup and every six hours, downloads them in the background, and shows a glowing download icon above your avatar once one is ready. Click it to restart and install now, or just quit and it installs then. **Narad Muni → Check for Updates…** in the menu bar does the same on demand. Settings, data and history are kept.
 
 > **Coming from an older version?** Releases before in-app updates (including the earlier unsigned macOS builds) can't update themselves. Download and install the latest release by hand once; every release after that updates through the app.
 
