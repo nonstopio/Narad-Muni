@@ -5,6 +5,18 @@ All notable changes to Narada will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.23.0] - 2026-11-06
+
+### ✨ Features
+- **updater:** sidebar update tile replaces restart pop-up
+
+### 🐛 Bug Fixes
+- **updater:** download icon with ready dot; menu never prompts
+- **updater:** restart icon on update tile, say Quit installs
+
+### 📝 Documentation
+- **readme:** describe sidebar update icon and install on quit
+
 ## [1.22.0] - 2026-11-06
 
 ### ✨ Features
