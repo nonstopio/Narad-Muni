@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { readConfig, saveWindowBounds, writeConfig } from "./config";
 import { findAvailablePort } from "./port";
-import { initAutoUpdater, checkForUpdatesManual } from "./updater";
+import { initAutoUpdater, checkForUpdatesManual, getReadyUpdateVersion, installUpdate } from "./updater";
 import { routeHttpsVia } from "./net-fetch";
 import { setupScheduler, reloadSchedule, fireTestNotification, NotificationSettings } from "./scheduler";
 import { createProjectStore } from "./projects";
@@ -383,6 +383,7 @@ async function startApp(): Promise<void> {
   initAutoUpdater({
     onBeforeRestart: () => { isQuitting = true; },
     onRestartAborted: () => { isQuitting = false; },
+    onReady: (version) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("updater:ready", version); },
   });
 
   // Prevent macOS App Nap from throttling timers when window is hidden.
@@ -422,6 +423,10 @@ async function startApp(): Promise<void> {
       }
     });
   }
+
+  // Sidebar "update ready" tile: ask on mount (the push may predate it), install on click.
+  handle("updater:ready-version", () => getReadyUpdateVersion());
+  handle("updater:install", () => installUpdate());
 
   // IPC: renderer passes config directly
   handle("reload-notification-schedule", (_event, config: NotificationSettings) => {

@@ -25,6 +25,7 @@ export interface UpdateControllerDeps {
   log: { info: (...a: unknown[]) => void; error: (...a: unknown[]) => void };
   onBeforeRestart: () => void;
   onRestartAborted: () => void;
+  onReady: (version: string | null) => void; // light (version) or clear (null) the sidebar update tile
   setTimeout: (fn: () => void, ms: number) => Timer;
   setInterval: (fn: () => void, ms: number) => Timer;
   clearTimeout: (t: any) => void;
@@ -39,6 +40,8 @@ export function createUpdateController(deps: UpdateControllerDeps) {
   if (!deps.isSupported || !updater) {
     return {
       getState: (): State => "idle",
+      getReadyVersion: (): string | null => null,
+      install: () => {},
       start: () => log.info("Auto-updates not supported in this build — skipping"),
       checkManual: () => {
         showMessageBox({
@@ -53,11 +56,9 @@ export function createUpdateController(deps: UpdateControllerDeps) {
 
   let state: State = "idle";
   let manual = false; // a user-initiated check/download is awaiting its outcome
-  let prompting = false; // restart prompt currently on screen
   let restartRequested = false;
   let percent: number | null = null;
   let downloadedVersion: string | null = null;
-  let promptedVersion: string | null = null;
   let retryTimer: Timer = undefined;
 
   function check(isManual: boolean): void {
@@ -92,8 +93,10 @@ export function createUpdateController(deps: UpdateControllerDeps) {
     if (state === "idle" && !restartRequested) return;
 
     const showDialog = manual || restartRequested;
+    const wasReady = state === "downloaded";
     if (restartRequested) deps.onRestartAborted();
     state = "idle";
+    if (wasReady) deps.onReady(null); // stop the tile's spinner / hide a tile that can no longer install
     manual = false;
     restartRequested = false;
 
@@ -112,20 +115,8 @@ export function createUpdateController(deps: UpdateControllerDeps) {
     }
   }
 
-  async function promptRestart(version: string): Promise<void> {
-    if (prompting) return;
-    prompting = true;
-    promptedVersion = version;
-    const { response } = await showMessageBox({
-      type: "info",
-      title: NARAYAN,
-      message: `A new sacred scroll has arrived — v${version}!`,
-      detail: "Restart now and I shall install it, or carry on and choose a later moment.",
-      buttons: ["Restart and Install", "Later"],
-      defaultId: 0,
-      cancelId: 1,
-    }).finally(() => { prompting = false; });
-    if (response !== 0 || state !== "downloaded") return;
+  function install(): void {
+    if (state !== "downloaded" || restartRequested) return;
     restartRequested = true;
     deps.onBeforeRestart();
     updater!.quitAndInstall(false, true);
@@ -140,7 +131,7 @@ export function createUpdateController(deps: UpdateControllerDeps) {
         type: "info",
         title: NARAYAN,
         message: `A new scroll, v${info.version}, is on its way!`,
-        detail: "I am fetching it in the background and shall ask you to restart once it is ready.",
+        detail: "I am fetching it in the background and shall light a lamp in the sidebar once it is ready.",
       });
     }
   });
@@ -168,13 +159,16 @@ export function createUpdateController(deps: UpdateControllerDeps) {
     state = "downloaded";
     manual = false;
     downloadedVersion = info.version;
-    if (promptedVersion !== info.version) promptRestart(info.version);
+    // No dialog: an unparented box can land on another screen. The sidebar tile installs on click.
+    deps.onReady(info.version);
   });
 
   updater.on("error", fail);
 
   return {
     getState: () => state,
+    getReadyVersion: () => (state === "downloaded" ? downloadedVersion : null),
+    install,
     start: () => {
       deps.setTimeout(() => check(false), STARTUP_DELAY_MS);
       const interval = deps.setInterval(() => check(false), CHECK_INTERVAL_MS);
@@ -182,7 +176,13 @@ export function createUpdateController(deps: UpdateControllerDeps) {
     },
     checkManual: () => {
       if (state === "downloaded") {
-        promptRestart(downloadedVersion!);
+        // The sidebar tile is the one place to install from (or Quit installs it).
+        showMessageBox({
+          type: "info",
+          title: NARAYAN,
+          message: `A new sacred scroll, v${downloadedVersion}, awaits you!`,
+          detail: "Click the glowing icon in the sidebar to install it now, or I shall install it when you quit.",
+        });
       } else if (state === "idle") {
         check(true);
       } else {
@@ -191,21 +191,25 @@ export function createUpdateController(deps: UpdateControllerDeps) {
           type: "info",
           title: NARAYAN,
           message: `The sage is already seeking a new scroll${progress}.`,
-          detail: "I shall ask you to restart once it is ready.",
+          detail: "I shall light a lamp in the sidebar once it is ready.",
         });
       }
     },
   };
 }
 
-type RestartHooks = { onBeforeRestart?: () => void; onRestartAborted?: () => void };
+type RestartHooks = {
+  onBeforeRestart?: () => void;
+  onRestartAborted?: () => void;
+  onReady?: (version: string | null) => void;
+};
 
 let controller: ReturnType<typeof createUpdateController> | null = null;
 let hooks: RestartHooks = {}; // read at call time, so a menu click before init is safe
 
 function getController() {
   if (controller) return controller;
-  const { app, dialog } = require("electron") as typeof import("electron");
+  const { app, dialog, BrowserWindow } = require("electron") as typeof import("electron");
   const isSupported =
     app.isPackaged && !process.mas && (process.platform === "darwin" || process.platform === "win32");
 
@@ -221,7 +225,7 @@ function getController() {
     const { autoUpdater } = require("electron-updater") as typeof import("electron-updater");
     autoUpdater.logger = log;
     autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = false;
+    autoUpdater.autoInstallOnAppQuit = true; // a downloaded update also installs on a normal Quit
     autoUpdater.allowPrerelease = false;
     autoUpdater.allowDowngrade = false;
     updater = autoUpdater;
@@ -230,11 +234,16 @@ function getController() {
   controller = createUpdateController({
     updater,
     isSupported,
-    showMessageBox: (o) => dialog.showMessageBox(o),
+    // Parent to the focused window so the box opens on the screen the user is looking at.
+    showMessageBox: (o) => {
+      const win = BrowserWindow.getFocusedWindow();
+      return win ? dialog.showMessageBox(win, o) : dialog.showMessageBox(o);
+    },
     getVersion: () => app.getVersion(),
     log,
     onBeforeRestart: () => hooks.onBeforeRestart?.(),
     onRestartAborted: () => hooks.onRestartAborted?.(),
+    onReady: (v) => hooks.onReady?.(v),
     setTimeout,
     setInterval,
     clearTimeout,
@@ -251,4 +260,14 @@ export function initAutoUpdater(opts: RestartHooks = {}): void {
 /** Triggered from "Check for Updates..." menu item. */
 export function checkForUpdatesManual(): void {
   getController().checkManual();
+}
+
+/** Version downloaded and waiting to install, or null. */
+export function getReadyUpdateVersion(): string | null {
+  return getController().getReadyVersion();
+}
+
+/** Sidebar "update ready" tile: restart and install the downloaded update. */
+export function installUpdate(): void {
+  getController().install();
 }

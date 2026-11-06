@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Clock, Settings, Bug, LogOut, BarChart3, ShieldCheck, Send } from "lucide-react";
+import { Calendar, Clock, Settings, Bug, LogOut, BarChart3, ShieldCheck, Send, ArrowDownToLine } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { authedFetch } from "@/lib/api-client";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -45,6 +45,38 @@ function UserAvatar({ user, size = 40 }: { user: { displayName: string | null; e
     >
       {initials}
     </div>
+  );
+}
+
+/** Desktop only: appears once an update has downloaded by itself. Click installs (restart) and hides it; Quit also installs. Main clears it (null) if the install fails. */
+function UpdateReadyTile() {
+  const [version, setVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    const updates = window.narada?.updates;
+    if (!updates) return;
+    updates.readyVersion().then((v) => v && setVersion(v)).catch(() => {});
+    return updates.onReady(setVersion);
+  }, []);
+
+  if (!version) return null;
+
+  return (
+    <button
+      onClick={() => {
+        setVersion(null);
+        window.narada?.updates?.install().catch(() => setVersion(version));
+      }}
+      title={`Narayan Narayan! v${version} is ready. Click to restart and install, or I shall install it when you quit.`}
+      aria-label={`Update v${version} is ready to install`}
+      className="relative mb-3 w-10 h-10 flex items-center justify-center rounded-xl text-narada-emerald hover:bg-white/[0.03] transition-all duration-300 cursor-pointer"
+    >
+      <ArrowDownToLine className="w-[18px] h-[18px] drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+      <span className="absolute top-2 right-2 flex w-2 h-2 pointer-events-none">
+        <span className="absolute inset-0 rounded-full bg-narada-emerald opacity-75 motion-safe:animate-ping" />
+        <span className="relative w-2 h-2 rounded-full bg-narada-emerald ring-2 ring-narada-surface" />
+      </span>
+    </button>
   );
 }
 
@@ -102,7 +134,8 @@ export function Sidebar() {
       </nav>
 
       {user && (
-        <div className="border-t border-white/[0.06] pt-4 titlebar-no-drag">
+        <div className="border-t border-white/[0.06] pt-4 titlebar-no-drag flex flex-col items-center">
+          <UpdateReadyTile />
           <Popover>
             <PopoverTrigger asChild>
               <button

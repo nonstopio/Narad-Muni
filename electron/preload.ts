@@ -19,6 +19,15 @@ contextBridge.exposeInMainWorld("narada", {
     notificationDays: string;
   }): Promise<void> => ipcRenderer.invoke("reload-notification-schedule", config),
   testNotification: (): Promise<void> => ipcRenderer.invoke("test-notification"),
+  updates: {
+    readyVersion: (): Promise<string | null> => ipcRenderer.invoke("updater:ready-version"),
+    install: (): Promise<void> => ipcRenderer.invoke("updater:install"),
+    onReady: (cb: (version: string | null) => void) => {
+      const listener = (_e: unknown, version: string | null) => cb(version);
+      ipcRenderer.on("updater:ready", listener);
+      return () => { ipcRenderer.removeListener("updater:ready", listener); };
+    },
+  },
   projects: {
     list: () => ipcRenderer.invoke("projects:list"),
     add: () => ipcRenderer.invoke("projects:add"),
