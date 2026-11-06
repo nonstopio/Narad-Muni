@@ -10,7 +10,9 @@ import { useCalendar } from "@/hooks/use-calendar";
 import { useToastStore } from "@/components/ui/toast";
 import { cachedResource, fetchResource, invalidateResources } from "@/lib/resource-cache";
 import { computeCombinedStatus } from "@/types";
-import { monthStats } from "@/lib/month-stats";
+import { monthStats, loggedHoursByDate } from "@/lib/month-stats";
+import { useUpdateStore } from "@/stores/update-store";
+import type { WorkDaySettings } from "@/lib/work-day";
 import type { CombinedStatus, StatData, UpdateData } from "@/types";
 
 function formatMonth(date: Date): string {
@@ -70,6 +72,15 @@ export function UpdatesPageClient({
     }
     return map;
   }, [monthUpdates]);
+  const loggedHours = useMemo(() => loggedHoursByDate(monthUpdates), [monthUpdates]);
+
+  // Warm the editor's settings so a new day opens with the user's usual hours already known.
+  useEffect(() => {
+    fetchResource<{ workDay?: WorkDaySettings }>("/api/settings?editor=1")
+      .then((d) => { if (d.workDay) useUpdateStore.getState().setDefaultWorkedHours(d.workDay.defaultWorkHours); })
+      .catch(() => { /* The editor fetches again and reports failures there. */ });
+  }, []);
+
   const [selectedUpdate, setSelectedUpdate] = useState<UpdateData | null>(null);
   const setSelectedDate = useAppStore((s) => s.setSelectedDate);
   const router = useRouter();
@@ -134,6 +145,7 @@ export function UpdatesPageClient({
       <div className="flex-shrink-0"><StatsBar stats={stats} /></div>
       <Calendar
         updateStatusMap={updateStatusMap}
+        loggedHours={loggedHours}
         leaveDates={leaveSet}
         holidayDates={holidaySet}
         onDayClick={handleDayClick}

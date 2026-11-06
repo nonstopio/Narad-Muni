@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { DEFAULT_WORK_HOURS } from "@/lib/work-day";
 import type { DraftSource, ModalStep, ProcessingStage, WorkLogEntryData, PlatformConfigData, PublishStatus, UpdateMetricsHints } from "@/types";
 
 interface UpdateStore {
@@ -10,6 +11,9 @@ interface UpdateStore {
   // Hours worked that day; manual drafts' Jira entries are spread to exactly this total.
   workedHours: number;
   setWorkedHours: (hours: number) => void;
+  // The user's usual hours (Settings → Sacred Hours); each new day starts from it.
+  defaultWorkedHours: number;
+  setDefaultWorkedHours: (hours: number) => void;
   slackOutput: string;
   teamsOutput: string;
   workLogEntries: WorkLogEntryData[];
@@ -66,7 +70,8 @@ const initialState = {
   step: "editing" as ModalStep,
   rawTranscript: "",
   draftSource: "manual" as DraftSource,
-  workedHours: 8,
+  workedHours: DEFAULT_WORK_HOURS,
+  defaultWorkedHours: DEFAULT_WORK_HOURS,
   slackOutput: "",
   teamsOutput: "",
   workLogEntries: [] as WorkLogEntryData[],
@@ -88,13 +93,14 @@ const initialState = {
   metricsHints: null as UpdateMetricsHints | null,
 };
 
-export const useUpdateStore = create<UpdateStore>((set) => ({
+export const useUpdateStore = create<UpdateStore>((set, get) => ({
   ...initialState,
   setStep: (step) => set({ step }),
   // Emptying the words forgets where they came from.
   setRawTranscript: (text) => set(text ? { rawTranscript: text } : { rawTranscript: text, draftSource: "manual" }),
   setDraftSource: (source) => set({ draftSource: source }),
   setWorkedHours: (hours) => set({ workedHours: hours }),
+  setDefaultWorkedHours: (hours) => set({ defaultWorkedHours: hours }),
   setSlackOutput: (output) => set({ slackOutput: output }),
   setTeamsOutput: (output) => set({ teamsOutput: output }),
   setWorkLogEntries: (entries) => set({ workLogEntries: entries }),
@@ -147,7 +153,7 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
       step: "editing",
       rawTranscript: "",
       draftSource: "manual",
-      workedHours: 8,
+      workedHours: get().defaultWorkedHours,
       slackOutput: "",
       teamsOutput: "",
       workLogEntries: [],
@@ -165,5 +171,6 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
       metricsHints: null,
       // Note: platform toggles are NOT reset — they're set by initPlatformToggles
     }),
-  reset: () => set(initialState),
+  // Keeps the user's default hours: it is a setting, not editor state.
+  reset: () => set({ ...initialState, workedHours: get().defaultWorkedHours, defaultWorkedHours: get().defaultWorkedHours }),
 }));

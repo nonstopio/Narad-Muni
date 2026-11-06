@@ -61,4 +61,9 @@ for (let i = 1; i < seq.length; i++) {
 assert.deepStrictEqual(seq.map((x) => x.issueKey), ["B-1", "B-2", "B-3"], "order kept");
 assert.deepStrictEqual(up.map((x) => x.started), [...up.map((x) => x.started)].sort(), "merged with repeats, sorted by start");
 
+// The user's work-day start wins over the AI's guess; repeat entries stay put.
+const late = enforceTimeRules([repeat, e("S-1", 7200, "2026-10-06T10:00:00"), e("S-2", 3600, "2026-10-06T12:00:00")], 10800, "2026-10-06T11:30:00");
+assert.deepStrictEqual(late.filter((x) => !x.isRepeat).map((x) => x.started), ["2026-10-06T11:30:00", "2026-10-06T13:30:00"], "laid from the work-day start");
+assert.strictEqual(late.find((x) => x.isRepeat)!.started, repeat.started, "repeat untouched");
+
 console.log("time-rules: all assertions passed");

@@ -9,6 +9,7 @@ import { AIProviderCard } from "./ai-provider-card";
 import { NotificationCard } from "./notification-card";
 import { KeyboardShortcutsCard } from "./keyboard-shortcuts-card";
 import { ProjectsCard } from "./projects-card";
+import { WorkDayCard } from "./work-day-card";
 import {
   MessageSquare,
   Users,
@@ -17,6 +18,7 @@ import {
   Bell,
   Keyboard,
   FolderGit2,
+  Clock,
 } from "lucide-react";
 import type { PlatformConfigData } from "@/types";
 import type { LucideIcon } from "lucide-react";
@@ -34,6 +36,7 @@ const navItems: NavItem[] = [
   { key: "slack", label: "Slack Portal", icon: MessageSquare },
   { key: "teams", label: "Teams Portal", icon: Users },
   { key: "jira", label: "Jira Chronicle", icon: BookOpen },
+  { key: "hours", label: "Sacred Hours", icon: Clock },
   { key: "ai", label: "Divine Oracle", icon: Sparkles },
   { key: "projects", label: "Sacred Repositories", icon: FolderGit2, electronOnly: true },
   { key: "notifications", label: "Sacred Bell", icon: Bell, electronOnly: true },
@@ -103,6 +106,8 @@ export function SettingsClient({ initialConfigs }: Props) {
             onToggle={saveConfig}
           />
         ));
+      case "hours":
+        return <WorkDayCard />;
       case "ai":
         return <AIProviderCard />;
       case "projects":

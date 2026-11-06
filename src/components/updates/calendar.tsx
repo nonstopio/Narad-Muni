@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import type { CombinedStatus } from "@/types";
+import { formatHoursShort } from "@/lib/work-day";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -13,6 +14,8 @@ const STATUS_STYLES: Record<CombinedStatus, string> = {
 
 interface CalendarProps {
   updateStatusMap: Map<string, CombinedStatus>;
+  /** "YYYY-MM-DD" → hours logged to Jira that day. */
+  loggedHours: Map<string, number>;
   leaveDates: Set<string>;
   /** Subset of leaveDates marked as a holiday; only the label differs. */
   holidayDates: Set<string>;
@@ -25,7 +28,12 @@ interface CalendarProps {
   loading?: boolean;
 }
 
-export function Calendar({ updateStatusMap, leaveDates, holidayDates, onDayClick, monthTitle, calendarDays, prevMonth, nextMonth, goToToday, loading }: CalendarProps) {
+export function Calendar({ updateStatusMap, loggedHours, leaveDates, holidayDates, onDayClick, monthTitle, calendarDays, prevMonth, nextMonth, goToToday, loading }: CalendarProps) {
+
+  let monthHours = 0;
+  for (const day of calendarDays) {
+    if (day.isCurrentMonth) monthHours += loggedHours.get(day.date.toLocaleDateString("sv-SE")) ?? 0;
+  }
 
   const getUpdateStatus = (date: Date): CombinedStatus | null => {
     const key = date.toLocaleDateString("sv-SE");
@@ -43,8 +51,15 @@ export function Calendar({ updateStatusMap, leaveDates, holidayDates, onDayClick
             &rarr;
           </Button>
         </div>
-        <div className="text-lg font-semibold text-narada-text">
-          {monthTitle}
+        <div className="flex flex-col items-center">
+          <div className="text-lg font-semibold text-narada-text">
+            {monthTitle}
+          </div>
+          {monthHours > 0 && (
+            <div className="text-[11px] font-mono text-narada-text-muted">
+              {formatHoursShort(monthHours)} chronicled
+            </div>
+          )}
         </div>
         <Button variant="secondary" size="sm" onClick={goToToday}>
           Today
@@ -69,6 +84,7 @@ export function Calendar({ updateStatusMap, leaveDates, holidayDates, onDayClick
           // Precedence: update status > leave > today > weekend > default
           const dayKey = day.date.toLocaleDateString("sv-SE");
           const onLeave = day.isCurrentMonth && !status && leaveDates.has(dayKey);
+          const hours = day.isCurrentMonth ? loggedHours.get(dayKey) : undefined;
           return (
             <button
               key={i}
@@ -88,6 +104,11 @@ export function Calendar({ updateStatusMap, leaveDates, holidayDates, onDayClick
               }`}
             >
               {day.day}
+              {hours !== undefined && (
+                <span className="text-[10px] font-mono leading-none opacity-80 mt-0.5" aria-label={`${formatHoursShort(hours)} logged`}>
+                  {formatHoursShort(hours)}
+                </span>
+              )}
               {onLeave && <span className="text-[9px] uppercase leading-none tracking-wide mt-0.5">{holidayDates.has(dayKey) ? "Holiday" : "Leave"}</span>}
             </button>
           );
