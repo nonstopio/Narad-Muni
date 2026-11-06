@@ -35,10 +35,10 @@ function allocateUnits(weights: number[], total: number): number[] {
 /**
  * Round non-repeat entries to 30-min steps (at least 30 min) and, if the day falls
  * short of `targetSecs`, scale them up to meet it. Longer days are kept as they are.
- * Then lay them back-to-back from the first one's start.
- * Repeat entries are never touched.
+ * Then lay them back-to-back from `startAt` ("YYYY-MM-DDTHH:MM:SS", the user's work-day
+ * start) or, without one, from the first entry's start. Repeat entries are never touched.
  */
-export function enforceTimeRules(allEntries: ClaudeTimeEntry[], targetSecs: number): ClaudeTimeEntry[] {
+export function enforceTimeRules(allEntries: ClaudeTimeEntry[], targetSecs: number, startAt?: string): ClaudeTimeEntry[] {
   const repeatEntries = allEntries.filter((e) => e.isRepeat);
   const nonRepeatEntries = allEntries.filter((e) => !e.isRepeat);
 
@@ -51,7 +51,7 @@ export function enforceTimeRules(allEntries: ClaudeTimeEntry[], targetSecs: numb
   const asIs = weights.map((w) => Math.max(1, Math.round(w / UNIT_SECS)));
   const units = asIs.reduce((s, u) => s + u, 0) >= targetUnits ? asIs : allocateUnits(weights, targetUnits);
 
-  let cursor = toMs(nonRepeatEntries[0].started);
+  let cursor = toMs(startAt ?? nonRepeatEntries[0].started);
   const adjusted = nonRepeatEntries.map((e, i) => {
     const timeSpentSecs = units[i] * UNIT_SECS;
     // An unparseable start is left as the AI wrote it.

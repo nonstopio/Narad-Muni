@@ -12,6 +12,8 @@ export interface PromptOptions {
   source?: DraftSource;
   // Day total in seconds for manual drafts (default 8h).
   targetSecs?: number;
+  // When the user's work day starts, "HH:MM" (default 10:00).
+  dayStart?: string;
 }
 
 export interface AIParseProvider {

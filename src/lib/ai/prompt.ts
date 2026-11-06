@@ -1,5 +1,6 @@
 import type { PromptOptions, RepeatEntryInput } from "./types";
 import { DEFAULT_TARGET_SECS } from "./time-rules";
+import { DEFAULT_WORK_DAY_START, firstEntryStart } from "@/lib/work-day";
 
 // Sections are XML-tagged so the model can tell instructions from data, and the
 // instructions name the tags they refer to. The user's text arrives in <daily_update>.
@@ -38,13 +39,8 @@ ${repeatEntries.map((e) => `- ${e.ticketId}: ${e.hours}h at ${e.startTime} - ${e
   const remainingSecs = Math.max(0, targetSecs - repeatTotalSecs);
   const remainingHours = (remainingSecs / 3600).toFixed(1);
 
-  // Start after the repeat/fixed entries end (default 10:00), but never so late the day crosses midnight
-  const repeatEndMinutes = repeatEntries.reduce((latest, e) => {
-    const [h, m] = e.startTime.split(":").map(Number);
-    return Math.max(latest, h * 60 + m + e.hours * 60);
-  }, 10 * 60);
-  const startMinutes = Math.round(Math.min(repeatEndMinutes, Math.max(0, 24 * 60 - remainingSecs / 60)));
-  const earliestAvailableTime = `${String(Math.floor(startMinutes / 60)).padStart(2, "0")}:${String(startMinutes % 60).padStart(2, "0")}`;
+  // Start at the user's work-day start (default 10:00), after any fixed entries that run past it
+  const earliestAvailableTime = firstEntryStart(opts?.dayStart ?? DEFAULT_WORK_DAY_START, repeatEntries, remainingSecs);
 
   return `<role>
 You are a daily standup parser for a developer productivity tool called Narada. Parse the user's daily update in <daily_update> and extract structured data.

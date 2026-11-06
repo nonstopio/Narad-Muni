@@ -7,6 +7,7 @@ import { applyProjectSourceRules } from "@/lib/ai/project-rules";
 import { enforceTimeRules, DEFAULT_TARGET_SECS } from "@/lib/ai/time-rules";
 import type { ClaudeTimeEntry } from "@/types/claude";
 import { errorMessage } from "@/lib/utils";
+import { firstEntryStart, workDayFrom } from "@/lib/work-day";
 
 export async function POST(request: NextRequest) {
   const routeStart = Date.now();
@@ -41,11 +42,12 @@ export async function POST(request: NextRequest) {
     const settingsSnap = await settingsDoc(user.uid).get();
     const settings = settingsSnap.data();
     const providerName = (settings?.aiProvider ?? "local-claude") as string;
+    const { workDayStart } = workDayFrom(settings);
 
     const provider = await getAIProvider(settings);
     console.log(`[Narada] POST /api/parse provider=${provider.name} date=${date} source=${source}`);
     const { result, ms: providerMs } = await time(() =>
-      provider.parseTranscript(transcript, date, repeats, { source, targetSecs })
+      provider.parseTranscript(transcript, date, repeats, { source, targetSecs, dayStart: workDayStart })
     );
 
     // Merge repeat entries into time entries
@@ -62,9 +64,13 @@ export async function POST(request: NextRequest) {
     const merged = [...repeatTimeEntries, ...result.timeEntries];
     // Commits show coding, not the whole day: commit-sourced estimates still meet the chosen
     // hours, but keep their flags and evidence-checked ticket keys.
+    // The day's own entries begin at the user's work-day start, after any fixed entries running past it.
+    const repeatSecs = (repeats || []).reduce((s: number, e: { hours: number }) => s + e.hours * 3600, 0);
+    const startAt = `${date}T${firstEntryStart(workDayStart, repeats || [], Math.max(0, targetSecs - repeatSecs))}:00`;
     const allTimeEntries = enforceTimeRules(
       source === "projects" ? applyProjectSourceRules(merged, transcript, repeats || []) : merged,
-      targetSecs
+      targetSecs,
+      startAt
     );
     const totalSecs = allTimeEntries.reduce((s, e) => s + e.timeSpentSecs, 0);
     console.log(`[Narada] POST /api/parse success: tasks=${result.tasks?.length ?? 0} entries=${allTimeEntries.length} totalSecs=${totalSecs} provider_ms=${providerMs}`);

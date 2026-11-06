@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth, isAuthError, handleAuthError } from "@/lib/auth-middleware";
-import { configsCol } from "@/lib/firestore-helpers";
+import { configsCol, settingsDoc } from "@/lib/firestore-helpers";
+import { workDayFrom } from "@/lib/work-day";
 import { type QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { errorMessage } from "@/lib/utils";
 
@@ -9,9 +10,12 @@ export async function GET(request: NextRequest) {
     const user = await verifyAuth(request);
     console.log(`[Narada] GET /api/settings uid=${user.uid}`);
     const collection = configsCol(user.uid);
-    const snapshot = await (request.nextUrl.searchParams.has("editor")
-      ? collection.select("platform", "baseUrl", "isActive", "repeatEntries")
-      : collection).get();
+    const editor = request.nextUrl.searchParams.has("editor");
+    const [snapshot, appSnap] = await Promise.all([
+      (editor ? collection.select("platform", "baseUrl", "isActive", "repeatEntries") : collection).get(),
+      // The editor also needs the work-day defaults; only those two fields, never credentials.
+      editor ? settingsDoc(user.uid).get() : null,
+    ]);
 
     const configs = snapshot.docs.map((doc: QueryDocumentSnapshot) => ({
       id: doc.id,
@@ -23,7 +27,7 @@ export async function GET(request: NextRequest) {
       ((a.platform as string) || "").localeCompare((b.platform as string) || "")
     );
 
-    return NextResponse.json({ configs });
+    return NextResponse.json(appSnap ? { configs, workDay: workDayFrom(appSnap.data()) } : { configs });
   } catch (error) {
     if (isAuthError(error)) return handleAuthError(error);
     console.error("[Narada API Settings] GET failed:", error);

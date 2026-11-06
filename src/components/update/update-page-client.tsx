@@ -26,9 +26,11 @@ import { readLocalDraft } from "@/lib/local-drafts";
 
 interface UpdatePageClientProps {
   platformConfigs: PlatformConfigData[];
+  /** The user's usual hours; a new day's hours picker starts here. */
+  defaultWorkHours?: number;
 }
 
-export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
+export function UpdatePageClient({ platformConfigs, defaultWorkHours }: UpdatePageClientProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const setSelectedDate = useAppStore((s) => s.setSelectedDate);
@@ -41,6 +43,11 @@ export function UpdatePageClient({ platformConfigs }: UpdatePageClientProps) {
   const dateParam = searchParams.get("date") ?? defaultDate;
   const retryParam = searchParams.get("retry");
   const initializedConfigs = useRef<string | null>(null);
+  // Declared before the reset so a known default seeds the new day. A default that arrives
+  // later applies from the next day: changing hours now would block the cloud draft restore.
+  useLayoutEffect(() => {
+    if (defaultWorkHours !== undefined) useUpdateStore.getState().setDefaultWorkedHours(defaultWorkHours);
+  }, [defaultWorkHours]);
   useLayoutEffect(() => {
     resetForNewUpdate();
     initializedConfigs.current = null;

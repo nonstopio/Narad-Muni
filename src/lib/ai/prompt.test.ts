@@ -35,4 +35,10 @@ assert.ok(!manual.includes("<project_activity_rules>"), "no project rules for ty
 assert.strictEqual(count(manual, /^<repeat_entries>$/gm), 0, "no empty repeat section");
 assert.ok(manual.includes("at least 6h"), "chosen hours reach the prompt");
 
+// Entries start at the user's work-day start, or after a fixed entry that runs past it.
+assert.ok(manual.includes("beginning at 10:00"), "default start is 10:00");
+assert.ok(buildSystemPrompt("2026-10-07", [], { dayStart: "12:00" }).includes("beginning at 12:00"), "work-day start reaches the prompt");
+assert.ok(buildSystemPrompt("2026-10-07", [{ ticketId: "OPS-1", hours: 1, startTime: "11:30", comment: "sync" }], { dayStart: "11:30" }).includes("beginning at 12:30"), "starts after a repeat that runs past the start");
+assert.ok(buildSystemPrompt("2026-10-07", repeats, { dayStart: "11:30" }).includes("beginning at 11:30"), "an earlier repeat does not pull the start back");
+
 console.log("prompt: all assertions passed");

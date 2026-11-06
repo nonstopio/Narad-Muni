@@ -4,11 +4,12 @@ import { useResource } from "@/lib/resource-cache";
 import { UpdatePageClient } from "@/components/update/update-page-client";
 import { Button } from "@/components/ui/button";
 import type { PlatformConfigData } from "@/types";
+import type { WorkDaySettings } from "@/lib/work-day";
 
 const EMPTY_CONFIGS: PlatformConfigData[] = [];
 
 export default function UpdatePage() {
-  const { data, loading, error, refresh } = useResource<{ configs: PlatformConfigData[] }>("/api/settings?editor=1");
+  const { data, loading, error, refresh } = useResource<{ configs: PlatformConfigData[]; workDay?: WorkDaySettings }>("/api/settings?editor=1");
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {(loading || error) && (
@@ -17,7 +18,7 @@ export default function UpdatePage() {
           {error && <Button variant="ghost" size="sm" onClick={refresh}>Refresh portals</Button>}
         </div>
       )}
-      <UpdatePageClient platformConfigs={data?.configs ?? EMPTY_CONFIGS} />
+      <UpdatePageClient platformConfigs={data?.configs ?? EMPTY_CONFIGS} defaultWorkHours={data?.workDay?.defaultWorkHours} />
     </div>
   );
 }
