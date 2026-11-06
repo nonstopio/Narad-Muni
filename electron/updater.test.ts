@@ -36,6 +36,7 @@ function setup(opts: { isSupported?: boolean; response?: number; checkResult?: (
     log: { info: () => {}, error: () => {} },
     onBeforeRestart: () => calls.push("onBeforeRestart"),
     onRestartAborted: () => calls.push("onRestartAborted"),
+    onReady: (v) => calls.push(`onReady(${v})`),
     setTimeout: (fn, ms) => (timeouts.push({ fn, ms }), timeouts.length),
     setInterval: (fn, ms) => (intervals.push({ fn, ms }), intervals.length),
     clearTimeout: () => {},
@@ -97,17 +98,60 @@ async function main() {
     t.intervals[0].fn();
     await flush();
     assert.strictEqual(t.updater.checks, 1);
-    assert.strictEqual(t.dialogs.length, 1, "background found update: no dialog but the prompt");
-    assert.strictEqual(t.prompts().length, 1);
+    assert.strictEqual(t.dialogs.length, 0, "background download never opens a dialog");
     assert.strictEqual(t.c.getState(), "downloaded");
-    // "Later" (default response 1): nothing installs.
-    assert.deepStrictEqual(t.calls, []);
+    assert.strictEqual(t.c.getReadyVersion(), "2.0.0");
+    assert.deepStrictEqual(t.calls, ["onReady(2.0.0)"]);
 
-    // Manual check when downloaded -> re-prompt.
+    // Manual check when downloaded -> prompt ("Later": nothing installs).
     t.c.checkManual();
     await flush();
-    assert.strictEqual(t.prompts().length, 2);
+    assert.strictEqual(t.prompts().length, 1);
     assert.strictEqual(t.updater.checks, 1);
+    assert.deepStrictEqual(t.calls, ["onReady(2.0.0)"]);
+
+    // Sidebar tile click installs; a double click does not install twice.
+    t.c.install();
+    t.c.install();
+    assert.deepStrictEqual(t.calls, ["onReady(2.0.0)", "onBeforeRestart", "quitAndInstall(false,true)"]);
+  }
+
+  // Tile click whose install then fails: tile cleared, one error dialog, no install loop.
+  {
+    const t = setup();
+    t.c.start();
+    t.timeouts[0].fn();
+    t.updater.emit("update-available", { version: "2.0.0" });
+    t.updater.emit("update-downloaded", { version: "2.0.0" });
+    t.c.install();
+    t.updater.emit("error", new Error("Squirrel rejected"));
+    await flush();
+    assert.deepStrictEqual(t.calls, ["onReady(2.0.0)", "onBeforeRestart", "quitAndInstall(false,true)", "onRestartAborted", "onReady(null)"]);
+    assert.deepStrictEqual(t.dialogs.map((d) => d.type), ["error"]);
+    t.c.install();
+    assert.strictEqual(t.calls.length, 5, "nothing left to install after the failure");
+  }
+
+  // Background error after download (e.g. staging for install-on-quit): tile cleared, no dialog, retry.
+  {
+    const t = setup();
+    t.c.start();
+    t.timeouts[0].fn();
+    t.updater.emit("update-available", { version: "2.0.0" });
+    t.updater.emit("update-downloaded", { version: "2.0.0" });
+    t.updater.emit("error", new Error("staging failed"));
+    await flush();
+    assert.deepStrictEqual(t.calls, ["onReady(2.0.0)", "onReady(null)"]);
+    assert.strictEqual(t.dialogs.length, 0);
+    assert.strictEqual(t.timeouts.filter((x) => x.ms === 30 * 60 * 1000).length, 1);
+  }
+
+  // install() before anything downloaded is a no-op.
+  {
+    const t = setup();
+    t.c.install();
+    assert.deepStrictEqual(t.calls, []);
+    assert.strictEqual(t.c.getReadyVersion(), null);
   }
 
   // Background download failure: idle, no dialog, one retry scheduled (not stacked).
@@ -169,11 +213,16 @@ async function main() {
     t.updater.emit("update-available", { version: "2.0.0" });
     t.updater.emit("update-downloaded", { version: "2.0.0" });
     await flush();
-    assert.deepStrictEqual(t.calls, ["onBeforeRestart", "quitAndInstall(false,true)"]);
+    assert.strictEqual(t.prompts().length, 0, "download alone never prompts");
+    t.c.checkManual(); // menu "Check for Updates" -> prompt -> Restart and Install
+    await flush();
+    assert.deepStrictEqual(t.calls, ["onReady(2.0.0)", "onBeforeRestart", "quitAndInstall(false,true)"]);
     const before = t.dialogs.length;
     t.updater.emit("error", new Error("Squirrel rejected"));
     await flush();
-    assert.strictEqual(t.calls[2], "onRestartAborted");
+    assert.strictEqual(t.calls[3], "onRestartAborted");
+    assert.strictEqual(t.calls[4], "onReady(null)", "failed install clears the sidebar tile");
+    assert.strictEqual(t.c.getReadyVersion(), null);
     assert.strictEqual(t.dialogs.length, before + 1);
     assert.strictEqual(t.dialogs[before].type, "error");
     assert.strictEqual(t.c.getState(), "idle");
@@ -199,6 +248,7 @@ async function main() {
     t.updater.emit("update-available", { version: "2.0.0" });
     t.updater.emit("update-downloaded", { version: "2.0.0" });
     c.checkManual();
+    c.checkManual();
     await flush();
     assert.strictEqual(t.prompts().length, 1);
     answer({ response: 1 }); // Later
@@ -206,7 +256,7 @@ async function main() {
     c.checkManual(); // after closing, an explicit request re-prompts
     await flush();
     assert.strictEqual(t.prompts().length, 2);
-    assert.deepStrictEqual(t.calls, []);
+    assert.deepStrictEqual(t.calls, ["onReady(2.0.0)"]);
   }
 
   // main.ts close-to-hide must let the updater through once quitting is flagged.
@@ -217,6 +267,10 @@ async function main() {
     assert.match(main, /onBeforeRestart: \(\) => \{ isQuitting = true; \}/);
     assert.match(main, /onRestartAborted: \(\) => \{ isQuitting = false; \}/);
     assert.match(main, /"before-quit-for-update", \(\) => \{ isQuitting = true; \}/);
+    assert.match(main, /handle\("updater:install", \(\) => installUpdate\(\)\)/, "install goes through the trusted-sender guard");
+    assert.match(main, /handle\("updater:ready-version", \(\) => getReadyUpdateVersion\(\)\)/);
+    const src = fs.readFileSync(require.resolve("./updater.ts"), "utf8");
+    assert.match(src, /autoInstallOnAppQuit = true/, "a downloaded update installs on a normal Quit");
   }
 
   console.log("updater: all assertions passed");

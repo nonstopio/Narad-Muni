@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Clock, Settings, Bug, LogOut, BarChart3, ShieldCheck, Send } from "lucide-react";
+import { Calendar, Clock, Settings, Bug, LogOut, BarChart3, ShieldCheck, Send, ArrowDownToLine, Loader2 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { authedFetch } from "@/lib/api-client";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -45,6 +45,46 @@ function UserAvatar({ user, size = 40 }: { user: { displayName: string | null; e
     >
       {initials}
     </div>
+  );
+}
+
+/** Desktop only: lights up once an update has downloaded; click restarts into it. Main clears it (null) if the install fails. */
+function UpdateReadyTile() {
+  const [version, setVersion] = useState<string | null>(null);
+  const [installing, setInstalling] = useState(false);
+
+  useEffect(() => {
+    const updates = window.narada?.updates;
+    if (!updates) return;
+    updates.readyVersion().then((v) => v && setVersion(v)).catch(() => {});
+    return updates.onReady((v) => {
+      setVersion(v);
+      setInstalling(false);
+    });
+  }, []);
+
+  if (!version) return null;
+
+  return (
+    <button
+      onClick={() => {
+        setInstalling(true);
+        window.narada?.updates?.install().catch(() => setInstalling(false));
+      }}
+      disabled={installing}
+      title={`Narayan Narayan! v${version} is ready — click and I shall restart to install it`}
+      aria-label={installing ? `Restarting to install v${version}` : `Update to v${version} is ready. Restart to install.`}
+      className="relative mb-3 w-10 h-10 flex items-center justify-center rounded-xl border border-narada-emerald/40 bg-narada-emerald/10 text-narada-emerald hover:bg-narada-emerald/20 transition-colors cursor-pointer disabled:cursor-wait disabled:opacity-60"
+    >
+      {installing ? (
+        <Loader2 className="w-[18px] h-[18px] animate-spin" />
+      ) : (
+        <>
+          <span className="absolute inset-0 rounded-xl shadow-[0_0_14px_rgba(16,185,129,0.6)] motion-safe:animate-pulse pointer-events-none" />
+          <ArrowDownToLine className="w-[18px] h-[18px] motion-safe:animate-bounce" />
+        </>
+      )}
+    </button>
   );
 }
 
@@ -102,7 +142,8 @@ export function Sidebar() {
       </nav>
 
       {user && (
-        <div className="border-t border-white/[0.06] pt-4 titlebar-no-drag">
+        <div className="border-t border-white/[0.06] pt-4 titlebar-no-drag flex flex-col items-center">
+          <UpdateReadyTile />
           <Popover>
             <PopoverTrigger asChild>
               <button

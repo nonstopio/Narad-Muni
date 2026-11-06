@@ -20,6 +20,11 @@ declare global {
         notificationDays: string;
       }) => Promise<void>;
       testNotification: () => Promise<void>;
+      updates?: {
+        readyVersion: () => Promise<string | null>;
+        install: () => Promise<void>;
+        onReady: (cb: (version: string | null) => void) => () => void;
+      };
       projects: {
         list: () => Promise<{ workdayTimeZone: string | null; projects: LocalProject[] } | ProjectsError>;
         add: () => Promise<
