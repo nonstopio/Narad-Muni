@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Clock, Settings, Bug, LogOut, BarChart3, ShieldCheck, Send, RotateCw, Loader2 } from "lucide-react";
+import { Calendar, Clock, Settings, Bug, LogOut, BarChart3, ShieldCheck, Send, ArrowDownToLine } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { authedFetch } from "@/lib/api-client";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -48,19 +48,15 @@ function UserAvatar({ user, size = 40 }: { user: { displayName: string | null; e
   );
 }
 
-/** Desktop only: lights up once an update has downloaded (no click needed to download). Click restarts into it; Quit also installs. Main clears it (null) if the install fails. */
+/** Desktop only: appears once an update has downloaded by itself. Click installs (restart) and hides it; Quit also installs. Main clears it (null) if the install fails. */
 function UpdateReadyTile() {
   const [version, setVersion] = useState<string | null>(null);
-  const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
     const updates = window.narada?.updates;
     if (!updates) return;
     updates.readyVersion().then((v) => v && setVersion(v)).catch(() => {});
-    return updates.onReady((v) => {
-      setVersion(v);
-      setInstalling(false);
-    });
+    return updates.onReady(setVersion);
   }, []);
 
   if (!version) return null;
@@ -68,22 +64,18 @@ function UpdateReadyTile() {
   return (
     <button
       onClick={() => {
-        setInstalling(true);
-        window.narada?.updates?.install().catch(() => setInstalling(false));
+        setVersion(null);
+        window.narada?.updates?.install().catch(() => setVersion(version));
       }}
-      disabled={installing}
-      title={`Narayan Narayan! v${version} has arrived. Restart now to install, or I shall install it when you quit.`}
-      aria-label={installing ? `Restarting to install v${version}` : `Update v${version} downloaded. Restart now to install, or it installs when you quit.`}
-      className="relative mb-3 w-10 h-10 flex items-center justify-center rounded-xl border border-narada-emerald/40 bg-narada-emerald/10 text-narada-emerald hover:bg-narada-emerald/20 transition-colors cursor-pointer disabled:cursor-wait disabled:opacity-60"
+      title={`Narayan Narayan! v${version} is ready. Click to restart and install, or I shall install it when you quit.`}
+      aria-label={`Update v${version} is ready to install`}
+      className="relative mb-3 w-10 h-10 flex items-center justify-center rounded-xl border border-narada-emerald/40 bg-narada-emerald/10 text-narada-emerald shadow-[0_0_14px_rgba(16,185,129,0.45)] hover:bg-narada-emerald/20 transition-colors cursor-pointer"
     >
-      {installing ? (
-        <Loader2 className="w-[18px] h-[18px] animate-spin" />
-      ) : (
-        <>
-          <span className="absolute inset-0 rounded-xl shadow-[0_0_14px_rgba(16,185,129,0.6)] motion-safe:animate-pulse pointer-events-none" />
-          <RotateCw className="w-[18px] h-[18px]" />
-        </>
-      )}
+      <ArrowDownToLine className="w-[18px] h-[18px]" />
+      <span className="absolute -top-1 -right-1 flex w-2.5 h-2.5 pointer-events-none">
+        <span className="absolute inset-0 rounded-full bg-narada-emerald opacity-75 motion-safe:animate-ping" />
+        <span className="relative w-2.5 h-2.5 rounded-full bg-narada-emerald ring-2 ring-narada-surface" />
+      </span>
     </button>
   );
 }

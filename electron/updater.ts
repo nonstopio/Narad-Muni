@@ -56,7 +56,6 @@ export function createUpdateController(deps: UpdateControllerDeps) {
 
   let state: State = "idle";
   let manual = false; // a user-initiated check/download is awaiting its outcome
-  let prompting = false; // restart prompt currently on screen
   let restartRequested = false;
   let percent: number | null = null;
   let downloadedVersion: string | null = null;
@@ -123,21 +122,6 @@ export function createUpdateController(deps: UpdateControllerDeps) {
     updater!.quitAndInstall(false, true);
   }
 
-  async function promptRestart(version: string): Promise<void> {
-    if (prompting) return;
-    prompting = true;
-    const { response } = await showMessageBox({
-      type: "info",
-      title: NARAYAN,
-      message: `A new sacred scroll has arrived — v${version}!`,
-      detail: "Restart now and I shall install it, or carry on and choose a later moment.",
-      buttons: ["Restart and Install", "Later"],
-      defaultId: 0,
-      cancelId: 1,
-    }).finally(() => { prompting = false; });
-    if (response === 0) install();
-  }
-
   updater.on("update-available", (info: { version: string }) => {
     log.info(`Update available: v${info.version}`);
     state = "downloading";
@@ -192,7 +176,13 @@ export function createUpdateController(deps: UpdateControllerDeps) {
     },
     checkManual: () => {
       if (state === "downloaded") {
-        promptRestart(downloadedVersion!);
+        // The sidebar tile is the one place to install from (or Quit installs it).
+        showMessageBox({
+          type: "info",
+          title: NARAYAN,
+          message: `A new sacred scroll, v${downloadedVersion}, awaits you!`,
+          detail: "Click the glowing icon in the sidebar to install it now, or I shall install it when you quit.",
+        });
       } else if (state === "idle") {
         check(true);
       } else {

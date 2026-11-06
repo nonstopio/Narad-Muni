@@ -9,9 +9,9 @@ import { createUpdateController } from "./updater";
 
 const flush = () => new Promise((r) => setImmediate(r));
 
-function setup(opts: { isSupported?: boolean; response?: number; checkResult?: () => Promise<any>; answer?: () => Promise<{ response: number }> } = {}) {
+function setup(opts: { isSupported?: boolean; checkResult?: () => Promise<any> } = {}) {
   const calls: string[] = [];
-  const dialogs: { type?: string; message: string; buttons?: string[] }[] = [];
+  const dialogs: { type?: string; message: string; detail?: string; buttons?: string[] }[] = [];
   const timeouts: { fn: () => void; ms: number }[] = [];
   const intervals: { fn: () => void; ms: number }[] = [];
   const updater = Object.assign(new EventEmitter(), {
@@ -28,9 +28,8 @@ function setup(opts: { isSupported?: boolean; response?: number; checkResult?: (
     updater,
     isSupported: opts.isSupported ?? true,
     showMessageBox: async (o) => {
-      dialogs.push({ type: o.type, message: o.message, buttons: o.buttons });
-      if (o.buttons && opts.answer) return opts.answer();
-      return { response: o.buttons ? opts.response ?? 1 : 0 };
+      dialogs.push({ type: o.type, message: o.message, detail: o.detail, buttons: o.buttons });
+      return { response: 0 };
     },
     getVersion: () => "1.0.0",
     log: { info: () => {}, error: () => {} },
@@ -41,7 +40,7 @@ function setup(opts: { isSupported?: boolean; response?: number; checkResult?: (
     setInterval: (fn, ms) => (intervals.push({ fn, ms }), intervals.length),
     clearTimeout: () => {},
   });
-  const prompts = () => dialogs.filter((d) => d.buttons?.includes("Restart and Install"));
+  const prompts = () => dialogs.filter((d) => d.buttons); // any choice dialog: the updater must never ask
   return { c, updater, calls, dialogs, timeouts, intervals, prompts };
 }
 
@@ -103,10 +102,13 @@ async function main() {
     assert.strictEqual(t.c.getReadyVersion(), "2.0.0");
     assert.deepStrictEqual(t.calls, ["onReady(2.0.0)"]);
 
-    // Manual check when downloaded -> prompt ("Later": nothing installs).
+    // Manual check when downloaded -> info pointing at the tile; no buttons, no install, no new check.
     t.c.checkManual();
     await flush();
-    assert.strictEqual(t.prompts().length, 1);
+    assert.strictEqual(t.dialogs.length, 1);
+    assert.match(t.dialogs[0].message, /2\.0\.0/);
+    assert.match(t.dialogs[0].detail ?? "", /sidebar/);
+    assert.strictEqual(t.dialogs[0].buttons, undefined);
     assert.strictEqual(t.updater.checks, 1);
     assert.deepStrictEqual(t.calls, ["onReady(2.0.0)"]);
 
@@ -206,26 +208,16 @@ async function main() {
     assert.strictEqual(t.timeouts.filter((x) => x.ms === 30 * 60 * 1000).length, 1);
   }
 
-  // "Restart and Install": onBeforeRestart before quitAndInstall(false, true); error after -> abort + dialog.
+  // Menu "Check for Updates": finds, downloads, lights the tile; never prompts or installs itself.
   {
-    const t = setup({ response: 0 });
+    const t = setup();
     t.c.checkManual();
     t.updater.emit("update-available", { version: "2.0.0" });
     t.updater.emit("update-downloaded", { version: "2.0.0" });
     await flush();
-    assert.strictEqual(t.prompts().length, 0, "download alone never prompts");
-    t.c.checkManual(); // menu "Check for Updates" -> prompt -> Restart and Install
-    await flush();
-    assert.deepStrictEqual(t.calls, ["onReady(2.0.0)", "onBeforeRestart", "quitAndInstall(false,true)"]);
-    const before = t.dialogs.length;
-    t.updater.emit("error", new Error("Squirrel rejected"));
-    await flush();
-    assert.strictEqual(t.calls[3], "onRestartAborted");
-    assert.strictEqual(t.calls[4], "onReady(null)", "failed install clears the sidebar tile");
-    assert.strictEqual(t.c.getReadyVersion(), null);
-    assert.strictEqual(t.dialogs.length, before + 1);
-    assert.strictEqual(t.dialogs[before].type, "error");
-    assert.strictEqual(t.c.getState(), "idle");
+    assert.strictEqual(t.prompts().length, 0);
+    assert.deepStrictEqual(t.dialogs.map((d) => d.type), ["info"], "only the 'on its way' note");
+    assert.deepStrictEqual(t.calls, ["onReady(2.0.0)"]);
   }
 
   // Manual check whose download then fails: the user who asked hears about it.
@@ -237,26 +229,6 @@ async function main() {
     await flush();
     assert.deepStrictEqual(t.dialogs.map((d) => d.type), ["info", "error"]);
     assert.strictEqual(t.c.getState(), "idle");
-  }
-
-  // Manual re-check while the restart prompt is still open: no second prompt.
-  {
-    let answer: (r: { response: number }) => void = () => {};
-    const t = setup({ answer: () => new Promise((r) => (answer = r)) });
-    const c = t.c;
-    c.checkManual();
-    t.updater.emit("update-available", { version: "2.0.0" });
-    t.updater.emit("update-downloaded", { version: "2.0.0" });
-    c.checkManual();
-    c.checkManual();
-    await flush();
-    assert.strictEqual(t.prompts().length, 1);
-    answer({ response: 1 }); // Later
-    await flush();
-    c.checkManual(); // after closing, an explicit request re-prompts
-    await flush();
-    assert.strictEqual(t.prompts().length, 2);
-    assert.deepStrictEqual(t.calls, ["onReady(2.0.0)"]);
   }
 
   // main.ts close-to-hide must let the updater through once quitting is flagged.
