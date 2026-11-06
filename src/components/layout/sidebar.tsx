@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Clock, Settings, Bug, LogOut, BarChart3, ShieldCheck, Send, ArrowDownToLine, Loader2 } from "lucide-react";
+import { Calendar, Clock, Settings, Bug, LogOut, BarChart3, ShieldCheck, Send, RotateCw, Loader2 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { authedFetch } from "@/lib/api-client";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -48,7 +48,7 @@ function UserAvatar({ user, size = 40 }: { user: { displayName: string | null; e
   );
 }
 
-/** Desktop only: lights up once an update has downloaded; click restarts into it. Main clears it (null) if the install fails. */
+/** Desktop only: lights up once an update has downloaded (no click needed to download). Click restarts into it; Quit also installs. Main clears it (null) if the install fails. */
 function UpdateReadyTile() {
   const [version, setVersion] = useState<string | null>(null);
   const [installing, setInstalling] = useState(false);
@@ -72,8 +72,8 @@ function UpdateReadyTile() {
         window.narada?.updates?.install().catch(() => setInstalling(false));
       }}
       disabled={installing}
-      title={`Narayan Narayan! v${version} is ready — click and I shall restart to install it`}
-      aria-label={installing ? `Restarting to install v${version}` : `Update to v${version} is ready. Restart to install.`}
+      title={`Narayan Narayan! v${version} has arrived. Restart now to install, or I shall install it when you quit.`}
+      aria-label={installing ? `Restarting to install v${version}` : `Update v${version} downloaded. Restart now to install, or it installs when you quit.`}
       className="relative mb-3 w-10 h-10 flex items-center justify-center rounded-xl border border-narada-emerald/40 bg-narada-emerald/10 text-narada-emerald hover:bg-narada-emerald/20 transition-colors cursor-pointer disabled:cursor-wait disabled:opacity-60"
     >
       {installing ? (
@@ -81,7 +81,7 @@ function UpdateReadyTile() {
       ) : (
         <>
           <span className="absolute inset-0 rounded-xl shadow-[0_0_14px_rgba(16,185,129,0.6)] motion-safe:animate-pulse pointer-events-none" />
-          <ArrowDownToLine className="w-[18px] h-[18px] motion-safe:animate-bounce" />
+          <RotateCw className="w-[18px] h-[18px]" />
         </>
       )}
     </button>
