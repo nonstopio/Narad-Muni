@@ -6,7 +6,8 @@ import { SlackOutputCard } from "./slack-output-card";
 import { TeamsOutputCard } from "./teams-output-card";
 import { JiraOutputCard } from "./jira-output-card";
 import { Button } from "@/components/ui/button";
-import { Send, Loader2, RefreshCw } from "lucide-react";
+import { Orb } from "@/components/ui/orb";
+import { Send, RefreshCw } from "lucide-react";
 import { jiraPublishBlocker } from "@/lib/jira-guard";
 
 interface PlatformOutputsProps {
@@ -103,7 +104,7 @@ export function PlatformOutputs({
       >
         {isSharing ? (
           <>
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Orb state="connecting" />
             <span>{loadingText}</span>
           </>
         ) : (

@@ -42,6 +42,7 @@ node --import tsx electron/drafts.test.ts
 node --import tsx src/lib/local-drafts.test.ts
 node --import tsx src/lib/publish-delivery.test.ts
 node --import tsx src/app/api/updates/route.test.ts
+npx tsx src/components/ui/orb.test.ts
 ```
 
 On hosts where the `tsx` CLI cannot create its local IPC pipe, use `node --import tsx <test-file>` instead. The production font download may need `NEXT_TURBOPACK_EXPERIMENTAL_USE_SYSTEM_TLS_CERTS=1` behind an OS-trusted corporate proxy; never disable TLS verification.
@@ -138,6 +139,7 @@ Dark glassmorphism theme (inspired by Linear/Raycast/Arc).
 - **Fonts:** Inter (UI), JetBrains Mono (code/URLs/tokens)
 - **Glass effect:** `background: rgba(255,255,255,0.03)`, `border: 1px solid rgba(255,255,255,0.06)`, `backdrop-filter: blur(20px)`
 - **Layout:** 64px icon sidebar + fluid main content
+- **Loading states:** use `Orb` (`src/components/ui/orb.tsx`, `thinking-orbs`, theme left on auto), never a spinner or pulse, with the state matching the activity: `searching` = fetching, `connecting` = dispatching/settings, `composing` = AI writing, `shaping` = saving, `breathing` = waiting/idle, `solving`/`weaving` as the page already uses them. Orbs follow `<html data-theme>` (dark today); a future light mode only needs to flip that attribute and orbs switch live, so never pin a theme per orb. The Muni Lottie stays for Invoke the Sage.
 - **CSS classes:** `glass-card`, `glass-input` are reusable glassmorphism presets defined in `globals.css`
 
 ## Key Domain Concepts
@@ -194,6 +196,7 @@ npm run electron:build    # Full production build + package
 
 | File | Purpose |
 |------|---------|
+| `src/components/ui/orb.tsx` | `Orb` loader wrapper around `thinking-orbs` (follows `<html data-theme>`); `orb.test.ts` guards theme, a11y and leftover spinners |
 | `src/lib/firebase.ts` | Firebase client SDK init (Auth + Analytics) |
 | `src/lib/firebase-admin.ts` | Firebase Admin SDK init (Firestore + Auth verification) |
 | `src/lib/auth-middleware.ts` | `verifyAuth()` + `handleAuthError()` for API routes |

@@ -6,6 +6,7 @@ import { authedFetch } from "@/lib/api-client";
 import type { PlatformConfigData, RepeatEntryData } from "@/types";
 import { useToastStore } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
+import { Orb } from "@/components/ui/orb";
 
 function parseHoursInput(raw: string): number | null {
   const trimmed = raw.trim().toLowerCase();
@@ -394,6 +395,7 @@ export function JiraConfigCard({ config, onSave, onToggle }: Props) {
             onClick={handleSave}
             disabled={saving || testing}
           >
+            {saving && <Orb state="shaping" />}
             {saving ? "Inscribing..." : "Inscribe"}
           </Button>
         </div>

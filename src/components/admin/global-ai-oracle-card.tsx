@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { useToastStore } from "@/components/ui/toast";
+import { Orb } from "@/components/ui/orb";
 import { X } from "lucide-react";
 
 type SingleKeySection = { apiKey: string } | null;
@@ -173,7 +174,7 @@ export function GlobalAIOracleCard() {
     return (
       <div className="glass-card p-5">
         <h3 className="text-sm font-medium narada-text-secondary mb-4">Global AI Oracle</h3>
-        <p className="text-xs narada-text-secondary">Loading...</p>
+        <p className="flex items-center gap-2 text-xs narada-text-secondary"><Orb state="breathing" />Loading...</p>
       </div>
     );
   }
@@ -203,6 +204,7 @@ export function GlobalAIOracleCard() {
               onClick={() => saveSection("claudeApi", { apiKey: claudeKey })}
               disabled={!claudeKey || isMasked(claudeKey) || savingKey === "claudeApi"}
             >
+              {savingKey === "claudeApi" && <Orb state="shaping" />}
               {savingKey === "claudeApi" ? "Inscribing..." : "Inscribe"}
             </Button>
           </div>
@@ -225,6 +227,7 @@ export function GlobalAIOracleCard() {
               onClick={() => saveSection("gemini", { apiKey: geminiKey })}
               disabled={!geminiKey || isMasked(geminiKey) || savingKey === "gemini"}
             >
+              {savingKey === "gemini" && <Orb state="shaping" />}
               {savingKey === "gemini" ? "Inscribing..." : "Inscribe"}
             </Button>
           </div>
@@ -247,6 +250,7 @@ export function GlobalAIOracleCard() {
               onClick={() => saveSection("groq", { apiKey: groqKey })}
               disabled={!groqKey || isMasked(groqKey) || savingKey === "groq"}
             >
+              {savingKey === "groq" && <Orb state="shaping" />}
               {savingKey === "groq" ? "Inscribing..." : "Inscribe"}
             </Button>
           </div>
@@ -295,6 +299,7 @@ export function GlobalAIOracleCard() {
                 (!!openaiKey && isMasked(openaiKey))
               }
             >
+              {savingKey === "openai" && <Orb state="shaping" />}
               {savingKey === "openai" ? "Inscribing..." : "Inscribe"}
             </Button>
           </div>
@@ -354,6 +359,7 @@ export function GlobalAIOracleCard() {
                 !azureApiVersion
               }
             >
+              {savingKey === "azureOpenai" && <Orb state="shaping" />}
               {savingKey === "azureOpenai" ? "Inscribing..." : "Inscribe"}
             </Button>
           </div>

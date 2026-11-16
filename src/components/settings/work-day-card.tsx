@@ -5,6 +5,7 @@ import { Clock } from "lucide-react";
 import { authedFetch } from "@/lib/api-client";
 import { useToastStore } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
+import { Orb } from "@/components/ui/orb";
 import { invalidateResources } from "@/lib/resource-cache";
 import { useUpdateStore } from "@/stores/update-store";
 import {
@@ -168,6 +169,7 @@ export function WorkDayCard() {
 
         <div className="flex justify-end pt-4 border-t border-white/[0.06]">
           <Button variant="primary" size="sm" onClick={handleSave} disabled={saving || loading}>
+            {saving && <Orb state="shaping" />}
             {saving ? "Inscribing..." : "Inscribe"}
           </Button>
         </div>

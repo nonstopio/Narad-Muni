@@ -21,6 +21,7 @@ import { authedFetch } from "@/lib/api-client";
 import { PageSpinner } from "@/components/ui/page-spinner";
 import { Button } from "@/components/ui/button";
 import { useToastStore } from "@/components/ui/toast";
+import { Orb } from "@/components/ui/orb";
 import {
   CHART_COLORS,
   PIE_COLORS,
@@ -213,7 +214,7 @@ function TimeSavedConstantsCard() {
     return (
       <div className="glass-card p-5">
         <h3 className="text-sm font-medium narada-text-secondary mb-4">Time-Saved Constants</h3>
-        <p className="text-xs narada-text-secondary">Loading...</p>
+        <p className="flex items-center gap-2 text-xs narada-text-secondary"><Orb state="breathing" />Loading...</p>
       </div>
     );
   }
@@ -258,6 +259,7 @@ function TimeSavedConstantsCard() {
       </div>
       <div className="flex justify-end mt-4">
         <Button variant="primary" size="sm" onClick={save} disabled={saving}>
+          {saving && <Orb state="shaping" />}
           {saving ? "Inscribing..." : "Save"}
         </Button>
       </div>
@@ -307,7 +309,7 @@ export function AnalyticsClient() {
       .finally(() => setLoading(false));
   }, [range]);
 
-  if (loading) return <PageSpinner message="The sage peers into the cosmic ledger..." />;
+  if (loading) return <PageSpinner message="The sage peers into the cosmic ledger..." state="weaving" />;
 
   if (error === "forbidden") {
     return (

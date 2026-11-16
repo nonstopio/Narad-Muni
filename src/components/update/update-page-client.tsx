@@ -15,6 +15,7 @@ import { LEAVE_BLOCKED_COPY } from "@/components/history/history-detail-modal";
 import { RetryInputSection } from "./retry-input-section";
 import { PlatformOutputs } from "./platform-outputs";
 import { Button } from "@/components/ui/button";
+import { Orb } from "@/components/ui/orb";
 import { ArrowLeft, Palmtree, PartyPopper } from "lucide-react";
 import { computeCombinedStatus } from "@/types";
 import type { PlatformConfigData, PublishStatus } from "@/types";
@@ -383,8 +384,9 @@ export function UpdatePageClient({ platformConfigs, defaultWorkHours }: UpdatePa
 
   if (retryLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-narada-text-muted animate-pulse">Loading scroll for retry...</p>
+      <div className="flex-1 flex flex-col items-center justify-center gap-3">
+        <Orb state="searching" size={64} />
+        <p className="text-sm text-narada-text-muted">Loading scroll for retry...</p>
       </div>
     );
   }
