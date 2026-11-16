@@ -5,6 +5,7 @@ import { Plus, Search, Send, Trash2, Users, X, CalendarClock } from "lucide-reac
 import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { useToastStore } from "@/components/ui/toast";
+import { Orb } from "@/components/ui/orb";
 import type {
   BroadcastCadence,
   BroadcastRecipient,
@@ -523,10 +524,11 @@ export function BroadcastClient() {
 
           <div className="flex justify-end gap-2 pt-4 border-t border-white/[0.06]">
             <Button variant="secondary" size="sm" onClick={handleSave} disabled={busy}>
+              {saving && <Orb state="shaping" />}
               {saving ? "Inscribing..." : "Inscribe"}
             </Button>
             <Button variant="primary" size="sm" onClick={handleSend} disabled={busy}>
-              <Send size={13} />
+              {sending ? <Orb state="connecting" /> : <Send size={13} />}
               {sending
                 ? "Carrying..."
                 : cadence === "once"

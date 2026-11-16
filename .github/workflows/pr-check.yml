@@ -59,5 +59,8 @@ jobs:
           npx tsx src/lib/jira-adf.test.ts
           npx tsx src/lib/jira-guard.test.ts
 
+      - name: UI tests
+        run: npx tsx src/components/ui/orb.test.ts
+
       - name: Changelog tests
         run: node scripts/changelog.test.mjs

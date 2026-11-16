@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import Lottie from "lottie-react";
 import muniAnimation from "@/../public/muni.json";
 import type { ProcessingStage } from "@/types";
+import { Orb } from "@/components/ui/orb";
 
 const PROVIDER_LABELS: Record<string, string> = {
   "local-claude": "Local Claude CLI",
@@ -177,7 +178,8 @@ export function StepProcessing() {
         transition={{ delay: 0.3, duration: 0.4 }}
         className="text-center"
       >
-        <p className="text-sm font-medium text-narada-text">
+        <p className="text-sm font-medium text-narada-text flex items-center justify-center gap-2">
+          <Orb state={processingStage === "analyzing" ? "solving" : processingStage === "formatting" ? "composing" : "breathing"} />
           {processingStage ? STAGE_LABELS[processingStage] : "Preparing"}
           {processingStage === "analyzing" && providerLoaded && ` (${label})`}...
         </p>

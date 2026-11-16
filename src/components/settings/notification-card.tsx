@@ -5,6 +5,7 @@ import { Bell } from "lucide-react";
 import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { Orb } from "@/components/ui/orb";
 
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
@@ -208,6 +209,7 @@ export function NotificationCard() {
           onClick={handleSave}
           disabled={saving || testing}
         >
+          {saving && <Orb state="shaping" />}
           {saving ? "Inscribing..." : "Inscribe"}
         </Button>
       </div>

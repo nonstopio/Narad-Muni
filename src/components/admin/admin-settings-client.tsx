@@ -16,7 +16,7 @@ export function AdminSettingsClient() {
   }, []);
 
   if (allowed === null) {
-    return <PageSpinner message="The sage verifies your standing..." />;
+    return <PageSpinner message="The sage verifies your standing..." state="solving" />;
   }
 
   if (!allowed) {

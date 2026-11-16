@@ -6,6 +6,7 @@ import { authedFetch } from "@/lib/api-client";
 import type { PlatformConfigData } from "@/types";
 import { useToastStore } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
+import { Orb } from "@/components/ui/orb";
 
 interface Props {
   config: PlatformConfigData;
@@ -433,6 +434,7 @@ export function PlatformConfigCard({ config, onSave, onToggle }: Props) {
             onClick={handleSave}
             disabled={saving || testing}
           >
+            {saving && <Orb state="shaping" />}
             {saving ? "Inscribing..." : "Inscribe"}
           </Button>
         </div>

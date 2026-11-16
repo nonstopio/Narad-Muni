@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bug, ExternalLink, FileText, Loader2, CheckCircle2, RotateCcw } from "lucide-react";
+import { Bug, ExternalLink, FileText, CheckCircle2, RotateCcw } from "lucide-react";
 import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { Orb } from "@/components/ui/orb";
 
 export function ReportClient() {
   const [title, setTitle] = useState("");
@@ -200,7 +201,7 @@ export function ReportClient() {
               >
                 {loading ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Orb state="composing" />
                     The sage is preparing your petition...
                   </>
                 ) : (

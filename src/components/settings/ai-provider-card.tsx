@@ -6,6 +6,7 @@ import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
 import { MIN_AI_TIMEOUT_MS, MAX_AI_TIMEOUT_MS, resolveAiTimeout } from "@/lib/ai-timeout";
 import { Button } from "@/components/ui/button";
+import { Orb } from "@/components/ui/orb";
 import { ExternalLink, RefreshCw, X, Sparkles } from "lucide-react";
 import type { AIProvider, KeyProvider } from "@/types";
 
@@ -287,9 +288,8 @@ export function AIProviderCard() {
 
   if (aiLoading) {
     return (
-      <div className="glass-card p-6 animate-pulse">
-        <div className="h-5 w-40 bg-white/[0.05] rounded mb-4" />
-        <div className="h-4 w-full bg-white/[0.05] rounded" />
+      <div className="glass-card p-6 flex justify-center">
+        <Orb state="breathing" size={32} label="Consulting the oracle" />
       </div>
     );
   }
@@ -513,6 +513,7 @@ export function AIProviderCard() {
           onClick={handleSave}
           disabled={busy}
         >
+          {saving && <Orb state="shaping" />}
           {saving ? "Inscribing..." : "Inscribe"}
         </Button>
       </div>

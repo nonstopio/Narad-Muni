@@ -36,7 +36,7 @@ export default function SettingsPage() {
   }, [loadSettings]);
 
   if (loading) {
-    return <PageSpinner message="Loading sacred configurations..." />;
+    return <PageSpinner message="Loading sacred configurations..." state="connecting" />;
   }
 
   if (error) {

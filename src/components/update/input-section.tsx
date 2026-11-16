@@ -7,7 +7,8 @@ import { useAppStore } from "@/stores/app-store";
 import { useToastStore } from "@/components/ui/toast";
 import { authedFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import { Loader2, Zap, History, Bug, FolderGit2 } from "lucide-react";
+import { Orb } from "@/components/ui/orb";
+import { Zap, History, Bug, FolderGit2 } from "lucide-react";
 import { seekAid } from "@/lib/seek-aid";
 import { ProjectFetchDialog, SKIP_TEXT } from "./project-fetch-dialog";
 import { buildActivityBlock, insertActivity } from "@/lib/project-activity";
@@ -165,7 +166,7 @@ export function InputSection({ onProcess }: InputSectionProps) {
             title="Pre-fill with your last update's words"
           >
             {isFetchingLast ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <Orb state="searching" />
             ) : (
               <History className="w-3.5 h-3.5" />
             )}
@@ -181,7 +182,7 @@ export function InputSection({ onProcess }: InputSectionProps) {
               title="Fetch this day's commits from your repositories"
             >
               {isFetchingProjects ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <Orb state="weaving" />
               ) : (
                 <FolderGit2 className="w-3.5 h-3.5" />
               )}
@@ -284,7 +285,7 @@ export function InputSection({ onProcess }: InputSectionProps) {
       >
         {isProcessing ? (
           <>
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Orb state="composing" />
             <span>Channeling...</span>
           </>
         ) : (

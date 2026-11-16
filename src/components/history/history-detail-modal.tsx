@@ -5,6 +5,7 @@ import { X, ClipboardList, RefreshCw, Palmtree, PartyPopper } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { authedFetch } from "@/lib/api-client";
 import { useToastStore } from "@/components/ui/toast";
+import { Orb } from "@/components/ui/orb";
 import { trackEvent } from "@/lib/analytics";
 import type { UpdateData } from "@/types";
 import { invalidateResources } from "@/lib/resource-cache";
@@ -280,6 +281,7 @@ export function HistoryDetailModal({ update, onClose, onDelete, onRetry }: Props
             onClick={handleDelete}
             disabled={deleting}
           >
+            {deleting && <Orb state="breathing" />}
             {deleting
               ? "Erasing..."
               : confirmDelete
