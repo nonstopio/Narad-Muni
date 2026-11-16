@@ -4,10 +4,8 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useUpdateStore } from "@/stores/update-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { motion } from "framer-motion";
-import Lottie from "lottie-react";
-import muniAnimation from "@/../public/muni.json";
 import type { ProcessingStage } from "@/types";
-import { Orb } from "@/components/ui/orb";
+import { Orb, type OrbState } from "@/components/ui/orb";
 
 const PROVIDER_LABELS: Record<string, string> = {
   "local-claude": "Local Claude CLI",
@@ -55,27 +53,22 @@ function getProgressPercent(stage: ProcessingStage | null): number {
   }
 }
 
-/** Shared Muni orb — idle (still) or processing (pulsing) */
-export function MuniOrb({ active = false }: { active?: boolean }) {
+const STAGE_ORB: Record<ProcessingStage, OrbState> = {
+  analyzing: "solving",
+  formatting: "composing",
+};
+
+/** Large focal orb for the preview panel: breathing while idle, the stage's orb while processing. */
+export function HeroOrb({ state = "breathing" }: { state?: OrbState }) {
   return (
     <motion.div
       initial={{ scale: 0, opacity: 0 }}
-      animate={{
-        scale: active ? [1, 1.12, 1] : 1,
-        opacity: 1,
-      }}
-      transition={
-        active
-          ? { scale: { duration: 2.5, ease: "easeInOut", repeat: Infinity }, opacity: { duration: 0.6 } }
-          : { duration: 0.6, ease: [0.4, 0, 0.2, 1] }
-      }
-      className="w-[220px] h-[220px]"
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+      className="w-[160px] h-[160px] flex items-center justify-center"
     >
-      <Lottie
-        animationData={muniAnimation}
-        loop
-        className="w-full h-full"
-      />
+      {/* ponytail: 64px is the largest tuned preset; scaled 2.5x so dots read slightly soft. */}
+      <Orb state={state} size={64} className="scale-[2.5]" />
     </motion.div>
   );
 }
@@ -168,8 +161,7 @@ export function StepProcessing() {
 
   return (
     <div className="flex flex-col items-center justify-center gap-5">
-      {/* Pulsing Muni Orb */}
-      <MuniOrb active />
+      <HeroOrb state={processingStage ? STAGE_ORB[processingStage] : "breathing"} />
 
       {/* Stage label + provider */}
       <motion.div
@@ -178,8 +170,7 @@ export function StepProcessing() {
         transition={{ delay: 0.3, duration: 0.4 }}
         className="text-center"
       >
-        <p className="text-sm font-medium text-narada-text flex items-center justify-center gap-2">
-          <Orb state={processingStage === "analyzing" ? "solving" : processingStage === "formatting" ? "composing" : "breathing"} />
+        <p className="text-sm font-medium text-narada-text">
           {processingStage ? STAGE_LABELS[processingStage] : "Preparing"}
           {processingStage === "analyzing" && providerLoaded && ` (${label})`}...
         </p>

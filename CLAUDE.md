@@ -139,7 +139,7 @@ Dark glassmorphism theme (inspired by Linear/Raycast/Arc).
 - **Fonts:** Inter (UI), JetBrains Mono (code/URLs/tokens)
 - **Glass effect:** `background: rgba(255,255,255,0.03)`, `border: 1px solid rgba(255,255,255,0.06)`, `backdrop-filter: blur(20px)`
 - **Layout:** 64px icon sidebar + fluid main content
-- **Loading states:** use `Orb` (`src/components/ui/orb.tsx`, `thinking-orbs`, theme left on auto), never a spinner or pulse, with the state matching the activity: `searching` = fetching, `connecting` = dispatching/settings, `composing` = AI writing, `shaping` = saving, `breathing` = waiting/idle, `solving`/`weaving` as the page already uses them. Orbs follow `<html data-theme>` (dark today); a future light mode only needs to flip that attribute and orbs switch live, so never pin a theme per orb. The Muni Lottie stays for Invoke the Sage.
+- **Loading states:** use `Orb` (`src/components/ui/orb.tsx`, `thinking-orbs`, theme left on auto), never a spinner or pulse, with the state matching the activity: `searching` = fetching, `connecting` = dispatching/settings, `composing` = AI writing, `shaping` = saving, `breathing` = waiting/idle, `solving`/`weaving` as the page already uses them. Orbs follow `<html data-theme>` (dark today); a future light mode only needs to flip that attribute and orbs switch live, so never pin a theme per orb. The preview panel uses `HeroOrb` (`step-processing.tsx`, the 64px orb scaled to 160px): `breathing` while idle, `solving` then `composing` through the Invoke the Sage stages. The Muni Lottie remains only as the toast icon.
 - **CSS classes:** `glass-card`, `glass-input` are reusable glassmorphism presets defined in `globals.css`
 
 ## Key Domain Concepts

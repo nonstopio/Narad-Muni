@@ -1,7 +1,7 @@
 "use client";
 
 import { useUpdateStore } from "@/stores/update-store";
-import { StepProcessing, MuniOrb } from "./step-processing";
+import { StepProcessing, HeroOrb } from "./step-processing";
 import { SlackOutputCard } from "./slack-output-card";
 import { TeamsOutputCard } from "./teams-output-card";
 import { JiraOutputCard } from "./jira-output-card";
@@ -55,7 +55,7 @@ export function PlatformOutputs({
   if (!retryMode && !previewReady && !isProcessing) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-6">
-        <MuniOrb />
+        <HeroOrb />
         <p className="text-sm text-narada-text-secondary mb-1">
           Narad awaits your words
         </p>
