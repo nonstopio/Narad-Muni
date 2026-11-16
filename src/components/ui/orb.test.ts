@@ -38,4 +38,9 @@ for (const { f, text } of files) {
   assert.doesNotMatch(text, /\bLoader2\b|animate-spin/, `${f} still uses a spinner; use <Orb>`);
 }
 
+// The Muni Lottie is brand art for toasts only; loading and processing use orbs.
+for (const { f, text } of files) {
+  if (text.includes("muni.json")) assert.ok(f.endsWith("components/ui/toast.tsx"), `${f} uses the Muni Lottie; use <Orb> / <HeroOrb>`);
+}
+
 console.log("orb: all checks passed");
